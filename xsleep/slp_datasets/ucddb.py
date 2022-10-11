@@ -7,7 +7,7 @@ from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
 from roma.spqr.finder import walk
 from roma import console
 from roma import io
-from slp.slp_set import SleepSet
+from xsleep.slp_set import SleepSet
 from typing import List
 
 
