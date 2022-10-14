@@ -10,6 +10,8 @@ class SLPConfig(SmartTrainerHub):
     ucddb = 'ucddb'
 
   report_detail = Flag.boolean(False, 'Whether to report detail')
+  partition_over_patients = Flag.boolean(True, '...')
+
 
 
 # New hub class inherited from SmartTrainerHub must be registered

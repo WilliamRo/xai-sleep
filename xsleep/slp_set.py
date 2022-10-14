@@ -29,9 +29,9 @@ class SleepSet(SequenceSet):
   def load_raw_data(cls, data_dir):
     raise NotImplementedError
 
-  def configure(self, config_string: str):
+  def configure(self,channel_select: str):
     """
-    config_string examples: '0,2,6'
+    channel_select examples: '0,2,6'
     """
     raise NotImplementedError
 
@@ -144,36 +144,135 @@ class SleepSet(SequenceSet):
   # region: Data Configuration
 
   def format_data(self):
-    from slp_core import th
+    from xslp_core import th
 
-    # Set targets
+    features = self.features
+    targets = self.targets
+    sample_length = th.random_sample_length
     if th.use_rnn:
-      self.summ_dict[self.TARGETS] = np.expand_dims(
-        self.data_dict.pop(self.TARGETS), 1)
+      for i, sg_data in enumerate(features):
+        len = sg_data.shape[0]
+        data_reshape = sg_data.reshape(len // sample_length, sample_length)
+        targets_reshape = targets[i].reshape(len // sample_length, 1)
+        features[i] = data_reshape
+        targets[i] = targets_reshape
+      person_num = int(th.data_config.split(':')[1])
+      train_person = int(person_num * 0.7)
+      val_person = int(person_num * 0.1)
+      train_set_features = features[:train_person]
+      train_set_targets = targets[:train_person]
+      val_set_features = features[train_person:train_person+val_person]
+      val_set_targets = targets[train_person:train_person+val_person]
+      test_set_features = features[train_person + val_person:]
+      test_set_targets = targets[train_person + val_person:]
+      self.features = [train_set_features, val_set_features, test_set_features]
+      self.targets = [train_set_targets, val_set_targets, test_set_targets]
+    else:
+      for i, sg_data in enumerate(features):
+        len, chn = sg_data.shape[0], sg_data.shape[1]
+        data_reshape = sg_data.reshape(len // sample_length, sample_length, chn)
+        targets_reshape = targets[i].reshape(len // sample_length, 1)
+        features[i] = data_reshape
+        targets[i] = targets_reshape
+      self.features = np.vstack(features[:])
+      self.targets = np.vstack(targets[:])
+    # Set targets
 
 
   def partition(self):
-    raise NotImplementedError
-    """TODO: """
-    from slp_core import th
+    from xslp_core import th
+    def split_and_return(over_classes=True, random=True):
+      train_ratio = 7
+      val_ratio = 1
+      test_ratio = 2
 
-    val_size, test_size = th.val_size, th.test_size
+      self.properties[self.NUM_CLASSES] = 5
+      data_sets = self.split(train_ratio, val_ratio, test_ratio,
+                            random=random,
+                            over_classes=over_classes)
 
-    # Calculate val/test size if proportion is provided
-    if th.val_proportion is not None:
-      assert th.test_proportion is not None
-      assert th.val_proportion + th.test_proportion < 1
+      from tframe import DataSet
+      for ds in data_sets: ds.__class__ = DataSet
 
-      group_size = len(self.groups[0])
-      val_size = int(group_size * th.val_proportion)
-      test_size = int(group_size * th.test_proportion)
+      return data_sets
 
-    return self.split(-1, val_size, test_size, over_classes=True,
-                      random=True, names=('TrainSet', 'ValSet', 'TestSet'))
+    def get_sequence_data(features:List, targets:List):
+      features_list = []
+      targets_list = []
+      for i, feature in enumerate(features):
+        nums = feature.shape[0] // 5
+        for j in range(nums):
+          features_list.append(feature[j * 5:(j + 1) * 5])
+          targets_list.append(targets[i][j * 5:(j + 1) * 5])
+      data_set = SequenceSet(features=features_list,
+                             targets=targets_list,
+                             name='SleepData')
+      assert isinstance(data_set, SequenceSet)
+      return data_set
 
+    if th.use_rnn:
+      train_set = get_sequence_data(self.features[0], self.targets[0])
+      val_set = get_sequence_data(self.features[1], self.targets[1])
+      test_set = get_sequence_data(self.features[2], self.targets[2])
+      return [train_set, val_set, test_set]
+    else:
+      return split_and_return(over_classes=True, random=True)
   # endregion: Data Configuration
 
   # region: Visualization
+
+
+  # def partition_lll(self):
+  #   """th.data_config examples:
+  #      (1) `95,1,1,1,1`
+  #
+  #   return [(train_1, val_1, test_1), (train_2, val_2, test_2), ...]
+  #   """
+  #   from lll_core import th
+  #
+  #   def split_and_return(index, data_set, over_classes=True, random=True):
+  #     from tframe.data.dataset import DataSet
+  #     # assert isinstance(data_set, DataSet)
+  #     # if index == 0:
+  #     #   train_ratio = 8.3
+  #     #   val_ratio = 1
+  #     #   test_ratio = 0.7
+  #     # else:
+  #     train_ratio = 7
+  #     val_ratio = 1
+  #     test_ratio = 2
+  #
+  #     names = [f'Train-{index+1}', f'Val-{index+1}', f'Test-{index+1}']
+  #     data_sets = data_set.split(train_ratio,val_ratio,test_ratio,
+  #                                random=random,
+  #                                over_classes=over_classes,
+  #                                names=names)
+  #     # Show data info
+  #     # cls._show_data_sets_info(data_sets)
+  #     return data_sets
+  #
+  #   self.configure('0,1,2')
+  #   index = 0
+  #   datasets = []
+  #   #split sleepedfx to (p1, p2, ...)
+  #   for order, num in enumerate(th.data_config.split(',')):
+  #     features = (np.vstack(self.features[index:index+int(num)]))
+  #     targets = (np.vstack(self.targets[index:index+int(num)]))
+  #     datasets.append(DataSet(features=features, targets=targets,
+  #                             name=f'dataset-{order}'))
+  #     # datasets.append(SleepEDFx(features=features, targets=targets,
+  #     #                           name=f'data{order}',
+  #     #                           signal_groups=self.signal_groups[index:index+int(num)]))
+  #     index = index + int(num)
+  #   for ds in datasets:
+  #     ds.properties[self.NUM_CLASSES] = 5
+  #   # split px to (train, val, test)
+  #   for index, dataset in enumerate(datasets):
+  #     assert isinstance(dataset, DataSet)
+  #     train_set, val_set, test_set = split_and_return(index, dataset)
+  #     datasets[index] = (train_set, val_set, test_set)
+  #
+  #   return datasets
 
   def show(self, channels: List[str] = None, **kwargs):
     from pictor import Pictor

@@ -192,7 +192,6 @@ class UCDDB(SleepSet):
 
 if __name__ == '__main__':
   from slp_core import th
-  from slp.slp_agent import SLPAgent
 
   th.data_config = 'ucddb'
 

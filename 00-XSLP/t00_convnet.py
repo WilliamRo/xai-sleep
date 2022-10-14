@@ -1,10 +1,8 @@
-import slp_core as core
-import slp_mu as m
-import math
+import xslp_core as core
+import xslp_mu as m
 
 from tframe import console
 from tframe import tf
-from tframe import mu
 from tframe.utils.misc import date_string
 from tframe.utils.organizer.task_tools import update_job_dir
 
@@ -12,7 +10,7 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # Define model here
 # -----------------------------------------------------------------------------
 model_name = 'sleep-convnet'
-id = 3
+id = 0
 def model():
   th = core.th
   # th.developer_code = 'expand'
@@ -79,6 +77,7 @@ def main(_):
   # 0. date set setup
   # ---------------------------------------------------------------------------
   th.data_config = 'sleepedf:10'
+
   if 'apnea' in th.data_config:
     th.output_dim = 2
     th.input_shape = [120, 1]
@@ -87,6 +86,7 @@ def main(_):
   else:
     th.output_dim = 5
     th.input_shape = [3000, 3]
+
 
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device

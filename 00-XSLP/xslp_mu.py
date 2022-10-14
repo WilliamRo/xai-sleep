@@ -1,9 +1,9 @@
 from tframe import Classifier
 from tframe import mu
 
-from slp_core import th
+from xslp_core import th
 from tframe.models import Recurrent
-from tframe.layers import Input, Linear, Activation, Rescale
+from tframe.layers import Input, Activation
 
 from tframe.layers.hyper.dense import Dense
 from tframe.configs.config_base import Config
@@ -19,8 +19,6 @@ def get_container(flatten=False):
 
 
 def finalize(model):
-  from tframe import context
-
   assert isinstance(model, Classifier)
   model.add(mu.Dense(th.output_dim, use_bias=False, prune_frac=0.5))
   model.add(mu.Activation('softmax'))

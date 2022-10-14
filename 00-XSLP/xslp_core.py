@@ -26,14 +26,14 @@ from xsleep.slp_config import SLPConfig as Hub
 # from tframe import DefaultHub as Hub
 from tframe import Classifier
 
-import slp_du as du
+import xslp_du as du
 
 
 # -----------------------------------------------------------------------------
 # Initialize config and set data/job dir
 # -----------------------------------------------------------------------------
 th = Hub(as_global=True)
-th.config_dir()
+th.config_dir(dir_depth=1)
 
 # -----------------------------------------------------------------------------
 # Device configuration

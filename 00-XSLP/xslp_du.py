@@ -1,19 +1,18 @@
-import os, sys
+from slp_agent import SLPAgent
 
-from pictor import Pictor
-from slp_record import SleepRecord
-from tframe.data.augment.img_aug import image_augmentation_processor
 
 
 def load_data():
   # Load data
   # ...
-  from slp_core import th
 
-  train_set, val_set, test_set = SleepRecord.load()
-  if th.augmentation:
-    train_set.batch_preprocessor = image_augmentation_processor
+  # train_set, val_set, test_set = SleepRecord.load(configure=configure)
+  train_set, val_set, test_set = SLPAgent.load(configure=None)
   return train_set, val_set, test_set
+
+
+def configure(data_set):
+  return data_set
 
 
 
