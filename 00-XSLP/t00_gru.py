@@ -37,7 +37,7 @@ def main(_):
   # ---------------------------------------------------------------------------
   th.sequence_length = 5
   th.input_shape = [3000]
-  th.data_config = 'sleepedf:10'
+  th.data_config = 'rrsh:10'
   th.output_dim = 5
   th.use_rnn = True
   th.random_sample_length = 3000

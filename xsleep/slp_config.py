@@ -12,6 +12,9 @@ class SLPConfig(SmartTrainerHub):
   report_detail = Flag.boolean(False, 'Whether to report detail')
   partition_over_patients = Flag.boolean(True, '...')
 
+  show_in_monitor = Flag.boolean(False, 'Whether to show results in monitor')
+  predictions = Flag.list([], 'the index of predicted data')
+
 
 
 # New hub class inherited from SmartTrainerHub must be registered

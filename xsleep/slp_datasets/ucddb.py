@@ -191,9 +191,9 @@ class UCDDB(SleepSet):
 
 
 if __name__ == '__main__':
-  from slp_core import th
+  from xslp_core import th
 
-  th.data_config = 'ucddb'
+  th.data_config = 'ucddb:10'
 
   # _ = UCDDB.load_raw_data(th.data_dir, save_xai_rec=True, overwrite=False)
 
