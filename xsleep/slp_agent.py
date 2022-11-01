@@ -19,7 +19,7 @@ class SLPAgent(DataAgent):
         """th.data_config syntax:
             data_name:data_num
         """
-        from xslp_core import th
+        th = kwargs.get('th', None)
 
         # Find xai-sleep/data/...
         dataset_name, data_num, channel_select = th.data_config.split(':')
@@ -31,7 +31,6 @@ class SLPAgent(DataAgent):
             model_architecture = 'rnn'
         tfd_format_path = os.path.join(th.data_dir, dataset_name,
                                        f'{prefix}-format-{model_architecture}.tfds')
-        # tfd_format_path = ''
         if os.path.exists(tfd_format_path):
             with open(tfd_format_path, 'rb') as _input_:
                 console.show_status('Loading `{}` ...'.format(tfd_format_path))
@@ -39,7 +38,6 @@ class SLPAgent(DataAgent):
         else:
             tfd_config_path = os.path.join(th.data_dir, dataset_name,
                                            f'{prefix}-config-{model_architecture}.tfds')
-            # tfd_config_path = ''
             if os.path.exists(tfd_config_path):
                 with open(tfd_config_path, 'rb') as _input_:
                     console.show_status(f'loading {tfd_config_path}...')
@@ -55,7 +53,7 @@ class SLPAgent(DataAgent):
                 if callable(configure):
                     dataset = configure(dataset)
                 else:
-                    dataset.configure(channel_select=channel_select)
+                    dataset.configure(th=th, channel_select=channel_select)
                 dataset.save(tfd_config_path)
             dataset.format_data()
             dataset.save(tfd_format_path)
@@ -70,7 +68,7 @@ class SLPAgent(DataAgent):
             dataset.targets = misc.convert_to_one_hot(dense_labels, n_classes)
 
         dataset.properties['CLASSES'] = ['W', 'N1', 'N2', 'N3', 'R']
-        train_set, val_set, test_set = dataset.partition(0.7, 0.1, 0.2)
+        train_set, val_set, test_set = dataset.partition(0.7, 0.1, 0.2, th=th)
         console.show_status(
             'Finishing split dataset to (train_set, val_set, test_set)...')
 
@@ -85,7 +83,7 @@ class SLPAgent(DataAgent):
           e.g., data_set = SleepEDFx(name=f'Sleep-EDF-Expanded{suffix_k}',
                                      signal_groups=signal_groups)
         """
-        if data_name == 'sleepedf':
+        if data_name in ['sleepedf', 'physionet_sleep']:
             from xsleep.slp_datasets.sleepedfx import SleepEDFx as DataSet
         elif data_name == 'ucddb':
             from xsleep.slp_datasets.ucddb import UCDDB as DataSet
@@ -107,12 +105,12 @@ class SLPAgent(DataAgent):
     # region: Model evaluation
 
     @staticmethod
-    def evaluate_model(model, data_set, batch_size=100, show_in_monitor=False):
+    def evaluate_model(model, data_set, batch_size=100, **kwargs):
         from tframe import Classifier
         from tframe import DataSet
         from rrsh import RRSHSet
         from sleepedfx import SleepEDFx
-        from xslp_core import th
+        from collections import Counter
         import numpy as np
 
         assert isinstance(model, Classifier)
@@ -126,14 +124,19 @@ class SLPAgent(DataAgent):
         model.evaluate_pro(data_set, batch_size=batch_size, verbose=True,
                            cell_width=4, show_confusion_matrix=True,
                            show_class_detail=True)
-        if th.show_in_monitor:
+
+        show_in_monitor = kwargs.get('show_in_monitor', None)
+        batch_size = kwargs.get('batch_size', None)
+        th = kwargs.get('th', None)
+
+        if show_in_monitor:
             th.predictions = model.classify(data_set, batch_size)
             data_set_name = th.data_config.split(':')[0]
             if data_set_name == 'rrsh':
                 data_set.__class__ = RRSHSet
             elif data_set_name == 'sleepedf':
                 data_set.__class__ = SleepEDFx
-            data_set.show()
+            data_set.show(th=th)
     # endregion: Model evaluation
 
 

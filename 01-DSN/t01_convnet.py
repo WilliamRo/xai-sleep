@@ -1,5 +1,5 @@
-import xslp_core as core
-import xslp_mu as m
+import dsn_core as core
+import dsn_mu as m
 
 from tframe import console
 from tframe import tf
@@ -8,14 +8,15 @@ from tframe.utils.organizer.task_tools import update_job_dir
 
 # -----------------------------------------------------------------------------
 # Define model here
-# -----------------------------------------------------------------------------
-model_name = 'sleep-convnet'
-id = 1
+# ----------------------------------------------------------------------------
+model_name = 'DeepSleepNet'
+id = 0
 
 
 def model():
     th = core.th
     # th.developer_code = 'expand'
+
     model = m.get_container(flatten=False)
     # region:normal model
     # model.add(m.mu.Conv1D(filters=64, kernel_size=50,use_batchnorm=th.use_batchnorm,activation=th.activation))
@@ -79,7 +80,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'sleepedf:10:0,1,2'
+    th.data_config = 'rrsh:1:0,1,2'
 
     if 'apnea' in th.data_config:
         th.output_dim = 2
@@ -103,8 +104,6 @@ def main(_):
     # ---------------------------------------------------------------------------
     th.model = model
 
-    # th.archi_string = '32-p-16-p-8'
-    # th.kernel_size = 9
     th.activation = 'relu'
     th.use_batchnorm = True
     # ---------------------------------------------------------------------------

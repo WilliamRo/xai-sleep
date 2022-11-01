@@ -28,7 +28,7 @@ class SleepSet(SequenceSet):
     def load_raw_data(cls, data_dir):
         raise NotImplementedError
 
-    def configure(self, channel_select: str):
+    def configure(self, **kwargs):
         """
         channel_select examples: '0,2,6'
         """
@@ -111,9 +111,10 @@ class SleepSet(SequenceSet):
         anno = raw_anno.to_data_frame().values
         anno_dura = anno[:, 1]
         anno_desc = anno[:, 2]
-        for dura_num in range(len(anno_dura) - 1):
-            for stage_num in range(int(anno_dura[dura_num]) // 30):
-                stage_anno.append(anno_desc[dura_num])
+        for index, num in enumerate(anno_dura):
+            for stage_num in range(int(num) // 30):
+                stage_anno.append(anno_desc[index])
+
         return stage_anno
 
     @classmethod
@@ -181,35 +182,21 @@ class SleepSet(SequenceSet):
     # region: Data Configuration
 
     def format_data(self):
-        from xslp_core import th
-
         console.show_status(f'Formating data...')
         features = self.features
         targets = self.targets
-        sample_length = th.random_sample_length
-        if th.use_rnn:
-            for i, sg_data in enumerate(features):
-                len = sg_data.shape[0]
-                data_reshape = sg_data.reshape(len // sample_length,
-                                               sample_length)
-                targets_reshape = targets[i].reshape(len // sample_length, 1)
-                features[i] = data_reshape
-                targets[i] = targets_reshape
-        else:
-            for i, sg_data in enumerate(features):
-                len, chn = sg_data.shape[0], sg_data.shape[1]
-                data_reshape = sg_data.reshape(len // sample_length,
-                                               sample_length, chn)
-                targets_reshape = targets[i].reshape(len // sample_length, 1)
-                features[i] = data_reshape
-                targets[i] = targets_reshape
-        self.features = features
+
+        for i, sg_data in enumerate(features):
+            len = sg_data.shape[0]
+            targets_reshape = targets[i].reshape(len, 1)
+            targets[i] = targets_reshape
+
+        # Set targets
         self.targets = targets
         console.show_status(f'Finishing formating data...')
-        # Set targets
 
-    def partition(self, train_ratio, val_ratio, test_ratio):
-        from xslp_core import th
+    def partition(self, train_ratio, val_ratio, test_ratio, **kwargs):
+        th = kwargs.get('th', None)
         features = self.features
         targets = self.targets
 

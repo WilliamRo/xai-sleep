@@ -27,14 +27,13 @@ from xsleep.slp_config import SLPConfig as Hub
 # from tframe import DefaultHub as Hub
 from tframe import Classifier
 
-import xslp_du as du
+import dsn_du as du
 
 # -----------------------------------------------------------------------------
 # Initialize config and set data/job dir
 # -----------------------------------------------------------------------------
 th = Hub(as_global=True)
 th.config_dir(dir_depth=1)
-job_dir = th.job_dir
 
 # -----------------------------------------------------------------------------
 # Device configuration
@@ -68,15 +67,14 @@ th.random_sample_length = 3000
 
 
 def activate():
-    # Load data
-    train_set, val_set, test_set = du.load_data()
-    if th.centralize_data: th.data_mean = train_set.feature_mean
-
     # Build model
     assert callable(th.model)
     model = th.model()
     assert isinstance(model, Classifier)
 
+    # Load data
+    train_set, val_set, test_set = du.load_data()
+    if th.centralize_data: th.data_mean = train_set.feature_mean
     # Rehearse if required
     if th.rehearse:
         model.rehearse(export_graph=True, build_model=False,
@@ -88,7 +86,6 @@ def activate():
         model.train(train_set, validation_set=val_set, test_set=test_set,
                     trainer_hub=th)
 
-        model = model.agent.launch_model
     else:
         # Evaluate on test set
         import pickle

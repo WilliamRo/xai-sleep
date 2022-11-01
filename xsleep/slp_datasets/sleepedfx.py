@@ -63,7 +63,7 @@ class SleepEDFx(SleepSet):
         '': complete dataset
         '-alpha': complete dataset with most wake-signal removed
         """
-        suffix_k = '' if first_k is None else f'({first_k})'
+        suffix_k = 'all' if first_k is None else f'({first_k})'
 
         data_dir = os.path.join(data_dir, data_name)
         tfd_path = os.path.join(data_dir, f'{data_name}{suffix_k}{suffix}.tfds')
@@ -125,12 +125,6 @@ class SleepEDFx(SleepSet):
             # Get id
             id: str = os.path.split(hypnogram_file)[-1].split('-')[0]
 
-            # Get detail
-            detail_dict = {}
-            if os.path.exists(xls_path):
-                detail_dict = df.loc[df[cls.DetailKeys.number] == id.upper()].to_dict(
-                    orient='index').popitem()[1]
-
             # If the corresponding .rec file exists, read it directly
             xai_rec_path = os.path.join(data_dir, id + '.xrec')
             if os.path.exists(xai_rec_path) and not kwargs.get('overwrite',
@@ -150,9 +144,9 @@ class SleepEDFx(SleepSet):
             # (1) Read stage labels [0,1,2...]
             labels = {'Sleep stage W': 0, 'Sleep stage 1': 1,
                       'Sleep stage 2': 2,
-                      'Sleep stage 3': 3, 'Sleep stage 4': 4,
-                      'Sleep stage R': 5,
-                      'Movement time': 6, 'Sleep stage ?': 7}
+                      'Sleep stage 3': 3, 'Sleep stage 4': 3,
+                      'Sleep stage R': 4,
+                      'Movement time': 5, 'Sleep stage ?': 5}
             stages_ann = cls.read_edf_anno_mne(hypnogram_file)
             stages = [labels[stage] for stage in stages_ann]
             stages = np.array(stages)
@@ -164,17 +158,19 @@ class SleepEDFx(SleepSet):
             digital_signals: List[DigitalSignal] = cls.read_edf_data_pyedflib(
                 fn, freq_modifier=lambda freq: freq / 30, length=data_len)
 
-            # verify the length of stages and data
-            L = (digital_signals[0].length) // cls.TICKS_PER_EPOCH
-            if len(stages) != L:
+            data_epoch_num = (digital_signals[0].length) // cls.TICKS_PER_EPOCH
+            if len(stages) > data_epoch_num:
                 for ds in digital_signals:
-                    ds.sequence = ds.sequence[:len(stages) * cls.TICKS_PER_EPOCH]
-                    ds.ticks = ds.ticks[:len(stages) * cls.TICKS_PER_EPOCH]
-                L = (digital_signals[0].length) // cls.TICKS_PER_EPOCH
-            assert len(stages) == L
+                    ds.sequence = ds.sequence[:data_epoch_num * cls.TICKS_PER_EPOCH]
+                    ds.ticks = ds.ticks[:data_epoch_num * cls.TICKS_PER_EPOCH]
+                    stages = stages[:data_epoch_num]
+
+            # verify the length of stages and data
+            data_epoch_num = (digital_signals[0].length) // cls.TICKS_PER_EPOCH
+            assert len(stages) == data_epoch_num
 
             # Wrap data into signal group
-            sg = SignalGroup(digital_signals, label=f'{id}', **detail_dict)
+            sg = SignalGroup(digital_signals, label=f'{id}')
             sg.set_annotation(cls.STAGE_KEY, 30, stages, cls.STAGE_LABELS)
             sleep_groups.append(sg)
 
@@ -187,11 +183,12 @@ class SleepEDFx(SleepSet):
         console.show_status(f'Successfully read {N} records')
         return sleep_groups
 
-    def configure(self, channel_select: str):
+    def configure(self, **kwargs):
         """
         output: [p1,p2,p3,...]
         """
-        from xslp_core import th
+        th = kwargs.get('th', None)
+        channel_select = kwargs.get('channel_select', None)
         console.show_status(f'configure data...')
 
         data_name = th.data_config.replace(':', '-') + '-index'
@@ -210,25 +207,23 @@ class SleepEDFx(SleepSet):
             return precessed_data
 
         def data_aasm(sg_data, sg_annotation):
-            annotation = []
+            # data_aasm: [n, l, c]  ->array
+            # annotation_ssam: [n,]  ->array
+            annotation_aasm = []
             data_aasm = []
             data_index = []
             sample_length = th.random_sample_length
             for index, label in enumerate(sg_annotation):
-                if label in [6, 7]:
+                if label == 5:
                     continue
-                elif label == 4:
-                    label = 3
-                elif label == 5:
-                    label = 4
-                data_aasm.extend(
+                data_aasm.append(
                     sg_data[index * sample_length:(index + 1) * sample_length])
-                annotation.append(label)
+                annotation_aasm.append(label)
                 data_index.append(index)
             data_aasm = np.array(data_aasm)
-            annotation = np.array(annotation)
+            annotation_aasm = np.array(annotation_aasm)
             data_index = np.array(data_index)
-            return data_aasm, annotation, data_index
+            return data_aasm, annotation_aasm, data_index
 
         features = []
         targets = []
@@ -286,6 +281,7 @@ class SleepEDFx(SleepSet):
 
             margin = 60
             start, end = start - margin, end + margin
+            if start < 0: start = 0
 
             annotation.intervals = annotation.intervals[start:end]
             annotation.annotations = annotation.annotations[start:end]
@@ -313,8 +309,8 @@ class SleepEDFx(SleepSet):
     def show(self, channels: List[str] = None, **kwargs):
         from pictor import Pictor
         from pictor.plotters import Monitor
-        from xslp_core import th
 
+        th = kwargs.get('th', None)
         # get validate_data_index [array, array, ...]
         data_name = th.data_config.replace(':', '-') + '-index'
         tfd_path = os.path.join(th.data_dir, 'sleepedf', data_name)
@@ -340,14 +336,16 @@ class SleepEDFx(SleepSet):
         anno_str = self.STAGE_KEY + ',prediction'
         m.set(anno_key, anno_str)
 
-        predictions = th.predictions
+        predictions = np.array(th.predictions)
+        predictions[np.where(predictions == 4)] = 5
         if len(predictions) > 0:
             for index, sg in enumerate(self.signal_groups):
                 validate_end = validate_data_index[index].shape[
                                    0] + validate_pre
-                total_data_num = sg.annotations[
-                    self.STAGE_KEY].annotations.shape[0]
-                stages = np.ones(total_data_num, dtype=int) * 7
+                # total_data_num = sg.annotations[
+                #     self.STAGE_KEY].annotations.shape[0]
+                # stages = np.ones(total_data_num, dtype=int) * 7
+                stages = sg.annotations[self.STAGE_KEY].annotations.copy()
                 stages[validate_data_index[index]] = predictions[
                                                      validate_pre:validate_end]
                 sg.set_annotation('prediction', 30, stages,
@@ -372,13 +370,12 @@ class SleepEDFx(SleepSet):
 
 
 if __name__ == '__main__':
-    from xslp_core import th
 
     # th.data_config = 'sleepedf'
-
-    th.data_config = 'sleepedf:10:0,1,2'
+    from tframe import th
+    data_config = 'sleepedf:10:0,1,2'
     # _ = UCDDB.load_raw_data(th.data_dir, save_xai_rec=True, overwrite=False)
-    data_name, data_num, channel_select = th.data_config.split(':')
+    data_name, data_num, channel_select = data_config.split(':')
     # SLEEPEDF.load_raw_data(os.path.join(th.data_dir, 'sleepedf'), overwrite=True)
     data_set = SleepEDFx.load_as_tframe_data(th.data_dir,
                                              data_name,

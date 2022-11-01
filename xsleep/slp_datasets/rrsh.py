@@ -187,13 +187,14 @@ class RRSHSet(SleepSet):
     console.show_status(f'Successfully read {N} records')
     return sleep_groups
 
-  def configure(self, channel_select: str):
+  def configure(self, **kwargs):
     """
     output: [p1,p2,p3,...]
     """
-    from xslp_core import th
     console.show_status(f'configure data...')
 
+    channel_select = kwargs.get('channel_select', None)
+    th = kwargs.get('th', None)
     data_name = th.data_config.replace(':', '-') + '-index'
     tfd_path = os.path.join(th.data_dir, 'rrsh', data_name)
     def data_preprocess(data):
@@ -216,7 +217,7 @@ class RRSHSet(SleepSet):
       for index, label in enumerate(sg_annotation):
         if label in [5]:
           continue
-        data_aasm.extend(sg_data[index * sample_length:(index+1) * sample_length])
+        data_aasm.append(sg_data[index * sample_length:(index+1) * sample_length])
         annotation.append(label)
         data_index.append(index)
       data_aasm = np.array(data_aasm)
@@ -305,8 +306,8 @@ class RRSHSet(SleepSet):
   def show(self, channels: List[str] = None, **kwargs):
     from pictor import Pictor
     from pictor.plotters import Monitor
-    from xslp_core import th
 
+    th = kwargs.get('th', None)
     # get validate_data_index [array, array, ...]
     data_name = th.data_config.replace(':', '-') + '-index'
     tfd_path = os.path.join(th.data_dir, 'rrsh', data_name)
@@ -335,8 +336,7 @@ class RRSHSet(SleepSet):
     if len(predictions) > 0:
       for index, sg in enumerate(self.signal_groups):
         validate_end = validate_data_index[index].shape[0] + validate_pre
-        total_data_num = sg.annotations[self.STAGE_KEY].annotations.shape[0]
-        stages = np.ones(total_data_num, dtype=int) * 5
+        stages = sg.annotations[self.STAGE_KEY].annotations.copy()
         stages[validate_data_index[index]] = predictions[validate_pre:validate_end]
         sg.set_annotation('prediction', 30, stages, RRSHSet.STAGE_LABELS)
         validate_pre = validate_end
