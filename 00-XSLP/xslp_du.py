@@ -5,7 +5,7 @@ def load_data():
     # Load data
     # ...
     # train_set, val_set, test_set = SleepRecord.load(configure=configure)
-    train_set, val_set, test_set = SLPAgent.load(configure=None, th=core.th)
+    train_set, val_set, test_set = SLPAgent.load(configure=None)
     return train_set, val_set, test_set
 
 

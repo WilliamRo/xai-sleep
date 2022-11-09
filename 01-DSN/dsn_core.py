@@ -72,9 +72,6 @@ def activate():
     model = th.model()
     assert isinstance(model, Classifier)
 
-    # Load data
-    train_set, val_set, test_set = du.load_data()
-    if th.centralize_data: th.data_mean = train_set.feature_mean
     # Rehearse if required
     if th.rehearse:
         model.rehearse(export_graph=True, build_model=False,
@@ -83,6 +80,7 @@ def activate():
 
     # Train or evaluate
     if th.train:
+        train_set, val_set, test_set = du.load_data()
         model.train(train_set, validation_set=val_set, test_set=test_set,
                     trainer_hub=th)
 
@@ -101,9 +99,7 @@ def activate():
             with open(tfd_format_path, 'rb') as _input_:
                 console.show_status(f'loading {tfd_format_path}...')
                 dataset = pickle.load(_input_)
-                du.SLPAgent.evaluate_model(model, dataset, batch_size=100,
-                                           show_in_monitor=th.show_in_monitor,
-                                           th=th)
+                du.SLPAgent.evaluate_model(model, dataset)
 
     # End
     model.shutdown()

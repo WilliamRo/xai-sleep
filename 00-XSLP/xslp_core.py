@@ -68,10 +68,6 @@ th.random_sample_length = 3000
 
 
 def activate():
-    # Load data
-    train_set, val_set, test_set = du.load_data()
-    if th.centralize_data: th.data_mean = train_set.feature_mean
-
     # Build model
     assert callable(th.model)
     model = th.model()
@@ -83,16 +79,10 @@ def activate():
                        path=model.agent.ckpt_dir, mark='model')
         return
 
-    # Train or evaluate
-    if th.train:
-        model.train(train_set, validation_set=val_set, test_set=test_set,
-                    trainer_hub=th)
-
-        model = model.agent.launch_model
-    else:
+    if not th.train:
         # Evaluate on test set
         import pickle
-        dataset_name, data_num, channel_select = th.data_config.split(':')
+        dataset_name, data_num, _ = th.data_config.split(':')
         person_num = '(all)' if data_num == '' else f'({data_num})'
         prefix = dataset_name + person_num
         model_architecture = 'fnn'
@@ -104,9 +94,17 @@ def activate():
             with open(tfd_format_path, 'rb') as _input_:
                 console.show_status(f'loading {tfd_format_path}...')
                 dataset = pickle.load(_input_)
-                du.SLPAgent.evaluate_model(model, dataset, batch_size=100,
-                                           show_in_monitor=th.show_in_monitor,
-                                           th=th)
+                du.SLPAgent.evaluate_model(model, dataset)
+
+    else:
+      # Load data
+      train_set, val_set, test_set = du.load_data()
+      if th.centralize_data: th.data_mean = train_set.feature_mean
+
+      model.train(train_set, validation_set=val_set, test_set=test_set,
+                  trainer_hub=th)
+
+      model = model.agent.launch_model
 
     # End
     model.shutdown()

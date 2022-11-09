@@ -115,12 +115,9 @@ class RRSHSet(SleepSet):
     (2) Stage labels
     """
     # Sanity check
-    assert os.path.exists(data_dir)
+    import time
 
-    # Read SubjectDetails.xls
-    xls_path = os.path.join(data_dir, 'SubjectDetails.xls')
-    if os.path.exists(xls_path):
-      df = pd.read_excel(xls_path)
+    assert os.path.exists(data_dir)
 
     # Create an empty list
     sleep_groups: List[SignalGroup] = []
@@ -137,12 +134,6 @@ class RRSHSet(SleepSet):
     for i, xml_file in enumerate(xml_file_list):
       # Get id
       id: str = os.path.split(xml_file)[-1].split('.')[0]
-
-      # Get detail
-      detail_dict = {}
-      if os.path.exists(xls_path):
-        detail_dict = df.loc[df[cls.DetailKeys.number] == id.upper()].to_dict(
-          orient='index').popitem()[1]
 
       # If the corresponding .rec file exists, read it directly
       xai_rec_path = os.path.join(data_dir, id + '.xrec')
@@ -174,7 +165,7 @@ class RRSHSet(SleepSet):
       assert len(stages) == L
 
       # Wrap data into signal group
-      sg = SignalGroup(digital_signals, label=f'{id}', **detail_dict)
+      sg = SignalGroup(digital_signals, label=f'{id}')
       sg.set_annotation(cls.STAGE_KEY, 30, stages, cls.STAGE_LABELS)
       sleep_groups.append(sg)
 
@@ -191,10 +182,10 @@ class RRSHSet(SleepSet):
     """
     output: [p1,p2,p3,...]
     """
-    console.show_status(f'configure data...')
+    from tframe import hub as th
 
+    console.show_status(f'configure data...')
     channel_select = kwargs.get('channel_select', None)
-    th = kwargs.get('th', None)
     data_name = th.data_config.replace(':', '-') + '-index'
     tfd_path = os.path.join(th.data_dir, 'rrsh', data_name)
     def data_preprocess(data):
@@ -217,7 +208,7 @@ class RRSHSet(SleepSet):
       for index, label in enumerate(sg_annotation):
         if label in [5]:
           continue
-        data_aasm.append(sg_data[index * sample_length:(index+1) * sample_length])
+        data_aasm.extend(sg_data[index * sample_length:(index+1) * sample_length])
         annotation.append(label)
         data_index.append(index)
       data_aasm = np.array(data_aasm)
@@ -236,7 +227,7 @@ class RRSHSet(SleepSet):
 
     for sg in self.signal_groups:
       sg_data = np.stack([data_preprocess(sg[name]) for name in chn_names], axis=-1)
-      if th.use_rnn is True:
+      if th.use_rnn:
         sg_data = data_preprocess(sg[chn_names[0]])
       sg_annotation = sg.annotations[self.STAGE_KEY].annotations
       sg_data, sg_annotation, data_index = data_aasm(sg_data, sg_annotation)
@@ -245,16 +236,13 @@ class RRSHSet(SleepSet):
       targets.append(sg_annotation)
       data_index_all.append(data_index)
 
-    if os.path.exists(tfd_path):
-      pass
-    else:
-      with open(tfd_path, 'wb') as output:
-        pickle.dump(data_index_all, output, pickle.HIGHEST_PROTOCOL)
 
-    # features[i].shape = [L_i, n_channels]
+    # features[i].shape = [L_i, n, n_channels]
     self.features = features
     # targets[i].shape = [L_i,]
     self.targets = targets
+    # data_index[i].shape = [L_i,]
+    self.data_index = data_index_all
     console.show_status(f'Finishing configure data...')
 
 
@@ -303,19 +291,14 @@ class RRSHSet(SleepSet):
 
   # region: Data Visualization
 
-  def show(self, channels: List[str] = None, **kwargs):
+  def show(self):
     from pictor import Pictor
     from pictor.plotters import Monitor
+    from tframe import hub as th
 
-    th = kwargs.get('th', None)
     # get validate_data_index [array, array, ...]
-    data_name = th.data_config.replace(':', '-') + '-index'
-    tfd_path = os.path.join(th.data_dir, 'rrsh', data_name)
-    validate_data_index = []
+    validate_data_index = self.data_index
     validate_pre = 0
-    if os.path.exists(tfd_path):
-      with open(tfd_path, 'rb') as input:
-        validate_data_index = pickle.load(input)
 
     # Initialize pictor and set objects
     p = Pictor(title='RRSHSet', figure_size=(12, 8))
