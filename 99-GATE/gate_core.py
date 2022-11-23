@@ -27,13 +27,14 @@ from xsleep.slp_config import SLPConfig as Hub
 # from tframe import DefaultHub as Hub
 from tframe import Classifier
 
-import dsn_du as du
+import gate_du as du
 
 # -----------------------------------------------------------------------------
 # Initialize config and set data/job dir
 # -----------------------------------------------------------------------------
 th = Hub(as_global=True)
 th.config_dir(dir_depth=1)
+job_dir = th.job_dir
 
 # -----------------------------------------------------------------------------
 # Device configuration
@@ -78,7 +79,6 @@ def activate():
                    path=model.agent.ckpt_dir, mark='model')
     return
 
-  # Train or evaluate
   if not th.train:
     # Evaluate on test set
     import pickle
@@ -105,6 +105,7 @@ def activate():
                 trainer_hub=th)
 
     model = model.agent.launch_model
+
   # End
   model.shutdown()
   console.end()

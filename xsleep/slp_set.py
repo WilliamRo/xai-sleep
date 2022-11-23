@@ -124,13 +124,13 @@ class SleepSet(SequenceSet):
       onset_timestamp = int(h) * 3600 + int(m) * 60 + int(s)
       duration_epoch = int(duration / 30)
       label = ann2label[anno_desc[index]]
-      if label != 5:
-        label_epochs = np.ones(duration_epoch, dtype=np.int) * label
-        labels.extend(label_epochs)
-        idx_high_frequency = int(onset_timestamp * 100) + np.arange(duration * 100, dtype=np.int)
-        idx_low_frequency = int(onset_timestamp) + np.arange(duration, dtype=np.int)
-        labels_index_high.extend(idx_high_frequency)
-        labels_index_low.extend(idx_low_frequency)
+      # if label != 5:
+      label_epochs = np.ones(duration_epoch, dtype=np.int) * label
+      labels.extend(label_epochs)
+      idx_high_frequency = int(onset_timestamp * 100) + np.arange(duration * 100, dtype=np.int)
+      idx_low_frequency = int(onset_timestamp) + np.arange(duration, dtype=np.int)
+      labels_index_high.extend(idx_high_frequency)
+      labels_index_low.extend(idx_low_frequency)
     labels_index[100] = labels_index_high
     labels_index[1] = labels_index_low
     return labels, labels_index
@@ -241,9 +241,10 @@ class SleepSet(SequenceSet):
       self.features = np.vstack(features[:])
       self.targets = np.vstack(targets[:])
       self.properties[self.NUM_CLASSES] = 5
-      data_sets = self.split(train_ratio, val_ratio, test_ratio,
-                             random=True,
-                             over_classes=True)
+      train_num = int(self.targets.shape[0] * train_ratio)
+      val_num = int(self.targets.shape[0] * val_ratio)
+      test_num = self.targets.shape[0] - train_num - val_num
+      data_sets = self.split(train_num, val_num, test_num, random=True, over_classes=True)
       # TODO: temporary workaround
       from tframe import DataSet
       for ds in data_sets: ds.__class__ = DataSet
@@ -278,3 +279,5 @@ class SleepSet(SequenceSet):
     p.show()
 
   # endregion: Visualization
+
+

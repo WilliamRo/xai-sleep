@@ -1,5 +1,4 @@
 from slp_agent import SLPAgent
-import xslp_core as core
 
 def load_data():
     # Load data

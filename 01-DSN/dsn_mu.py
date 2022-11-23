@@ -1,13 +1,10 @@
 from tframe import Classifier
 from tframe import mu
-
-from dsn_core import th
 from tframe.layers import Activation
-
 from tframe.layers.hyper.dense import Dense
 from tframe.configs.config_base import Config
 
-
+from dsn_core import th
 
 def init_model(flatten=False):
     model = Classifier(mark=th.mark)

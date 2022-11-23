@@ -89,7 +89,7 @@ def activate():
         if th.use_rnn:
             model_architecture = 'rnn'
         tfd_format_path = os.path.join(th.data_dir, dataset_name,
-                                       f'{prefix}-format-{model_architecture}.tfds')
+                                       f'{prefix}-format-{model_architecture}{th.input_shape[0]}.tfds')
         if os.path.exists(tfd_format_path):
             with open(tfd_format_path, 'rb') as _input_:
                 console.show_status(f'loading {tfd_format_path}...')

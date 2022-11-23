@@ -13,7 +13,11 @@ class SLPConfig(SmartTrainerHub):
   partition_over_patients = Flag.boolean(True, '...')
 
   show_in_monitor = Flag.boolean(False, 'Whether to show results in monitor')
+  use_gate = Flag.boolean(False, 'Replace correct data with unknown data')
   predictions = Flag.list([], 'the index of predicted data')
+
+  window_size = Flag.float(35, 'The number of epoch in a sample')
+  unknown_ratio = Flag.float(0.1, 'The number of epoch in a sample')
 
 
 

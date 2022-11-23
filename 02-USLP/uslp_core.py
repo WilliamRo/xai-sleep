@@ -24,10 +24,9 @@ for _ in range(DIR_DEPTH):
 # =============================================================================
 from tframe import console
 from xsleep.slp_config import SLPConfig as Hub
-# from tframe import DefaultHub as Hub
 from tframe import Classifier
 
-import dsn_du as du
+import uslp_du as du
 
 # -----------------------------------------------------------------------------
 # Initialize config and set data/job dir
@@ -44,8 +43,6 @@ th.gpu_memory_fraction = 0.50
 # -----------------------------------------------------------------------------
 # Set common trainer configs
 # -----------------------------------------------------------------------------
-# th.input_shape = [120, 2]
-th.input_shape = [3000, 3]
 
 th.early_stop = True
 th.patience = 20
@@ -62,8 +59,6 @@ th.evaluate_test_set = True
 th.val_batch_size = 100
 th.eval_batch_size = 100
 
-# per sample length
-th.random_sample_length = 3000
 
 
 def activate():
@@ -79,10 +74,15 @@ def activate():
     return
 
   # Train or evaluate
-  if not th.train:
+  if th.train:
+    train_set, val_set, test_set = du.load_data()
+    model.train(train_set, validation_set=val_set, test_set=test_set,
+                trainer_hub=th)
+
+  else:
     # Evaluate on test set
     import pickle
-    dataset_name, data_num, _ = th.data_config.split(':')
+    dataset_name, data_num, channel_select = th.data_config.split(':')
     person_num = '(all)' if data_num == '' else f'({data_num})'
     prefix = dataset_name + person_num
     model_architecture = 'fnn'
@@ -96,15 +96,6 @@ def activate():
         dataset = pickle.load(_input_)
         du.SLPAgent.evaluate_model(model, dataset)
 
-  else:
-    # Load data
-    train_set, val_set, test_set = du.load_data()
-    if th.centralize_data: th.data_mean = train_set.feature_mean
-
-    model.train(train_set, validation_set=val_set, test_set=test_set,
-                trainer_hub=th)
-
-    model = model.agent.launch_model
   # End
   model.shutdown()
   console.end()

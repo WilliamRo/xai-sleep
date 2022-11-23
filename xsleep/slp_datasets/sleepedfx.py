@@ -25,7 +25,7 @@ class SleepEDFx(SleepSet):
 
   TICKS_PER_EPOCH = 100 * 30
   STAGE_KEY = 'STAGE'
-  STAGE_LABELS = ['Wake', 'N1', 'N2', 'N3', 'REM']
+  STAGE_LABELS = ['Wake', 'N1', 'N2', 'N3', 'REM', 'Unknown']
   CHANNEL = {'0': 'EEG Fpz-Cz',
              '1': 'EEG Pz-Oz',
              '2': 'EOG horizontal',
@@ -103,11 +103,6 @@ class SleepEDFx(SleepSet):
     # Sanity check
     assert os.path.exists(data_dir)
 
-    # Read SubjectDetails.xls
-    xls_path = os.path.join(data_dir, 'SubjectDetails.xls')
-    if os.path.exists(xls_path):
-      df = pd.read_excel(xls_path)
-
     # Create an empty list
     sleep_groups: List[SignalGroup] = []
 
@@ -125,7 +120,7 @@ class SleepEDFx(SleepSet):
       id: str = os.path.split(hypnogram_file)[-1].split('-')[0]
 
       # If the corresponding .rec file exists, read it directly
-      xai_rec_path = os.path.join(data_dir, id + '.xrec')
+      xai_rec_path = os.path.join(data_dir, id + '(complete)' + '.xrec')
       if os.path.exists(xai_rec_path) and not kwargs.get('overwrite', False):
         console.show_status(
           f'Loading `{id}` from {data_dir} ...',
@@ -139,7 +134,7 @@ class SleepEDFx(SleepSet):
                           prompt=f'[{i + 1}/{N}]')
       console.print_progress(i, N)
 
-      # (1) Read stage labels [0,1,2...], without 5
+      # (1) Read stage labels [0,1,2...]
       labels, label_index = cls.read_sleepedf_anno_mne(hypnogram_file)
       # (2) Read PSG file
       fn = os.path.join(data_dir, id[:7] + '0' + '-PSG.edf')
@@ -150,8 +145,8 @@ class SleepEDFx(SleepSet):
       data_epoch_num = (digital_signals[0].length) // cls.TICKS_PER_EPOCH
       if len(labels) > data_epoch_num:
         for ds in digital_signals:
-          ds.sequence = ds.sequence[:data_epoch_num * int(ds.label.split('=')[1]) * 30]
-          ds.ticks = ds.ticks[:data_epoch_num * int(ds.label.split('=')[1]) * 30]
+          ds.sequence = ds.sequence[:data_epoch_num * int(float(ds.label.split('=')[1])) * 30]
+          ds.ticks = ds.ticks[:data_epoch_num * int(float(ds.label.split('=')[1])) * 30]
           labels = labels[:data_epoch_num]
 
       # verify the length of stages and data
@@ -177,10 +172,12 @@ class SleepEDFx(SleepSet):
     features: [ft1, ft2, ft3]
     targets: [tg1, tg2, tg3]
     """
+    import numpy as np
+    from scipy import signal
     from tframe import hub as th
+    from random import sample
+
     def data_preprocess(data):
-      import numpy as np
-      from scipy import signal
       # 滤波
       b, a = signal.butter(7, 0.7, 'lowpass')
       filted_data = signal.filtfilt(b, a, data)
@@ -190,11 +187,30 @@ class SleepEDFx(SleepSet):
       precessed_data = (filted_data - arr_mean) / arr_std
       return precessed_data
 
+    def clean_data(data, annotation):
+      remove_label_index = np.argwhere(annotation==5)
+      remove_data_index = []
+      for index in remove_label_index:
+        data_index = int(index * 3000) + np.arange(3000, dtype=np.int)
+        remove_data_index.extend(data_index)
+      select_data_index = np.setdiff1d(np.arange(len(data)), remove_data_index)
+      select_label_index = np.setdiff1d(np.arange(len(annotation)), remove_label_index)
+      assert len(select_label_index) == len(select_data_index) // 3000
+      select_data = data[select_data_index]
+      select_label = annotation[select_label_index]
+      remove_data = data[remove_data_index]
+      select_data_index_total.append(select_data_index)
+      if len(remove_data) >= 3000:
+        remove_data = np.split(remove_data, len(remove_data) // 3000)
+      return select_data, select_label, remove_data
+
     channel_select = kwargs.get('channel_select', None)
     console.show_status(f'configure data...')
 
     features = []
     targets = []
+    unknown = []
+    select_data_index_total = []
 
     if ',' in channel_select:
       chn_names = [self.CHANNEL[i] for i in channel_select.split(',')]
@@ -206,14 +222,32 @@ class SleepEDFx(SleepSet):
       if th.use_rnn is True:
         sg_data = data_preprocess(sg[chn_names[0]])
       sg_annotation = sg.annotations[self.STAGE_KEY].annotations
-
+      sg_data, sg_annotation, unknown_data = clean_data(sg_data, sg_annotation)
       features.append(sg_data)
       targets.append(sg_annotation)
+      unknown.extend(unknown_data)
 
+    if th.use_gate:
+      for index, feature in enumerate(features):
+        target = targets[index]
+        target_index = np.arange(len(target))
+        bad_index = sample(list(target_index),int(len(target_index) * th.unknown_ratio))
+        for i in bad_index:
+          seed = np.random.randint(0, len(unknown), dtype=np.int)
+          random_channel = np.random.randint(0, len(chn_names), dtype=np.int)
+          temp_index = i * 3000 + np.arange(3000, dtype=np.int)
+          feature[list(temp_index), random_channel] = unknown[seed][:,random_channel]
+        features[index] = feature
+        if th.show_in_monitor:
+          sg = self.signal_groups[index]
+          for i, name in enumerate(chn_names):
+            sg[name][select_data_index_total[index]] = feature[:,i]
+          self.signal_groups[index] = sg
     # features[i].shape = [L_i, n_channels]
     self.features = features
     # targets[i].shape = [L_i,]
     self.targets = targets
+    self.unknown = unknown
     console.show_status(f'Finishing configure data...')
 
   def report(self):

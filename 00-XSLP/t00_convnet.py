@@ -10,24 +10,13 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # Define model here
 # -----------------------------------------------------------------------------
 model_name = 'Convnet'
-id = 0
+id = 2
 
 
 def model():
   th = core.th
   # th.developer_code = 'expand'
   model = m.get_container(flatten=False)
-  # region:normal model
-  # model.add(m.mu.Conv1D(filters=64, kernel_size=50,use_batchnorm=th.use_batchnorm,activation=th.activation))
-  # model.add(m.mu.MaxPool1D(pool_size=8, strides=8))
-  # model.add(m.mu.Dropout(0.5))
-  # model.add(m.mu.Conv1D(filters=128,kernel_size=6,use_batchnorm=th.use_batchnorm,activation=th.activation))
-  # model.add(m.mu.Conv1D(filters=128,kernel_size=6,use_batchnorm=th.use_batchnorm,activation=th.activation))
-  # model.add(m.mu.Conv1D(filters=128,kernel_size=6,use_batchnorm=th.use_batchnorm,activation=th.activation))
-  # model.add(m.mu.MaxPool1D(pool_size=8,strides=8))
-  # model.add(m.mu.Conv1D(filters=128, kernel_size=3))
-  # endregion
-  # region:fm
   fm = m.mu.ForkMergeDAG(vertices=[
     [m.mu.Conv1D(filters=64, kernel_size=50, use_batchnorm=th.use_batchnorm,
                  strides=6, activation=th.activation),
@@ -75,11 +64,10 @@ def main(_):
   console.start('{} on sleep stage task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = False
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'rrsh:10:1,2,6'
+  th.data_config = 'rrsh::1,2,6'
 
   if 'apnea' in th.data_config:
     th.output_dim = 2
@@ -103,8 +91,6 @@ def main(_):
   # ---------------------------------------------------------------------------
   th.model = model
 
-  # th.archi_string = '32-p-16-p-8'
-  # th.kernel_size = 9
   th.activation = 'relu'
   th.use_batchnorm = True
   # ---------------------------------------------------------------------------
@@ -120,6 +106,8 @@ def main(_):
   th.overwrite = True
   th.print_cycle = 10
   th.save_model = True
+
+  th.rehearse = True
 
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate

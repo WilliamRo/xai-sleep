@@ -10,7 +10,7 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # Define model here
 # ----------------------------------------------------------------------------
 model_name = 'DeepSleepNet'
-id = 0
+id = 1
 
 
 def main(_):
@@ -20,7 +20,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'dsn::0'
+    th.data_config = 'dsn:1:0'
     th.output_dim = 5
     th.input_shape = [3000, 1]
 
@@ -37,6 +37,8 @@ def main(_):
     # ---------------------------------------------------------------------------
     th.activation = 'relu'
     th.use_batchnorm = True
+
+    th.train = True
     th.rehearse = True
 
     # ---------------------------------------------------------------------------
@@ -46,7 +48,6 @@ def main(_):
     th.batch_size = 32
     th.optimizer = 'adam'
     th.learning_rate = 0.0001
-    th.train = True
     th.overwrite = True
     th.print_cycle = 10
     th.save_model = True

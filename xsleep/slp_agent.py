@@ -31,15 +31,15 @@ class SLPAgent(DataAgent):
         if th.use_rnn:
             model_architecture = 'rnn'
         tfd_format_path = os.path.join(th.data_dir, dataset_name,
-                                       f'{prefix}-format-{model_architecture}.tfds')
-        if os.path.exists(tfd_format_path):
+                                       f'{prefix}-format-{model_architecture}{th.input_shape[0]}.tfds')
+        if os.path.exists(tfd_format_path) and th.overwrite is False:
             with open(tfd_format_path, 'rb') as _input_:
                 console.show_status('Loading `{}` ...'.format(tfd_format_path))
                 dataset = pickle.load(_input_)
         else:
             tfd_config_path = os.path.join(th.data_dir, dataset_name,
-                                           f'{prefix}-config-{model_architecture}.tfds')
-            if os.path.exists(tfd_config_path):
+                                           f'{prefix}-config-{model_architecture}{th.input_shape[0]}.tfds')
+            if os.path.exists(tfd_config_path) and th.overwrite is False:
                 with open(tfd_config_path, 'rb') as _input_:
                     console.show_status(f'loading {tfd_config_path}...')
                     dataset = pickle.load(_input_)
@@ -51,11 +51,14 @@ class SLPAgent(DataAgent):
                 # Configure dataset (put thi block into right position)
                 configure = kwargs.get('configure', None)
                 if callable(configure):
-                    dataset = configure(dataset)
+                    dataset = configure(dataset,channel_select=channel_select)
                 else:
                     dataset.configure(channel_select=channel_select)
                 dataset.save(tfd_config_path)
-            dataset.format_data()
+            format = kwargs.get('format', None)
+            if callable(format):
+              dataset = format(dataset)
+            else: dataset.format_data()
             dataset.save(tfd_format_path)
             console.show_status(f'Saving {tfd_format_path} ...')
 
@@ -69,7 +72,7 @@ class SLPAgent(DataAgent):
             dataset.targets = misc.convert_to_one_hot(dense_labels, n_classes)
         console.show_status('Finish converting dense label to one-hot')
         dataset.properties['CLASSES'] = ['W', 'N1', 'N2', 'N3', 'R']
-        train_set, val_set, test_set = dataset.partition(0.9, 0.05, 0.05)
+        train_set, val_set, test_set = dataset.partition(0.75, 0.1, 0.15)
         console.show_status(
             'Finishing split dataset to (train_set, val_set, test_set)...')
 
@@ -112,6 +115,7 @@ class SLPAgent(DataAgent):
         from rrsh import RRSHSet
         from sleepedfx import SleepEDFx
         from tframe import hub as th
+        from random import sample
 
         import numpy as np
 
@@ -129,6 +133,11 @@ class SLPAgent(DataAgent):
 
         if th.show_in_monitor:
             th.predictions = model.classify(data_set, th.batch_size)
+            # target_index = np.arange(len(th.predictions))
+            # osas_index = sample(list(target_index), int(len(target_index) // 10))
+            # target = np.ones(len(th.predictions), dtype=np.int) * 4
+            # target[osas_index] = 0
+            # th.predictions = target
             data_set_name = th.data_config.split(':')[0]
             if data_set_name == 'rrsh':
                 data_set.__class__ = RRSHSet
