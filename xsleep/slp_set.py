@@ -214,42 +214,43 @@ class SleepSet(SequenceSet):
     self.features = features
     console.show_status(f'Finishing formating data...')
 
-  def partition(self, train_ratio, val_ratio, test_ratio):
+  def partition(self, train_ratio):
     from tframe import hub as th
 
     features = self.features
     targets = self.targets
+    # self.features = np.vstack(features[:])
+    # self.targets = np.vstack(targets[:])
+    # self.properties[self.NUM_CLASSES] = 5
+    # train_num = int(self.targets.shape[0] * train_ratio)
+    # val_num = int(self.targets.shape[0] * val_ratio)
+    # test_num = self.targets.shape[0] - train_num - val_num
+    # data_sets = self.split(train_num, val_num, test_num, random=True, over_classes=True)
+    # TODO: temporary workaround
+    test_index = [int(i) for i in th.test_config.split(':')[1].split(',')]
+    train_index = np.setdiff1d(np.arange(int(th.data_config.split(':')[1])), test_index)
+    test_feature = np.vstack(np.array(features, dtype=object)[test_index])
+    test_label = np.vstack(np.array(targets, dtype=object)[test_index])
+    train_feature = np.vstack(np.array(features, dtype=object)[train_index])
+    train_label = np.vstack(np.array(targets, dtype=object)[train_index])
+    from sleepedfx import SleepEDFx
+    test_set = SleepEDFx(name=f'Sleep-EDF-Expanded',
+                         features=test_feature,
+                         targets=test_label)
+    train_set = SleepEDFx(name=f'Sleep-EDF-Expanded',
+                         features=train_feature,
+                         targets=train_label)
+    test_set.properties[self.NUM_CLASSES] = 5
+    train_set.properties[self.NUM_CLASSES] = 5
+    train_num = int(train_label.shape[0] * train_ratio)
+    val_num = int(train_label.shape[0] - train_num)
+    train_set, validate_set = train_set.split(train_num, val_num,
+                                         random=True, over_classes=True)
+    data_sets = [train_set, validate_set, test_set]
+    from tframe import DataSet
+    for ds in data_sets: ds.__class__ = DataSet
 
-    if th.use_rnn:
-      person_num = int(th.data_config.split(':')[1])
-      train_person = int(person_num * train_ratio)
-      val_person = int(person_num * val_ratio)
-      train_set_features = features[:train_person]
-      train_set_targets = targets[:train_person]
-      val_set_features = features[train_person:train_person + val_person]
-      val_set_targets = targets[train_person:train_person + val_person]
-      test_set_features = features[train_person + val_person:]
-      test_set_targets = targets[train_person + val_person:]
-      train_set = self.get_sequence_data(train_set_features,
-                                         train_set_targets)
-      val_set = self.get_sequence_data(val_set_features, val_set_targets)
-      test_set = self.get_sequence_data(test_set_features,
-                                        test_set_targets)
-
-      return [train_set, val_set, test_set]
-    else:
-      self.features = np.vstack(features[:])
-      self.targets = np.vstack(targets[:])
-      self.properties[self.NUM_CLASSES] = 5
-      train_num = int(self.targets.shape[0] * train_ratio)
-      val_num = int(self.targets.shape[0] * val_ratio)
-      test_num = self.targets.shape[0] - train_num - val_num
-      data_sets = self.split(train_num, val_num, test_num, random=True, over_classes=True)
-      # TODO: temporary workaround
-      from tframe import DataSet
-      for ds in data_sets: ds.__class__ = DataSet
-
-      return data_sets
+    return data_sets
 
   def get_sequence_data(self, features: List, targets: List):
     features_list = []

@@ -190,19 +190,20 @@ class SleepEDFx(SleepSet):
     def clean_data(data, annotation):
       remove_label_index = np.argwhere(annotation==5)
       remove_data_index = []
+      sample_length = th.random_sample_length
       for index in remove_label_index:
-        data_index = int(index * 3000) + np.arange(3000, dtype=np.int)
+        data_index = int(index * sample_length) + np.arange(sample_length, dtype=np.int)
         remove_data_index.extend(data_index)
       select_data_index = np.setdiff1d(np.arange(len(data)), remove_data_index)
       select_label_index = np.setdiff1d(np.arange(len(annotation)), remove_label_index)
-      assert len(select_label_index) == len(select_data_index) // 3000
+      assert len(select_label_index) == len(select_data_index) // sample_length
       select_data = data[select_data_index]
       select_label = annotation[select_label_index]
       remove_data = data[remove_data_index]
       select_data_index_total.append(select_data_index)
-      if len(remove_data) >= 3000:
-        remove_data = np.split(remove_data, len(remove_data) // 3000)
-      return select_data, select_label, remove_data
+      if len(remove_data) >= sample_length:
+        remove_data = np.split(remove_data, len(remove_data) // sample_length)
+      return select_data, select_label, remove_data, select_label_index
 
     channel_select = kwargs.get('channel_select', None)
     console.show_status(f'configure data...')
@@ -211,6 +212,7 @@ class SleepEDFx(SleepSet):
     targets = []
     unknown = []
     select_data_index_total = []
+    select_label_index_total = []
 
     if ',' in channel_select:
       chn_names = [self.CHANNEL[i] for i in channel_select.split(',')]
@@ -222,21 +224,24 @@ class SleepEDFx(SleepSet):
       if th.use_rnn is True:
         sg_data = data_preprocess(sg[chn_names[0]])
       sg_annotation = sg.annotations[self.STAGE_KEY].annotations
-      sg_data, sg_annotation, unknown_data = clean_data(sg_data, sg_annotation)
+      sg_data, sg_annotation, unknown_data, label_index= clean_data(sg_data, sg_annotation)
       features.append(sg_data)
       targets.append(sg_annotation)
+      select_label_index_total.append(label_index)
       unknown.extend(unknown_data)
 
     if th.use_gate:
       for index, feature in enumerate(features):
         target = targets[index]
         target_index = np.arange(len(target))
-        bad_index = sample(list(target_index),int(len(target_index) * th.unknown_ratio))
+        bad_index = sample(list(target_index),int(len(target_index) * th.ratio))
         for i in bad_index:
           seed = np.random.randint(0, len(unknown), dtype=np.int)
-          random_channel = np.random.randint(0, len(chn_names), dtype=np.int)
           temp_index = i * 3000 + np.arange(3000, dtype=np.int)
-          feature[list(temp_index), random_channel] = unknown[seed][:,random_channel]
+          random_channel = [np.random.randint(0,len(chn_names),dtype=np.int) for j in range(len(chn_names)-1)]
+          random_channel = list(set(random_channel))
+          for i in random_channel:
+            feature[list(temp_index), i] = unknown[seed][:,i]
         features[index] = feature
         if th.show_in_monitor:
           sg = self.signal_groups[index]
@@ -248,6 +253,7 @@ class SleepEDFx(SleepSet):
     # targets[i].shape = [L_i,]
     self.targets = targets
     self.unknown = unknown
+    self.label_index = select_label_index_total
     console.show_status(f'Finishing configure data...')
 
   def report(self):
@@ -302,6 +308,7 @@ class SleepEDFx(SleepSet):
     from pictor.plotters import Monitor
     from tframe import hub as th
 
+    validate_data_index = self.label_index
     validate_pre = 0
 
     # Initialize pictor and set objects
@@ -323,13 +330,11 @@ class SleepEDFx(SleepSet):
     predictions = np.array(th.predictions)
     if len(predictions) > 0:
       for index, sg in enumerate(self.signal_groups):
-        validate_end = len(sg.annotations[self.STAGE_KEY].annotations) + validate_pre
-        stages = predictions[validate_pre:validate_end]
+        validate_end = validate_data_index[index].shape[0] + validate_pre
+        stages = sg.annotations[self.STAGE_KEY].annotations.copy()
+        stages[validate_data_index[index]] = predictions[validate_pre:validate_end]
         sg.set_annotation('prediction', 30, stages,
                           SleepEDFx.STAGE_LABELS)
-
-        sg.annotations['prediction'].intervals = sg.annotations[
-          self.STAGE_KEY].intervals
 
         validate_pre = validate_end
 

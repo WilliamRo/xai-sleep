@@ -72,7 +72,7 @@ class SLPAgent(DataAgent):
             dataset.targets = misc.convert_to_one_hot(dense_labels, n_classes)
         console.show_status('Finish converting dense label to one-hot')
         dataset.properties['CLASSES'] = ['W', 'N1', 'N2', 'N3', 'R']
-        train_set, val_set, test_set = dataset.partition(0.75, 0.1, 0.15)
+        train_set, val_set, test_set = dataset.partition(0.8)
         console.show_status(
             'Finishing split dataset to (train_set, val_set, test_set)...')
 

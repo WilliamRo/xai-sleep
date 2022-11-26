@@ -4,7 +4,7 @@ from slp_datasets.sleepedfx import SleepEDFx
 
 th.use_gate = True
 th.data_config = 'sleepedf:20:0,1,2'
-th.unknown_ratio = 0.1
+th.ratio = 0.5
 th.overwrite = True
 th.show_in_monitor = True
 data_name, data_num, channel_select = th.data_config.split(':')
