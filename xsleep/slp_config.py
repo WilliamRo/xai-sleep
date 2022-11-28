@@ -18,8 +18,8 @@ class SLPConfig(SmartTrainerHub):
   window_size = Flag.float(35, 'The number of epoch in a sample')
 
   use_gate = Flag.boolean(False, 'Replace correct data with unknown data')
-  test_config = Flag.string(None, 'the setting of cross validation ')
-  ratio = Flag.float(0.1, 'The number of epoch in a sample')
+  test_config = Flag.string(None, 'the setting of cross validation', is_key=None)
+  ratio = Flag.float(0.1, 'The number of epoch in a sample', is_key=None)
 
 
 # New hub class inherited from SmartTrainerHub must be registered

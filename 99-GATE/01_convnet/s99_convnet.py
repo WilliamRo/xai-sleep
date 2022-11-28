@@ -28,7 +28,7 @@ s.register('train', True)
 s.register('epoch', 1000)
 s.register('patience', 15)
 
-s.register('ratio', *[0.1*i for i in range(10)])
+s.register('ratio', *[0.1*i for i in range(11)])
 configs = [f'test_data:{2*i},{2*i+1}' for i in range(10)]
 s.register('test_config',*configs)
 s.configure_engine(times=5)
