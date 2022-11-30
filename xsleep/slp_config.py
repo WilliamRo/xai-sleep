@@ -1,7 +1,8 @@
 from tframe.trainers import SmartTrainerHub
 from tframe.configs.config_base import Flag
-
 from roma import console
+
+import re
 
 
 class SLPConfig(SmartTrainerHub):
@@ -20,6 +21,13 @@ class SLPConfig(SmartTrainerHub):
   use_gate = Flag.boolean(False, 'Replace correct data with unknown data')
   test_config = Flag.string(None, 'the setting of cross validation', is_key=None)
   ratio = Flag.float(0.1, 'The number of epoch in a sample', is_key=None)
+
+  channels = Flag.string('', 'Channels to read from edfs', is_key=None)
+
+  @property
+  def fusion_channels(self):
+    return [s.split(',') for s in self.channels.split(';')]
+
 
 
 # New hub class inherited from SmartTrainerHub must be registered

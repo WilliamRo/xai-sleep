@@ -9,23 +9,11 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'convnet'
-id = 1
+model_name = 'feature_fusion'
+id = 2
 
 
-def model():
-  th = core.th
-  # th.developer_code = 'expand'
-  model = m.get_container(flatten=False)
-  for a in th.archi_string.split('-'):
-    if a == 'm':
-      model.add(m.mu.MaxPool1D(2, 2))
-    else:
-      filters = int(a)
-      model.add(m.mu.Conv1D(filters, th.kernel_size,
-                                 activation=th.activation))
-
-  return m.finalize(model)
+def model(): return m.get_decision_fusion_model()
 
 
 def main(_):

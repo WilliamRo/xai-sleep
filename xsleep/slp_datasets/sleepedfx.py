@@ -187,6 +187,7 @@ class SleepEDFx(SleepSet):
       precessed_data = (filted_data - arr_mean) / arr_std
       return precessed_data
 
+    # remove and save unknown data
     def clean_data(data, annotation):
       remove_label_index = np.argwhere(annotation==5)
       remove_data_index = []
@@ -254,6 +255,7 @@ class SleepEDFx(SleepSet):
     self.targets = targets
     self.unknown = unknown
     self.label_index = select_label_index_total
+
     console.show_status(f'Finishing configure data...')
 
   def report(self):

@@ -219,14 +219,7 @@ class SleepSet(SequenceSet):
 
     features = self.features
     targets = self.targets
-    # self.features = np.vstack(features[:])
-    # self.targets = np.vstack(targets[:])
-    # self.properties[self.NUM_CLASSES] = 5
-    # train_num = int(self.targets.shape[0] * train_ratio)
-    # val_num = int(self.targets.shape[0] * val_ratio)
-    # test_num = self.targets.shape[0] - train_num - val_num
-    # data_sets = self.split(train_num, val_num, test_num, random=True, over_classes=True)
-    # TODO: temporary workaround
+    # split data to train_set and test_data
     test_index = [int(i) for i in th.test_config.split(':')[1].split(',')]
     train_index = np.setdiff1d(np.arange(int(th.data_config.split(':')[1])), test_index)
     test_feature = np.vstack(np.array(features, dtype=object)[test_index])
@@ -242,6 +235,18 @@ class SleepSet(SequenceSet):
                          targets=train_label)
     test_set.properties[self.NUM_CLASSES] = 5
     train_set.properties[self.NUM_CLASSES] = 5
+
+    # Split channel if necessary
+    if ';' in th.channels:
+      for i, channels in enumerate(self.fusion_channels(th.channels)):
+        test_set.data_dict[f'input-{i+1}'] = np.stack(
+          [test_feature[:, :, int(c)] for c in channels], axis=-1
+        )
+        train_set.data_dict[f'input-{i+1}'] = np.stack(
+          [train_feature[:, :, int(c)] for c in channels], axis=-1
+        )
+
+    # Split train_set to train_set and validate_set
     train_num = int(train_label.shape[0] * train_ratio)
     val_num = int(train_label.shape[0] - train_num)
     train_set, validate_set = train_set.split(train_num, val_num,
@@ -269,6 +274,9 @@ class SleepSet(SequenceSet):
   # endregion: Data Configuration
 
   # region: Visualization
+
+  def fusion_channels(self, channels):
+    return [s.split(',') for s in channels.split(';')]
 
   def show(self):
     from pictor import Pictor

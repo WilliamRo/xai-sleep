@@ -9,23 +9,11 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'convnet'
-id = 1
+model_name = 'feature_fusion'
+id = 2
 
 
-def model():
-  th = core.th
-  # th.developer_code = 'expand'
-  model = m.get_container(flatten=False)
-  for a in th.archi_string.split('-'):
-    if a == 'm':
-      model.add(m.mu.MaxPool1D(2, 2))
-    else:
-      filters = int(a)
-      model.add(m.mu.Conv1D(filters, th.kernel_size,
-                                 activation=th.activation))
-
-  return m.finalize(model)
+def model(): return m.get_feature_fusion_model()
 
 
 def main(_):
@@ -51,18 +39,19 @@ def main(_):
   # -------------------;a--------------------------------------------------------
   # 2. model setup
   # ---------------------------------------------------------------------------
-  th.model = model
-
+  th.channels = '0,1;2'
   th.kernel_size = 3
   th.activation = 'relu'
   th.use_batchnorm = True
+
+  th.model = model
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
   th.epoch = 1000
   th.batch_size = 32
   th.dropout = 0.5
-  th.archi_string = '16-16-m-32-32-m-64'
+  th.archi_string = '4-8-m-16-24-m-64'
   th.optimizer = 'adam'
   th.learning_rate = 0.0001
 

@@ -8,8 +8,6 @@ from tframe.configs.config_base import Config
 from gate_core import th
 
 
-
-
 def get_container(flatten=False):
   model = Classifier(mark=th.mark)
   model.add(mu.Input(sample_shape=th.input_shape))
@@ -20,6 +18,7 @@ def get_container(flatten=False):
 
 def finalize(model):
   assert isinstance(model, Classifier)
+  model.add(mu.Flatten())
   model.add(mu.Dense(th.output_dim, use_bias=False, prune_frac=0.5))
   model.add(mu.Activation('softmax'))
 
@@ -28,26 +27,40 @@ def finalize(model):
   model.build(batch_metric=['accuracy'])
   return model
 
-
-def typical(cells):
-  assert isinstance(th, Config)
-  # Initiate a model
-  model = Classifier(mark=th.mark, net_type=Recurrent)
-  # Add layers
-  model.add(Input(sample_shape=th.input_shape))
-  # Add hidden layers
-  if not isinstance(cells, (list, tuple)): cells = [cells]
-  for cell in cells: model.add(cell)
-  # Build model and return
-  output_and_build(model)
-  return model
+def feature_extracting_net(model):
+  for a in th.archi_string.split('-'):
+    if a == 'm':
+      model.add(mu.MaxPool1D(2, 2))
+    else:
+      filters = int(a)
+      model.add(mu.Conv1D(filters, th.kernel_size,
+                            activation=th.activation))
 
 
-def output_and_build(model):
-  assert isinstance(model, Classifier)
-  assert isinstance(th, Config)
-  # Add output layer
-  model.add(Dense(num_neurons=th.output_dim))
-  model.add(Activation('softmax'))
+def get_decision_fusion_model():
+  pass
 
-  model.build(metric='accuracy', batch_metric='accuracy', last_only=True)
+def get_feature_fusion_model():
+  from tframe.nets.octopus import Octopus
+  from gate_core import th
+
+  model = get_container(flatten=False)
+  oc: Octopus = model.add(Octopus())
+
+  assert len(th.fusion_channels) == 2
+
+  # Input 1
+  c = len(th.fusion_channels[0])
+  li = oc.init_a_limb('input-1', [3000, c])
+  feature_extracting_net(li)
+
+  # Input 2
+  c = len(th.fusion_channels[1])
+  li = oc.init_a_limb('input-2', [3000, c])
+  feature_extracting_net(li)
+
+  oc.set_gates([1, 1])
+
+  return finalize(model)
+
+
