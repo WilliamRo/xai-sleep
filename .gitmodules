@@ -1,6 +1,3 @@
-[submodule "tframe"]
-	path = tframe
-	url = https://github.com/WilliamRo/tframe
 [submodule "pictor"]
 	path = pictor
 	url = https://github.com/WilliamRo/pictor
