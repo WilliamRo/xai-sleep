@@ -34,7 +34,16 @@ class SleepSet(SequenceSet):
 
   # region: Data Reading
 
+  @classmethod
+  def read_raw_data_mne(cls, file_path) -> List[DigitalSignal]:
+    """Read .edf file using `mne` package
+    """
+    from mne.io import read_raw_edf
+    from mne.io.edf.edf import RawEDF
 
+    digital_signals = []
+
+    return digital_signals
 
   # endregion: Data Reading
 
