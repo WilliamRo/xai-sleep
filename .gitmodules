@@ -1,9 +1,9 @@
-[submodule "tframe"]
-	path = tframe
-	url = https://github.com/WilliamRo/tframe
 [submodule "pictor"]
 	path = pictor
 	url = https://github.com/WilliamRo/pictor
 [submodule "roma"]
 	path = roma
 	url = https://github.com/WilliamRo/roma
+[submodule "xai-kit"]
+	path = xai-kit
+	url = https://github.com/WilliamRo/xai-kit
