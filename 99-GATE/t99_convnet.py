@@ -13,19 +13,7 @@ model_name = 'convnet'
 id = 1
 
 
-def model():
-  th = core.th
-  # th.developer_code = 'expand'
-  model = m.get_container(flatten=False)
-  for a in th.archi_string.split('-'):
-    if a == 'm':
-      model.add(m.mu.MaxPool1D(2, 2))
-    else:
-      filters = int(a)
-      model.add(m.mu.Conv1D(filters, th.kernel_size,
-                                 activation=th.activation))
-
-  return m.finalize(model)
+def model(): return m.get_data_fusion_model()
 
 
 def main(_):
@@ -35,10 +23,11 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepedf:20:0,1,2'
+  th.data_config = 'sleepedf:20:0,1'
 
   th.output_dim = 5
-  th.input_shape = [3000, 3]
+  channel_num = len(th.data_config.split(':')[2].split(','))
+  th.input_shape = [3000, channel_num]
 
   # --------------------------------------------------------------------------
   # 1. folder/file names and device
@@ -68,7 +57,7 @@ def main(_):
 
   th.train = True
   th.overwrite = True
-  th.use_gate = True
+  th.use_gate = False
   th.ratio = 0.3
   th.test_config = 'test-data:0,1'
   th.show_in_monitor = True

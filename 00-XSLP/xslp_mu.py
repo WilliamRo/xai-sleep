@@ -1,45 +1,15 @@
 from tframe import Classifier
 from tframe import mu
-
-from xslp_core import th
-from tframe.models import Recurrent
-from tframe.layers import Input, Activation
-
+from tframe.layers import Activation
 from tframe.layers.hyper.dense import Dense
 from tframe.configs.config_base import Config
 
+from xslp_core import th
 
-
-def get_container(flatten=False):
+def init_model(flatten=False):
   model = Classifier(mark=th.mark)
   model.add(mu.Input(sample_shape=th.input_shape))
-  if th.centralize_data: model.add(mu.Normalize(mu=th.data_mean))
   if flatten: model.add(mu.Flatten())
-  return model
-
-
-def finalize(model):
-  assert isinstance(model, Classifier)
-  model.add(mu.Dense(th.output_dim, use_bias=False, prune_frac=0.5))
-  model.add(mu.Activation('softmax'))
-
-  # Build model
-  # context.customized_loss_f_net = add_customized_loss_f_net
-  model.build(batch_metric=['accuracy'])
-  return model
-
-
-def typical(cells):
-  assert isinstance(th, Config)
-  # Initiate a model
-  model = Classifier(mark=th.mark, net_type=Recurrent)
-  # Add layers
-  model.add(Input(sample_shape=th.input_shape))
-  # Add hidden layers
-  if not isinstance(cells, (list, tuple)): cells = [cells]
-  for cell in cells: model.add(cell)
-  # Build model and return
-  output_and_build(model)
   return model
 
 
@@ -49,5 +19,57 @@ def output_and_build(model):
   # Add output layer
   model.add(Dense(num_neurons=th.output_dim))
   model.add(Activation('softmax'))
+  # Build model and return
+  model.build(metric='accuracy', batch_metric='accuracy')
+  return model
 
-  model.build(metric='accuracy', batch_metric='accuracy', last_only=True)
+def conv1d(kernel_size, filters, strides=1):
+  """Conv1D layer"""
+  return mu.Conv1D(filters, kernel_size, strides,
+                   use_batchnorm=th.use_batchnorm,
+                   activation=th.activation)
+
+def dilation_conv1d(kernel_size, filters, strides=1):
+  """Conv1D layer"""
+  return mu.Conv1D(filters, kernel_size, strides,
+                   use_batchnorm=th.use_batchnorm,
+                   activation=th.activation,
+                   dilation_rate=5)
+
+def maxpool(pool_size, strides):
+  """Maxpool layer"""
+  return mu.MaxPool1D(pool_size, strides)
+
+def dropout():
+  """Dropout"""
+  return mu.Dropout(0.5)
+
+def flatten():
+  return mu.Flatten()
+
+def feature_extracting_net(name, n=32):
+  return mu.ForkMergeDAG(vertices=[
+    [conv1d(50, 2*n, 6), maxpool(8, 8), dropout(), conv1d(8, 4*n),
+     conv1d(8, 4*n), conv1d(8, 4*n), maxpool(4, 4), flatten()],
+    [conv1d(400, 2*n, 50), maxpool(4, 4), dropout(), conv1d(6, 4*n),
+     conv1d(6, 4*n), conv1d(6, 4*n), maxpool(2, 2), flatten()],
+    [mu.Merge.Concat(axis=1), dropout()]],
+    edges='1;10;011', name=name)
+
+def xslp_net(name, n=32):
+  return mu.ForkMergeDAG(vertices=[
+    [conv1d(50, 2*n, 6), maxpool(8, 8), dropout(), conv1d(8, 4*n),
+     conv1d(8, 4*n), conv1d(8, 4*n), maxpool(4, 4)],
+    [conv1d(400, 2*n, 50), maxpool(4, 4), dropout(), conv1d(6, 4*n),
+     conv1d(6, 4*n), conv1d(6, 4*n), maxpool(2, 2)],
+    [mu.Merge.Concat(axis=1), dropout()],
+    [dilation_conv1d(6, n), dilation_conv1d(6, 2*n), dilation_conv1d(6, 4*n), dropout()],
+    [mu.Merge.Sum()]], edges='1;10;011;0001;00011', name=name)
+
+
+def get_model():
+  model = init_model()
+  model.add(xslp_net('xslp_net'))
+  model.add(flatten())
+  return output_and_build(model)
+

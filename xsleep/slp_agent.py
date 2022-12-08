@@ -51,7 +51,7 @@ class SLPAgent(DataAgent):
                 # Configure dataset (put thi block into right position)
                 configure = kwargs.get('configure', None)
                 if callable(configure):
-                    dataset = configure(dataset,channel_select=channel_select)
+                    dataset = configure(dataset, channel_select=channel_select)
                 else:
                     dataset.configure(channel_select=channel_select)
                 dataset.save(tfd_config_path)

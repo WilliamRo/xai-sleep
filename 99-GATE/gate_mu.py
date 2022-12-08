@@ -36,9 +36,11 @@ def feature_extracting_net(model):
       model.add(mu.Conv1D(filters, th.kernel_size,
                             activation=th.activation))
 
+def get_data_fusion_model():
+  model = get_container(flatten=False)
+  feature_extracting_net(model)
+  return finalize(model)
 
-def get_decision_fusion_model():
-  pass
 
 def get_feature_fusion_model():
   from tframe.nets.octopus import Octopus
@@ -62,5 +64,8 @@ def get_feature_fusion_model():
   oc.set_gates([1, 1])
 
   return finalize(model)
+
+def get_decision_fusion_model():
+  pass
 
 
