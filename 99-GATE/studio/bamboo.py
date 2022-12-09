@@ -7,11 +7,13 @@ import matplotlib.pyplot as plt
 
 
 sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_convnet\1128_s99_convnet.sum'
-sum_path1 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_convnet\1128_s99_convnet_zero.sum'
+sum_path1 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1130_s99_convnet_beta.sum'
+# sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\00-XSLP\02_Convnet\1208_s00_convnet.sum'
 
 # load notes
 notes = Note.load(sum_path)
 notes1 = Note.load(sum_path1)
+# notes2 = Note.load(sum_path2)
 
 # config
 ratio = [0.1 * i for i in range(11)]
@@ -43,12 +45,12 @@ for notes in notes_ratio_all1:
 
 def plotter(ax: plt.Axes):
   ax.plot(xlabel, mean_accuracy_all, color='red', linewidth=2, alpha=1,
-          marker='s', label='unknown')
+          marker='s', label='data_fusion')
   ax.plot(xlabel, mean_accuracy_all1, color='blue', linewidth=2, alpha=1,
-          marker='s', label='zero')
+          marker='s', label='feature_fusion')
   ax.set_xlabel('p(%)', loc='right')
   ax.set_ylabel('accuracy(%)', loc='top')
-  ax.set_title('data fusion',fontweight='bold', loc='center')
+  ax.set_title('unknown data',fontweight='bold', loc='center')
   ax.legend()
 
 p = Pictor(figure_size=(8, 5))

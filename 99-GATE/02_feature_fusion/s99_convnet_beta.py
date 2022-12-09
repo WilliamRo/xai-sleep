@@ -20,7 +20,7 @@ gpu_id = 0
 
 s.register('gather_summ_name', summ_name + '.sum')
 s.register('gpu_id', gpu_id)
-s.register('allow_growth', False)
+s.register('allow_growth', True)
 # -----------------------------------------------------------------------------
 # Set up your models and run
 # -----------------------------------------------------------------------------

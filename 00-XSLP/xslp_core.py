@@ -28,7 +28,6 @@ from xsleep.slp_config import SLPConfig as Hub
 from tframe import Classifier
 
 import xslp_du as du
-
 # -----------------------------------------------------------------------------
 # Initialize config and set data/job dir
 # -----------------------------------------------------------------------------
@@ -98,11 +97,12 @@ def activate():
 
     else:
       # Load data
+      import xslp_mu as mu
       train_set, val_set, test_set = du.load_data()
       if th.centralize_data: th.data_mean = train_set.feature_mean
 
       model.train(train_set, validation_set=val_set, test_set=test_set,
-                  trainer_hub=th)
+                  trainer_hub=th, evaluate=mu.add_cm_to_note)
 
       model = model.agent.launch_model
 

@@ -310,8 +310,6 @@ class SleepEDFx(SleepSet):
     from pictor.plotters import Monitor
     from tframe import hub as th
 
-    validate_data_index = self.label_index
-    validate_pre = 0
 
     # Initialize pictor and set objects
     p = Pictor(title='Sleep-EDFx', figure_size=(12, 8))
@@ -331,6 +329,8 @@ class SleepEDFx(SleepSet):
 
     predictions = np.array(th.predictions)
     if len(predictions) > 0:
+      validate_data_index = self.label_index
+      validate_pre = 0
       for index, sg in enumerate(self.signal_groups):
         validate_end = validate_data_index[index].shape[0] + validate_pre
         stages = sg.annotations[self.STAGE_KEY].annotations.copy()
