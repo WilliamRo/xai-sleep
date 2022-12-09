@@ -6,12 +6,12 @@ from tframe.configs.config_base import Config
 
 from xslp_core import th
 
+
 def init_model(flatten=False):
   model = Classifier(mark=th.mark)
   model.add(mu.Input(sample_shape=th.input_shape))
   if flatten: model.add(mu.Flatten())
   return model
-
 
 def output_and_build(model):
   assert isinstance(model, Classifier)
@@ -66,6 +66,12 @@ def xslp_net(name, n=32):
     [dilation_conv1d(6, n), dilation_conv1d(6, 2*n), dilation_conv1d(6, 4*n), dropout()],
     [mu.Merge.Sum()]], edges='1;10;011;0001;00011', name=name)
 
+# add confusion metrics to notes
+def add_cm_to_note(trainer):
+  model = trainer.model
+  assert isinstance(model, Classifier)
+  cm = model.evaluate_pro(trainer.test_set)
+  model.agent.add_to_note_misc('confusion_m', cm)
 
 def get_model():
   model = init_model()

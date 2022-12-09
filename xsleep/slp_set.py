@@ -220,7 +220,9 @@ class SleepSet(SequenceSet):
     features = self.features
     targets = self.targets
     # split data to train_set and test_data
-    test_index = [int(i) for i in th.test_config.split(':')[1].split(',')]
+    if th.test_config:
+      test_index = [int(i) for i in th.test_config.split(':')[1].split(',')]
+    else: test_index = [0,1]
     train_index = np.setdiff1d(np.arange(int(th.data_config.split(':')[1])), test_index)
     test_feature = np.vstack(np.array(features, dtype=object)[test_index])
     test_label = np.vstack(np.array(targets, dtype=object)[test_index])

@@ -8,10 +8,12 @@ import matplotlib.pyplot as plt
 
 sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_convnet\1128_s99_convnet.sum'
 sum_path1 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1130_s99_convnet_beta.sum'
+# sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\00-XSLP\02_Convnet\1208_s00_convnet.sum'
 
 # load notes
 notes = Note.load(sum_path)
 notes1 = Note.load(sum_path1)
+# notes2 = Note.load(sum_path2)
 
 # config
 ratio = [0.1 * i for i in range(11)]
