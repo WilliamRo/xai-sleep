@@ -57,10 +57,10 @@ def main(_):
 
   th.train = True
   th.overwrite = True
-  th.add_noise = False
+  th.add_noise = True
   th.ratio = 0
   th.test_config = 'test-data:0,1'
-  th.show_in_monitor = True
+  th.show_in_monitor = False
 
   th.print_cycle = 10
   th.save_model = True

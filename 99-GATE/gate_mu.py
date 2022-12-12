@@ -49,7 +49,7 @@ def get_feature_fusion_model():
   model = get_container(flatten=False)
   oc: Octopus = model.add(Octopus())
 
-  assert len(th.fusion_channels) == 2
+  assert len(th.fusion_channels) == 3
 
   # Input 1
   c = len(th.fusion_channels[0])
@@ -61,7 +61,12 @@ def get_feature_fusion_model():
   li = oc.init_a_limb('input-2', [3000, c])
   feature_extracting_net(li)
 
-  oc.set_gates([1, 1])
+  # Input 3
+  c = len(th.fusion_channels[2])
+  li = oc.init_a_limb('input-3', [3000, c])
+  feature_extracting_net(li)
+
+  oc.set_gates([1, 1, 1])
 
   return finalize(model)
 

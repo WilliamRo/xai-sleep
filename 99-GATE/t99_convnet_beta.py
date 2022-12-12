@@ -39,7 +39,7 @@ def main(_):
   # -------------------;a--------------------------------------------------------
   # 2. model setup
   # ---------------------------------------------------------------------------
-  th.channels = '0,1;2'
+  th.channels = '0;2;4'
   th.kernel_size = 3
   th.activation = 'relu'
   th.use_batchnorm = True
@@ -57,7 +57,7 @@ def main(_):
 
   th.train = True
   th.overwrite = True
-  th.use_gate = True
+  th.add_noise = True
   th.ratio = 0.3
   th.test_config = 'test-data:0,1'
   th.show_in_monitor = True

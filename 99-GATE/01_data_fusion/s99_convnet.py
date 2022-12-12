@@ -15,7 +15,7 @@ pass
 # -----------------------------------------------------------------------------
 # Specify summary file name and GPU ID here
 # -----------------------------------------------------------------------------
-summ_name = '1212_s99_EMG_no_noise.sum'
+summ_name = '1212_s99_allchn_noise_unknown'
 gpu_id = 0
 
 s.register('gather_summ_name', summ_name + '.sum')
@@ -28,9 +28,9 @@ s.register('train', True)
 s.register('epoch', 1000)
 s.register('patience', 15)
 
-# s.register('ratio', *[0.1*i for i in range(11)])
-data_configs = ['sleepedf:20:4']
+data_configs = ['sleepedf:20:0,2,4']
 s.register('data_config', *data_configs)
+s.register('ratio', *[0.1*i for i in range(11)])
 test_configs = [f'test_data:{2*i},{2*i+1}' for i in range(10)]
 s.register('test_config', *test_configs)
 s.configure_engine(times=3)
