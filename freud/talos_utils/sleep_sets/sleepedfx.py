@@ -19,6 +19,14 @@ class SleepEDFx(SleepSet):
   Reference: https://www.physionet.org/content/sleep-edfx/1.0.0/
   """
 
+  CHANNEL_NAMES = ['EEG Fpz-Cz',
+                   'EEG Pz-Oz',
+                   'EOG horizontal',
+                   'Resp oro-nasal',
+                   'EMG submental',
+                   'Temp rectal',
+                   'Event marker']
+
   # region: Data Loading
 
   @classmethod
