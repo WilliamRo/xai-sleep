@@ -29,7 +29,7 @@ s.register('epoch', 1000)
 s.register('patience', 15)
 
 # s.register('ratio', *[0.1*i for i in range(11)])
-data_configs = ['sleepedf:20:0', 'sleepedf:20:1', 'sleepedf:20:2']
+data_configs = ['sleepedf:20:0,1,2']
 s.register('data_config', *data_configs)
 test_configs = [f'test_data:{2*i},{2*i+1}' for i in range(10)]
 s.register('test_config', *test_configs)

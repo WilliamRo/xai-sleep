@@ -18,7 +18,7 @@ class SLPConfig(SmartTrainerHub):
 
   window_size = Flag.float(35, 'The number of epoch in a sample')
 
-  use_gate = Flag.boolean(False, 'Replace correct data with unknown data')
+  add_noise = Flag.boolean(False, 'Replace correct data with unknown data')
   test_config = Flag.string(None, 'the setting of cross validation', is_key=None)
   ratio = Flag.float(0.1, 'The number of epoch in a sample', is_key=None)
 

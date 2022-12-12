@@ -39,7 +39,7 @@ def main(_):
   # -------------------;a--------------------------------------------------------
   # 2. model setup
   # ---------------------------------------------------------------------------
-  th.channels = '0,1;2'
+  th.channels = '0;2;4'
   th.kernel_size = 3
   th.activation = 'relu'
   th.use_batchnorm = True
@@ -51,13 +51,14 @@ def main(_):
   th.epoch = 1000
   th.batch_size = 32
   th.dropout = 0.5
-  th.archi_string = '4-8-m-16-24-m-64'
+  th.archi_string = '8-8-m-16-16-m-64'
   th.optimizer = 'adam'
   th.learning_rate = 0.0001
 
+  th.rehearse = True
   th.train = True
   th.overwrite = True
-  th.use_gate = True
+  th.add_noise = True
   th.ratio = 0.3
   th.test_config = 'test-data:0,1'
   th.show_in_monitor = True

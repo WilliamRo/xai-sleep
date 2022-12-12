@@ -9,8 +9,8 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'feature_fusion'
-id = 2
+model_name = 'model_fusion'
+id = 3
 
 
 def model(): return m.get_decision_fusion_model()
