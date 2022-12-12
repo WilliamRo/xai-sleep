@@ -9,7 +9,7 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'convnet'
+model_name = 'data_fusion'
 id = 1
 
 
@@ -57,8 +57,8 @@ def main(_):
 
   th.train = True
   th.overwrite = True
-  th.use_gate = False
-  th.ratio = 0.3
+  th.add_noise = False
+  th.ratio = 0
   th.test_config = 'test-data:0,1'
   th.show_in_monitor = True
 

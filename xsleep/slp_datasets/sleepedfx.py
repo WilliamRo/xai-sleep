@@ -178,13 +178,13 @@ class SleepEDFx(SleepSet):
     from random import sample
 
     def data_preprocess(data):
-      # 滤波
-      b, a = signal.butter(7, 0.7, 'lowpass')
-      filted_data = signal.filtfilt(b, a, data)
+      # # 滤波
+      # b, a = signal.butter(7, 0.7, 'lowpass')
+      # filted_data = signal.filtfilt(b, a, data)
       # 归一化
-      arr_mean = np.mean(filted_data)
-      arr_std = np.std(filted_data)
-      precessed_data = (filted_data - arr_mean) / arr_std
+      arr_mean = np.mean(data)
+      arr_std = np.std(data)
+      precessed_data = (data - arr_mean) / arr_std
       return precessed_data
 
     # remove and save unknown data
@@ -221,7 +221,20 @@ class SleepEDFx(SleepSet):
       chn_names = [self.CHANNEL[channel_select]]
 
     for sg in self.signal_groups:
-      sg_data = np.stack([data_preprocess(sg[name]) for name in chn_names], axis=-1)
+      chn_data = []
+      for name in chn_names: # interpolate 1 Hz to 100 Hz
+        feq = float(sg.channel_signal_dict[name].label.split('=')[1])
+        if feq == 1:
+          from scipy import interpolate
+          x_old = np.linspace(0, 1, len(sg[name]))
+          y_old = sg[name]
+          x = np.linspace(0, 1, len(x_old)*100)
+          f = interpolate.interp1d(x_old, y_old, kind='linear')
+          y = f(x)
+          chn_data.append(y)
+        else:
+          chn_data.append(sg[name])
+      sg_data = np.stack([data_preprocess(data) for data in chn_data], axis=-1)
       if th.use_rnn is True:
         sg_data = data_preprocess(sg[chn_names[0]])
       sg_annotation = sg.annotations[self.STAGE_KEY].annotations
@@ -231,7 +244,7 @@ class SleepEDFx(SleepSet):
       select_label_index_total.append(label_index)
       unknown.extend(unknown_data)
 
-    if th.use_gate:
+    if th.add_noise:
       for index, feature in enumerate(features):
         target = targets[index]
         target_index = np.arange(len(target))

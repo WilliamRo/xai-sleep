@@ -3,7 +3,7 @@ from slp_datasets.sleepedfx import SleepEDFx
 
 
 th.use_gate = True
-th.data_config = 'sleepedf:20:0,1,2'
+th.data_config = 'sleepedf:1:1,4'
 th.ratio = 0
 th.overwrite = True
 th.show_in_monitor = False
