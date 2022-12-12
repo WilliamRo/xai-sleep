@@ -38,21 +38,40 @@ class SleepSet(SequenceSet):
 
   # region: Data Reading
 
-  @classmethod
-  def read_digital_signals(
-      cls,
+  @staticmethod
+  def read_digital_signals_mne(
       file_path: str,
-      channel_list: List[str] = None,
+      dtype=np.float32,
+      groups=None,
+  ) -> List[DigitalSignal]:
+    """Read .edf file using `mne` package.
+
+    :param groups: A list/tuple of channel names groups by sampling frequency.
+           If not provided, data will be read in a channel by channel fashion.
+    """
+    import mne.io
+
+
+    
+    return []
+
+
+  @staticmethod
+  def read_digital_signals(
+      file_path: str,
+      exclude=(),
       freq_spec: Optional[Union[dict, float, Callable]] = None,
-      use_package='pyedflib',
+      use_package='mne',
       dtype=np.float32,
   ) -> List[DigitalSignal]:
     """Read .edf file using `pyedflib` or `mne` package.
 
+    :param exclude: channels to exclude;
     :param freq_spec: frequency specification. If provided, it should be
            (1) a dictionary of '<chn_name>': <freq>, or
            (2) a float number specifying global frequency, or
            (3) a callable function with signature f(chn_name, freq).
+           This parameter should not be set unless necessary.
     """
     # Find corresponding methods for each package
     if use_package == 'pyedflib':
@@ -63,7 +82,8 @@ class SleepSet(SequenceSet):
       read_signal = lambda file, chn: file.readSignal(chn)
     elif use_package == 'mne':
       import mne.io
-      open_file = lambda fp: mne.io.read_raw_edf(fp, preload=False)
+      open_file = lambda fp: mne.io.read_raw_edf(
+        fp, exclude=exclude, preload=False, verbose=False)
       get_sfreq = lambda file, chn: file.info['sfreq']
       get_all_channels = lambda file: file.ch_names
       read_signal = lambda file, chn: file.get_data(chn).ravel()
@@ -74,10 +94,9 @@ class SleepSet(SequenceSet):
     with open_file(file_path) as file:
       # Find channels to load
       all_channels = get_all_channels(file)
-      if channel_list is None: channel_list = all_channels
 
       # Read channels
-      for channel_name in channel_list:
+      for channel_name in [cn for cn in all_channels if cn not in exclude]:
         # Get channel id
         chn = all_channels.index(channel_name)
 
@@ -101,9 +120,10 @@ class SleepSet(SequenceSet):
     digital_signals = []
     for frequency, signal_list in signal_dict.items():
       data = np.stack([x for _, x in signal_list], axis=-1).astype(dtype)
+      channel_names = [name for name, _ in signal_list]
       digital_signals.append(DigitalSignal(
-        data, channel_names=[name for name, _ in signal_list],
-        sfreq=frequency, label=f'Freq=' f'{frequency}'))
+        data, channel_names=channel_names,
+        sfreq=frequency, label=','.join(channel_names)))
 
     return digital_signals
 
@@ -122,15 +142,18 @@ if __name__ == '__main__':
     r'rrsh\JJF.edf',
   ][0]
 
-
-  pkg = ['pyedflib', 'mne'][1]
+  pkg = ['pyedflib', 'mne'][0]
 
   file_path = os.path.join(data_root, edf_path)
 
-  import mne.io
-  with mne.io.read_raw_edf(file_path) as file:
-    print()
+  exclude = [['EEG Fpz-Cz',
+              'EEG Pz-Oz',
+              'EOG horizontal'],
+             ['Resp oro-nasal',
+              'EMG submental',
+              'Temp rectal',
+              'Event marker']][0]
 
-
-  for ds in SleepSet.read_digital_signals(file_path, use_package=pkg):
+  for ds in SleepSet.read_digital_signals(file_path, use_package=pkg,
+                                          exclude=exclude):
     print(ds)
