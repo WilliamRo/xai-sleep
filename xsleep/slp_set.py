@@ -240,7 +240,7 @@ class SleepSet(SequenceSet):
 
     # Split channel if necessary
     if ';' in th.channels:
-      for i, channels in enumerate(self.fusion_channels(th.channels)):
+      for i, channels in enumerate(th.fusion_channels):
         test_set.data_dict[f'input-{i+1}'] = np.stack(
           [test_feature[:, :, int(c)] for c in channels], axis=-1
         )
@@ -276,9 +276,6 @@ class SleepSet(SequenceSet):
   # endregion: Data Configuration
 
   # region: Visualization
-
-  def fusion_channels(self, channels):
-    return [s.split(',') for s in channels.split(';')]
 
   def show(self):
     from pictor import Pictor

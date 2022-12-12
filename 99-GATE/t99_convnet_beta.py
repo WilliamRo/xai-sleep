@@ -51,10 +51,11 @@ def main(_):
   th.epoch = 1000
   th.batch_size = 32
   th.dropout = 0.5
-  th.archi_string = '4-8-m-16-24-m-64'
+  th.archi_string = '8-8-m-16-16-m-64'
   th.optimizer = 'adam'
   th.learning_rate = 0.0001
 
+  th.rehearse = True
   th.train = True
   th.overwrite = True
   th.add_noise = True
