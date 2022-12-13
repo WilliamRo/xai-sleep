@@ -1,7 +1,6 @@
 import sys
 sys.path.append('../')
 sys.path.append('../../')
-
 from tframe.utils.script_helper import Helper
 s = Helper()
 
@@ -15,7 +14,7 @@ pass
 # -----------------------------------------------------------------------------
 # Specify summary file name and GPU ID here
 # -----------------------------------------------------------------------------
-summ_name = '1212_s99_allchn_noise_unknown'
+summ_name = '1212_s99_allchn_noise_zero'
 gpu_id = 0
 
 s.register('gather_summ_name', summ_name + '.sum')

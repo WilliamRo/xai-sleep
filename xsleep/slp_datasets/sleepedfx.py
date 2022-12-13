@@ -68,7 +68,7 @@ class SleepEDFx(SleepSet):
     tfd_path = os.path.join(data_dir, f'{data_name}{suffix_k}{suffix}.tfds')
 
     # Load .tfd file directly if it exists
-    if os.path.exists(tfd_path): return cls.load(tfd_path)
+    # if os.path.exists(tfd_path): return cls.load(tfd_path)
 
     # Otherwise, wrap raw data into tframe data and save
     console.show_status(f'Loading raw data from `{data_dir}` ...')
@@ -139,18 +139,18 @@ class SleepEDFx(SleepSet):
       # (2) Read PSG file
       fn = os.path.join(data_dir, id[:7] + '0' + '-PSG.edf')
       assert os.path.exists(fn)
-      digital_signals: List[DigitalSignal] = cls.read_sleepedf_data_pyedflib(
-        fn, freq_modifier=lambda freq: freq / 30, label_index=label_index)
-
-      data_epoch_num = (digital_signals[0].length) // cls.TICKS_PER_EPOCH
+      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
+        fn, label_index=label_index)
+      data_epoch_num = int(digital_signals[0].length
+                           // (digital_signals[0].sfreq * 30))
       if len(labels) > data_epoch_num:
         for ds in digital_signals:
-          ds.sequence = ds.sequence[:data_epoch_num * int(float(ds.label.split('=')[1])) * 30]
-          ds.ticks = ds.ticks[:data_epoch_num * int(float(ds.label.split('=')[1])) * 30]
+          ds.data = ds.data[:int(data_epoch_num*ds.sfreq*30)]
           labels = labels[:data_epoch_num]
 
       # verify the length of stages and data
-      data_epoch_num = (digital_signals[0].length) // cls.TICKS_PER_EPOCH
+      data_epoch_num = int(digital_signals[0].length
+                           // (digital_signals[0].sfreq * 30))
       assert len(labels) == data_epoch_num
 
       # Wrap data into signal group
@@ -223,7 +223,7 @@ class SleepEDFx(SleepSet):
     for sg in self.signal_groups:
       chn_data = []
       for name in chn_names: # interpolate 1 Hz to 100 Hz
-        feq = float(sg.channel_signal_dict[name].label.split('=')[1])
+        feq = float(sg.channel_signal_dict[name].sfreq)
         if feq == 1:
           from scipy import interpolate
           x_old = np.linspace(0, 1, len(sg[name]))
@@ -255,7 +255,8 @@ class SleepEDFx(SleepSet):
           random_channel = [np.random.randint(0,len(chn_names),dtype=np.int) for j in range(len(chn_names)-1)]
           random_channel = list(set(random_channel))
           for i in random_channel:
-            feature[list(temp_index), i] = unknown[seed][:,i]
+            # feature[list(temp_index), i] = unknown[seed][:,i]
+            feature[list(temp_index), i] = 0
         features[index] = feature
         if th.show_in_monitor:
           sg = self.signal_groups[index]
@@ -300,10 +301,9 @@ class SleepEDFx(SleepSet):
 
       for ds in sg.digital_signals:
         # TODO
-        freq = int(float(ds.label.split('=')[1]))
+        freq = int(float(ds.sfreq))
         _start, _end = start * freq * 30, end * freq * 30
-        ds.ticks = ds.ticks[_start:_end]
-        ds.sequence = ds.sequence[_start:_end]
+        ds.data = ds.data[_start:_end]
 
   # endregion: Preprocess
 

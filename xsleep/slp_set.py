@@ -40,6 +40,57 @@ class SleepSet(SequenceSet):
   # endregion: APIs
 
   # region: Data IO
+  @classmethod
+  def read_digital_signals_mne(
+    self,
+    file_path: str,
+    groups=None,
+    dtype=np.float32,
+    label_index=None,
+  ) -> List[DigitalSignal]:
+    """Read .edf file using `mne` package.
+
+    :param groups: A list/tuple of channel names groups by sampling frequency.
+           If not provided, data will be read in a channel by channel fashion.
+    :param label_index: A list of selected label index
+    """
+    import mne.io
+
+    open_file = lambda exclude=(): mne.io.read_raw_edf(
+      file_path, exclude=exclude, preload=False, verbose=False)
+
+    # Initialize groups if not provided, otherwise get channel_names from groups
+    if groups is None:
+      with open_file() as file: channel_names = file.ch_names
+      groups = [[chn] for chn in channel_names]
+    else:
+      channel_names = [chn for g in groups for chn in g]
+
+    # Generate exclude lists
+    exclude_lists = [[chn for chn in channel_names if chn not in g]
+                     for g in groups]
+    # Read raw data
+    signal_dict = {}
+    for exclude_list in exclude_lists:
+      with open_file(exclude_list) as file:
+        sfreq = file.info['sfreq']
+        if sfreq not in signal_dict: signal_dict[sfreq] = []
+        select_index = np.intersect1d(np.arange(file.get_data().shape[1]),
+                                      label_index[sfreq])
+        # Read signal
+        signal_dict[sfreq].append((file.ch_names, file.get_data()[:,select_index]))
+
+    # Wrap data into DigitalSignals
+    digital_signals = []
+    for sfreq, signal_lists in signal_dict.items():
+      data = np.concatenate([x for _, x in signal_lists], axis=0)
+      data = np.transpose(data).astype(dtype)
+      channel_names = [name for names, _ in signal_lists for name in names]
+      digital_signals.append(DigitalSignal(
+        data, channel_names=channel_names, sfreq=sfreq,
+        label=','.join(channel_names)))
+
+    return digital_signals
 
   @classmethod
   def read_sleepedf_data_pyedflib(cls,
