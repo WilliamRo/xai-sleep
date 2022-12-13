@@ -6,9 +6,8 @@ import time
 
 
 
-data_root = r'E:\xai-sleep\data'
-edf_path = r'sleepedf\SC4001E0-PSG.edf'
-
+data_root = r'../../../../data/sleepedf'
+edf_path = r'SC4001E0-PSG.edf'
 file_path = os.path.join(data_root, edf_path)
 
 # -----------------------------------------------------------------------------

@@ -6,6 +6,7 @@ from tframe import console
 from typing import List
 
 import os
+import numpy as np
 
 
 
@@ -20,13 +21,13 @@ class SleepEDFx(SleepSet):
   Reference: https://www.physionet.org/content/sleep-edfx/1.0.0/
   """
 
-  CHANNEL_NAMES = ['EEG Fpz-Cz',
-                   'EEG Pz-Oz',
-                   'EOG horizontal',
-                   'Resp oro-nasal',
-                   'EMG submental',
-                   'Temp rectal',
+  CHANNEL_NAMES = ['EEG Fpz-Cz', 'EEG Pz-Oz', 'EOG horizontal',
+                   'Resp oro-nasal', 'EMG submental', 'Temp rectal',
                    'Event marker']
+
+  ANNO_LABELS = ['Sleep stage W', 'Sleep stage 1', 'Sleep stage 2',
+                 'Sleep stage 3', 'Sleep stage 4', 'Sleep stage R',
+                 'Movement time', 'Sleep stage ?']
 
   # region: Data Loading
 
@@ -82,23 +83,22 @@ class SleepEDFx(SleepSet):
 
       # (1) read psg data as digital signals
       digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
-        os.path.join(data_dir, psg_fn))
+        os.path.join(data_dir, psg_fn), dtype=np.float16)
 
       # (2) read annotation
-
-
+      annotation = cls.read_annotations_mne(
+        os.path.join(data_dir, hypno_fn), labels=cls.ANNO_LABELS)
 
       # Wrap data into signal group
       sg = SignalGroup(digital_signals, label=f'{id}')
-      sg.set_annotation(cls.STAGE_KEY, 30, np.array(labels), cls.STAGE_LABELS)
+      sg[cls.ANNO_KEY] = annotation
       signal_groups.append(sg)
 
       # Save sg if necessary
       if kwargs.get('save_sg'):
         console.show_status(f'Saving `{id}` to `{data_dir}` ...')
         console.print_progress(i, n_patients)
-        io.save_file(sg, xai_rec_path)
-
+        io.save_file(sg, sg_path)
 
     console.show_status(f'Successfully read {n_patients} files.')
     return signal_groups
@@ -111,6 +111,8 @@ if __name__ == '__main__':
   console.suppress_logging()
   data_dir = r'../../../data/sleepedf'
 
-  signal_groups = SleepEDFx.load_as_signal_groups(data_dir)
+  signal_groups = SleepEDFx.load_as_signal_groups(
+    data_dir, save_sg=True, overwrite=True)
+  print()
 
 

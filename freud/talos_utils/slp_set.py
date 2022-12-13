@@ -1,14 +1,18 @@
-import os
+import mne
 
-from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
+from pictor.objects.signals.digital_signal import DigitalSignal
+from pictor.objects.signals.signal_group import SignalGroup, Annotation
 from tframe.data.sequences.seq_set import SequenceSet
 from typing import List, Optional, Union, Callable
 
 import numpy as np
+import os
 
 
 
 class SleepSet(SequenceSet):
+
+  ANNO_KEY = 'ANNOTATION-0'
 
   # region: Properties
 
@@ -86,6 +90,29 @@ class SleepSet(SequenceSet):
         label=','.join(channel_names)))
 
     return digital_signals
+
+
+  @staticmethod
+  def read_annotations_mne(file_path: str, labels=None) -> Annotation:
+    """Read annotations using `mne` package"""
+
+    from mne import read_annotations
+
+    # Read mne.Annotations
+    mne_anno: mne.Annotations = read_annotations(file_path)
+
+    # Automatically generate labels if necessary
+    if labels is None: labels = list(sorted(set(mne_anno.description)))
+
+    # Read intervals and annotations
+    intervals, annotations = [], []
+    label2int = {lb: i for i, lb in enumerate(labels)}
+    for onset, duration, label in zip(
+        mne_anno.onset, mne_anno.duration, mne_anno.description):
+      intervals.append((onset, onset + duration))
+      annotations.append(label2int[label])
+
+    return Annotation(intervals, annotations, labels=labels)
 
   # endregion: Data Reading
 
