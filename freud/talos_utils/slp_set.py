@@ -36,7 +36,8 @@ class SleepSet(SequenceSet):
 
   @classmethod
   def load_as_sleep_set(cls, data_dir, **kwargs) -> SequenceSet:
-    raise NotImplementedError
+    sg = cls.load_as_signal_groups(data_dir)
+    return cls(name=str(cls.__class__), signal_groups=sg)
 
   # endregion: Abstract Methods
 
@@ -115,6 +116,21 @@ class SleepSet(SequenceSet):
     return Annotation(intervals, annotations, labels=labels)
 
   # endregion: Data Reading
+
+  # region: Visualization
+
+  def show(self):
+    from pictor import Pictor
+    from pictor.plotters import Monitor
+
+    # Initialize pictor and set objects
+    p = Pictor(title=str(self.__class__.__name__), figure_size=(12, 8))
+    p.objects = self.signal_groups
+
+    m: Monitor = p.add_plotter(Monitor())
+    p.show()
+
+  # endregion: Visualization
 
 
 
