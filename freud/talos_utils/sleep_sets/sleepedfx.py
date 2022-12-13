@@ -1,6 +1,7 @@
 from freud.talos_utils.slp_set import SleepSet
 from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
 from roma.spqr.finder import walk
+from roma import io
 from tframe import console
 from typing import List
 
@@ -61,11 +62,42 @@ class SleepEDFx(SleepSet):
     for i, hypno_fn in enumerate(hypno_file_names):
       # Parse patient ID and get find PSG file name
       id = hypno_fn.split('-')[0][:7]
+
+      # If the corresponding .sg file exists, read it directly
+      sg_path = os.path.join(data_dir, id + '(raw)' + '.sg')
+      console_symbol = f'[{i + 1}/{n_patients}]'
+      if os.path.exists(sg_path) and not kwargs.get('overwrite', False):
+        console.show_status(
+          f'Loading `{id}` from {data_dir} ...', symbol=console_symbol)
+        console.print_progress(i, n_patients)
+        sg = io.load_file(sg_path)
+        signal_groups.append(sg)
+        continue
+
+      # Otherwise, create sg from raw file
+      console.show_status(f'Reading `{id}` data ...', symbol=console_symbol)
+      console.print_progress(i, n_patients)
+
       psg_fn = f'{id}0-PSG.edf'
 
-      console.show_status(f'Reading `{id}` data ...',
-                          symbol=f'[{i+1}/{n_patients}]')
-      console.print_progress(i, n_patients)
+      # (1) read psg data as digital signals
+      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
+        os.path.join(data_dir, psg_fn))
+
+      # (2) read annotation
+
+
+
+      # Wrap data into signal group
+      sg = SignalGroup(digital_signals, label=f'{id}')
+      sg.set_annotation(cls.STAGE_KEY, 30, np.array(labels), cls.STAGE_LABELS)
+      signal_groups.append(sg)
+
+      # Save sg if necessary
+      if kwargs.get('save_sg'):
+        console.show_status(f'Saving `{id}` to `{data_dir}` ...')
+        console.print_progress(i, n_patients)
+        io.save_file(sg, xai_rec_path)
 
 
     console.show_status(f'Successfully read {n_patients} files.')
