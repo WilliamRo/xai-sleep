@@ -111,9 +111,6 @@ class SleepEDFx(SleepSet):
     if first_k is not None and first_k != '':
       hypnogram_file_list = hypnogram_file_list[:int(first_k)]
     N = len(hypnogram_file_list)
-    print('*' * 20)
-    print("patient_num:", N)
-    print('*' * 20)
     # Read records in order
     for i, hypnogram_file in enumerate(hypnogram_file_list):
       # Get id
