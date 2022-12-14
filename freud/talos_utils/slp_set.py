@@ -2,7 +2,7 @@ from pictor.objects.signals.digital_signal import DigitalSignal
 from pictor.objects.signals.signal_group import SignalGroup, Annotation
 from tframe.data.sequences.seq_set import SequenceSet
 from typing import List, Optional, Union, Callable
-from roma import console
+from tframe import console
 from roma import io
 
 import numpy as np
@@ -48,6 +48,7 @@ class SleepSet(SequenceSet):
       file_path: str,
       groups=None,
       dtype=np.float32,
+      **kwargs
   ) -> List[DigitalSignal]:
     """Read .edf file using `mne` package.
 
@@ -55,6 +56,11 @@ class SleepSet(SequenceSet):
            If not provided, data will be read in a channel by channel fashion.
     """
     import mne.io
+
+    # Rename file if necessary
+    if file_path[-4:] != '.edf' and kwargs.get('allow_rename', False):
+      os.rename(file_path, file_path + '.edf')
+      file_path += '.edf'
 
     open_file = lambda exclude=(): mne.io.read_raw_edf(
       file_path, exclude=exclude, preload=False, verbose=False)
@@ -115,6 +121,31 @@ class SleepSet(SequenceSet):
     return Annotation(intervals, annotations, labels=labels)
 
   # region: Common Utilities
+
+  @staticmethod
+  def try_to_load_sg_directly(
+      pid, sg_path, n_patients, i, signal_groups, **kwargs):
+    console_symbol = f'[{i + 1}/{n_patients}]'
+    if os.path.exists(sg_path) and not kwargs.get('overwrite', False):
+      console.show_status(
+        f'Loading `{pid}` data from `{sg_path}` ...', symbol=console_symbol)
+      console.print_progress(i, n_patients)
+      sg = io.load_file(sg_path)
+      signal_groups.append(sg)
+      return True
+
+    # Otherwise, create sg from raw file
+    console.show_status(f'Reading `{pid}` data ...', symbol=console_symbol)
+    console.print_progress(i, n_patients)
+    return False
+
+  @staticmethod
+  def save_sg_file_if_necessary(pid, sg_path, n_patients, i, sg, **kwargs):
+    if kwargs.get('save_sg', True):
+      console.show_status(f'Saving `{pid}` data ...')
+      console.print_progress(i, n_patients)
+      io.save_file(sg, sg_path)
+      console.show_status(f'Data saved to `{sg_path}`.')
 
   # endregion: Common Utilities
 

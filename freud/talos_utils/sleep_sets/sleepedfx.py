@@ -1,7 +1,6 @@
 from freud.talos_utils.slp_set import SleepSet
 from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
 from roma.spqr.finder import walk
-from roma import io
 from tframe import console
 from typing import List
 
@@ -62,24 +61,15 @@ class SleepEDFx(SleepSet):
     n_patients = len(hypno_file_names)
     for i, hypno_fn in enumerate(hypno_file_names):
       # Parse patient ID and get find PSG file name
-      id = hypno_fn.split('-')[0][:7]
+      pid = hypno_fn.split('-')[0][:7]
 
       # If the corresponding .sg file exists, read it directly
-      sg_path = os.path.join(data_dir, id + '(raw)' + '.sg')
-      console_symbol = f'[{i + 1}/{n_patients}]'
-      if os.path.exists(sg_path) and not kwargs.get('overwrite', False):
-        console.show_status(
-          f'Loading `{id}` from {data_dir} ...', symbol=console_symbol)
-        console.print_progress(i, n_patients)
-        sg = io.load_file(sg_path)
-        signal_groups.append(sg)
-        continue
+      sg_path = os.path.join(data_dir, pid + '(raw)' + '.sg')
+      if cls.try_to_load_sg_directly(pid, sg_path, n_patients, i,
+                                      signal_groups, **kwargs): continue
 
-      # Otherwise, create sg from raw file
-      console.show_status(f'Reading `{id}` data ...', symbol=console_symbol)
-      console.print_progress(i, n_patients)
-
-      psg_fn = f'{id}0-PSG.edf'
+      # Create sg from raw file
+      psg_fn = f'{pid}0-PSG.edf'
 
       # (1) read psg data as digital signals
       digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
@@ -90,15 +80,12 @@ class SleepEDFx(SleepSet):
         os.path.join(data_dir, hypno_fn), labels=cls.ANNO_LABELS)
 
       # Wrap data into signal group
-      sg = SignalGroup(digital_signals, label=f'{id}')
+      sg = SignalGroup(digital_signals, label=f'{pid}')
       sg.annotations[cls.ANNO_KEY] = annotation
       signal_groups.append(sg)
 
       # Save sg if necessary
-      if kwargs.get('save_sg', True):
-        console.show_status(f'Saving `{id}` to `{data_dir}` ...')
-        console.print_progress(i, n_patients)
-        io.save_file(sg, sg_path)
+      cls.save_sg_file_if_necessary(pid, sg_path, n_patients, i, sg, **kwargs)
 
     console.show_status(f'Successfully read {n_patients} files.')
     return signal_groups
@@ -114,11 +101,11 @@ if __name__ == '__main__':
   data_dir = r'../../../data/sleepedf'
 
   tic = time.time()
-  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0)
+  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=1)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
 
-  ds.show()
+  # ds.show()
 
 
