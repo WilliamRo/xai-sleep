@@ -33,7 +33,7 @@ class SleepEDFx(SleepSet):
 
   @classmethod
   def load_as_signal_groups(cls, data_dir, **kwargs) -> List[SignalGroup]:
-    """Directory structure of raw dataset:
+    """Directory structure of SleepEDFx dataset is as follows:
 
        sleep-edf-database-expanded-1.0.0
          |- sleep-cassette
@@ -91,11 +91,11 @@ class SleepEDFx(SleepSet):
 
       # Wrap data into signal group
       sg = SignalGroup(digital_signals, label=f'{id}')
-      sg[cls.ANNO_KEY] = annotation
+      sg.annotations[cls.ANNO_KEY] = annotation
       signal_groups.append(sg)
 
       # Save sg if necessary
-      if kwargs.get('save_sg'):
+      if kwargs.get('save_sg', True):
         console.show_status(f'Saving `{id}` to `{data_dir}` ...')
         console.print_progress(i, n_patients)
         io.save_file(sg, sg_path)
@@ -108,11 +108,17 @@ class SleepEDFx(SleepSet):
 
 
 if __name__ == '__main__':
+  import time
+
   console.suppress_logging()
   data_dir = r'../../../data/sleepedf'
 
-  signal_groups = SleepEDFx.load_as_signal_groups(
-    data_dir, save_sg=True, overwrite=True)
-  print()
+  tic = time.time()
+  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0)
+
+  elapsed = time.time() - tic
+  console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
+
+  ds.show()
 
 

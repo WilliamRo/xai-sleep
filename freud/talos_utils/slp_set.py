@@ -1,9 +1,9 @@
-import mne
-
 from pictor.objects.signals.digital_signal import DigitalSignal
 from pictor.objects.signals.signal_group import SignalGroup, Annotation
 from tframe.data.sequences.seq_set import SequenceSet
 from typing import List, Optional, Union, Callable
+from roma import console
+from roma import io
 
 import numpy as np
 import os
@@ -12,7 +12,7 @@ import os
 
 class SleepSet(SequenceSet):
 
-  ANNO_KEY = 'ANNOTATION-0'
+  ANNO_KEY = 'stage Ground-Truth'
 
   # region: Properties
 
@@ -36,7 +36,7 @@ class SleepSet(SequenceSet):
 
   @classmethod
   def load_as_sleep_set(cls, data_dir, **kwargs) -> SequenceSet:
-    sg = cls.load_as_signal_groups(data_dir)
+    sg = cls.load_as_signal_groups(data_dir, **kwargs)
     return cls(name=str(cls.__class__), signal_groups=sg)
 
   # endregion: Abstract Methods
@@ -96,11 +96,10 @@ class SleepSet(SequenceSet):
   @staticmethod
   def read_annotations_mne(file_path: str, labels=None) -> Annotation:
     """Read annotations using `mne` package"""
-
-    from mne import read_annotations
+    import mne
 
     # Read mne.Annotations
-    mne_anno: mne.Annotations = read_annotations(file_path)
+    mne_anno: mne.Annotations = mne.read_annotations(file_path)
 
     # Automatically generate labels if necessary
     if labels is None: labels = list(sorted(set(mne_anno.description)))
@@ -114,6 +113,10 @@ class SleepSet(SequenceSet):
       annotations.append(label2int[label])
 
     return Annotation(intervals, annotations, labels=labels)
+
+  # region: Common Utilities
+
+  # endregion: Common Utilities
 
   # endregion: Data Reading
 
