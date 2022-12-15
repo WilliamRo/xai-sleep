@@ -54,8 +54,13 @@ class SleepSet(SequenceSet):
 
     :param groups: A list/tuple of channel names groups by sampling frequency.
            If not provided, data will be read in a channel by channel fashion.
+    :param max_sfreq: maximum sampling frequency
+    :param allow_rename: option to allow rename file when target extension is
+           not .edf.
     """
     import mne.io
+
+    max_sfreq = kwargs.get('max_sfreq', None)
 
     # Rename file if necessary
     if file_path[-4:] != '.edf' and kwargs.get('allow_rename', False):
@@ -81,9 +86,14 @@ class SleepSet(SequenceSet):
     for exclude_list in exclude_lists:
       with open_file(exclude_list) as file:
         sfreq = file.info['sfreq']
-        if sfreq not in signal_dict: signal_dict[sfreq] = []
+
+        # Resample to `max_sfreq` if necessary
+        if max_sfreq is not None and sfreq > max_sfreq:
+          file.resample(max_sfreq)
+          sfreq = max_sfreq
 
         # Read signal
+        if sfreq not in signal_dict: signal_dict[sfreq] = []
         signal_dict[sfreq].append((file.ch_names, file.get_data()))
 
     # Wrap data into DigitalSignals
@@ -153,7 +163,7 @@ class SleepSet(SequenceSet):
 
   # region: Visualization
 
-  def show(self):
+  def show(self, *funcs, **kwargs):
     from pictor import Pictor
     from pictor.plotters import Monitor
 
@@ -162,6 +172,11 @@ class SleepSet(SequenceSet):
     p.objects = self.signal_groups
 
     m: Monitor = p.add_plotter(Monitor())
+
+    for func in funcs:
+      if callable(func): func(m)
+
+    for k, v in kwargs.items(): m.set(k, v, auto_refresh=False)
     p.show()
 
   # endregion: Visualization
