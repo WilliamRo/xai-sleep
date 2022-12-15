@@ -164,20 +164,16 @@ class SleepSet(SequenceSet):
   # region: Visualization
 
   def show(self, *funcs, **kwargs):
-    from pictor import Pictor
-    from pictor.plotters import Monitor
+    from freud.gui.freud_gui import Freud
 
     # Initialize pictor and set objects
-    p = Pictor(title=str(self.__class__.__name__), figure_size=(12, 8))
-    p.objects = self.signal_groups
+    freud = Freud(title=str(self.__class__.__name__))
+    freud.objects = self.signal_groups
 
-    m: Monitor = p.add_plotter(Monitor())
+    for func in [func for func in funcs if callable(func)]: func(freud.monitor)
 
-    for func in funcs:
-      if callable(func): func(m)
-
-    for k, v in kwargs.items(): m.set(k, v, auto_refresh=False)
-    p.show()
+    for k, v in kwargs.items(): freud.monitor.set(k, v, auto_refresh=False)
+    freud.show()
 
   # endregion: Visualization
 
