@@ -68,7 +68,7 @@ class SleepEDFx(SleepSet):
     tfd_path = os.path.join(data_dir, f'{data_name}{suffix_k}{suffix}.tfds')
 
     # Load .tfd file directly if it exists
-    # if os.path.exists(tfd_path): return cls.load(tfd_path)
+    if os.path.exists(tfd_path): return cls.load(tfd_path)
 
     # Otherwise, wrap raw data into tframe data and save
     console.show_status(f'Loading raw data from `{data_dir}` ...')
@@ -252,8 +252,8 @@ class SleepEDFx(SleepSet):
           random_channel = [np.random.randint(0,len(chn_names),dtype=np.int) for j in range(len(chn_names)-1)]
           random_channel = list(set(random_channel))
           for i in random_channel:
-            # feature[list(temp_index), i] = unknown[seed][:,i]
-            feature[list(temp_index), i] = 0
+            feature[list(temp_index), i] = unknown[seed][:,i]
+            # feature[list(temp_index), i] = 0
         features[index] = feature
         if th.show_in_monitor:
           sg = self.signal_groups[index]

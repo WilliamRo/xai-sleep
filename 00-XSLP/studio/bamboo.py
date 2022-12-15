@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 # sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\00-XSLP\02_convnet\1208_s00_convnet.sum'
-sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\00-XSLP\02_convnet\1210_s00_convnet.sum'
+sum_path = r'/01_data_fusion\1210_s00_convnet.sum'
 
 # load notes
 notes = Note.load(sum_path)

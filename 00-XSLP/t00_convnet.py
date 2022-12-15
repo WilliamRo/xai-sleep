@@ -9,11 +9,11 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'Convnet'
-id = 2
+model_name = 'data_fusion'
+id = 1
 
 
-def model(): return m.get_model()
+def model(): return m.get_data_fusion_model()
 
 def main(_):
   console.start('{} on sleep stage task'.format(model_name.upper()))
