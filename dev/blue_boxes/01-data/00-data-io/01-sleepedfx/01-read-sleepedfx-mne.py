@@ -6,7 +6,7 @@ import time
 
 
 
-data_root = r'../../../../data/sleepedf'
+data_root = r'../../../../../data/sleepedf'
 edf_path = r'SC4001E0-PSG.edf'
 file_path = os.path.join(data_root, edf_path)
 

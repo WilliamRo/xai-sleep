@@ -9,32 +9,21 @@ import numpy as np
 
 
 
-class SleepEDFx(SleepSet):
-  """The sleep-edf database contains 197 whole-night PolySomnoGraphic sleep
-  recordings, containing EEG, EOG, chin EMG, and event markers. Some records
-  also contain respiration and body temperature. Corresponding hypnograms
-  (sleep patterns) were manually scored by well-trained technicians according
-  to the Rechtschaffen and Kales manual, and are also available.
-   The data comes from two studies, ...
-
-  Reference: https://www.physionet.org/content/sleep-edfx/1.0.0/
+class RRSHSC(SleepSet):
+  """
   """
 
-  CHANNEL_NAMES = ['EEG Fpz-Cz', 'EEG Pz-Oz', 'EOG horizontal',
-                   'Resp oro-nasal', 'EMG submental', 'Temp rectal',
-                   'Event marker']
+  CHANNEL_NAMES = []
 
-  ANNO_LABELS = ['Sleep stage W', 'Sleep stage 1', 'Sleep stage 2',
-                 'Sleep stage 3', 'Sleep stage 4', 'Sleep stage R',
-                 'Movement time', 'Sleep stage ?']
+  ANNO_LABELS = []
 
   # region: Data Loading
 
   @classmethod
   def load_as_signal_groups(cls, data_dir, **kwargs) -> List[SignalGroup]:
-    """Directory structure of SleepEDFx dataset is as follows:
+    """Directory structure of XXXXXX dataset is as follows:
 
-       sleep-edf-database-expanded-1.0.0
+       xxxxxxxxxx
          |- sleep-cassette
             |- SC4001E0-PSG.edf
             |- SC4001EC-Hypnogram.edf
@@ -44,8 +33,6 @@ class SleepEDFx(SleepSet):
             |- ST7011JP-Hypnogram.edf
             |- ...
 
-    However, this method supports loading SleepEDFx data from arbitrary
-    folder, given that this folder contains SleepEDFx data.
 
     Parameters
     ----------
