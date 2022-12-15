@@ -101,11 +101,11 @@ if __name__ == '__main__':
   data_dir = r'../../../data/sleepedf'
 
   tic = time.time()
-  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=1)
+  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
 
-  # ds.show()
+  ds.show()
 
 
