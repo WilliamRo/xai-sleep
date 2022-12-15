@@ -23,10 +23,11 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepedf:20:0,1,2'
+  th.data_config = 'sleepedf:20:0,2,4'
 
   th.output_dim = 5
-  th.input_shape = [3000, 3]
+  channel_num = len(th.data_config.split(':')[2].split(','))
+  th.input_shape = [3000, channel_num]
 
   # --------------------------------------------------------------------------
   # 1. folder/file names and device
@@ -40,11 +41,12 @@ def main(_):
   # 2. model setup
   # ---------------------------------------------------------------------------
   th.channels = '0;1;2'
+
+  th.model = model
   th.kernel_size = 3
   th.activation = 'relu'
   th.use_batchnorm = True
 
-  th.model = model
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
@@ -55,13 +57,12 @@ def main(_):
   th.optimizer = 'adam'
   th.learning_rate = 0.0001
 
-  th.rehearse = True
   th.train = True
   th.overwrite = True
   th.add_noise = True
-  th.ratio = 0.3
+  th.ratio = 0
   th.test_config = 'test-data:0,1'
-  th.show_in_monitor = True
+  th.show_in_monitor = False
 
   th.print_cycle = 10
   th.save_model = True

@@ -68,7 +68,7 @@ class SleepEDFx(SleepSet):
     tfd_path = os.path.join(data_dir, f'{data_name}{suffix_k}{suffix}.tfds')
 
     # Load .tfd file directly if it exists
-    if os.path.exists(tfd_path): return cls.load(tfd_path)
+    # if os.path.exists(tfd_path): return cls.load(tfd_path)
 
     # Otherwise, wrap raw data into tframe data and save
     console.show_status(f'Loading raw data from `{data_dir}` ...')
