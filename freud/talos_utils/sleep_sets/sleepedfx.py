@@ -49,8 +49,7 @@ class SleepEDFx(SleepSet):
 
     Parameters
     ----------
-    :param data_dir - a directory contains pairs of *-PSG.edf and
-                      *-Hypnogram.edf
+    :param data_dir: a directory contains pairs of *-PSG.edf and *-Hypnogram.edf
     """
 
     signal_groups: List[SignalGroup] = []
