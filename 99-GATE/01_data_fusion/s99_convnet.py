@@ -14,7 +14,7 @@ pass
 # -----------------------------------------------------------------------------
 # Specify summary file name and GPU ID here
 # -----------------------------------------------------------------------------
-summ_name = '1212_s99_allchn_noise_zero'
+summ_name = '1217_s99_allchn_noise_unknown_gate'
 gpu_id = 0
 
 s.register('gather_summ_name', summ_name + '.sum')

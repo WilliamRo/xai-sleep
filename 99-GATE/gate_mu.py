@@ -4,10 +4,11 @@ from tframe.models import Recurrent
 from tframe.layers import Input, Activation
 from tframe.layers.hyper.dense import Dense
 from tframe.configs.config_base import Config
+from layer.gconv import GatedConv1D
 
 from gate_core import th
 
-
+# region: input and output
 def get_container(flatten=False):
   model = Classifier(mark=th.mark)
   model.add(mu.Input(sample_shape=th.input_shape))
@@ -15,17 +16,22 @@ def get_container(flatten=False):
   if flatten: model.add(mu.Flatten())
   return model
 
-
 def finalize(model):
   assert isinstance(model, Classifier)
   model.add(mu.Flatten())
   model.add(mu.Dense(th.output_dim, use_bias=False, prune_frac=0.5))
   model.add(mu.Activation('softmax'))
-
   # Build model
   # context.customized_loss_f_net = add_customized_loss_f_net
   model.build(batch_metric=['accuracy'])
   return model
+# endregion: input and output
+
+def conv1d(filters, kernel_size, strides=1):
+  """Conv1D layer"""
+  return mu.Conv1D(filters, kernel_size, strides,
+                   use_batchnorm=th.use_batchnorm,
+                   activation=th.activation)
 
 def feature_extracting_net(model):
   for a in th.archi_string.split('-'):
@@ -33,14 +39,23 @@ def feature_extracting_net(model):
       model.add(mu.MaxPool1D(2, 2))
     else:
       filters = int(a)
-      model.add(mu.Conv1D(filters, th.kernel_size,
-                            activation=th.activation))
+      model.add(conv1d(filters, th.kernel_size))
 
+# region: build model
 def get_data_fusion_model():
   model = get_container(flatten=False)
+  # add feature_extract net
   feature_extracting_net(model)
   return finalize(model)
-
+def get_data_fusion_model_gate():
+  model = get_container(flatten=False)
+  # add gate
+  model.add(GatedConv1D(filters=32, kernel_size=5,
+                        activation=th.activation,
+                        use_batchnorm=th.use_batchnorm))
+  # add feature_extract net
+  feature_extracting_net(model)
+  return finalize(model)
 
 def get_feature_fusion_model():
   from tframe.nets.octopus import Octopus
@@ -68,10 +83,9 @@ def get_feature_fusion_model():
   feature_extracting_net(li)
 
   oc.set_gates([1, 1, 1])
-
   return finalize(model)
 
 def get_decision_fusion_model():
   pass
-
+# endregion: build model
 

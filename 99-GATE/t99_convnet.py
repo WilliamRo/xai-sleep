@@ -13,7 +13,7 @@ model_name = 'data_fusion'
 id = 1
 
 
-def model(): return m.get_data_fusion_model()
+def model(): return m.get_data_fusion_model_gate()
 
 
 def main(_):
@@ -52,6 +52,7 @@ def main(_):
   th.batch_size = 32
   th.dropout = 0.5
   th.archi_string = '16-16-m-32-32-m-64'
+
   th.optimizer = 'adam'
   th.learning_rate = 0.0001
 

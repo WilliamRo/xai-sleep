@@ -57,6 +57,7 @@ def main(_):
 
   th.optimizer = 'adam'
   th.learning_rate = 0.0001
+  th.rehearse = True
   th.train = True
   th.overwrite = True
   th.print_cycle = 10
