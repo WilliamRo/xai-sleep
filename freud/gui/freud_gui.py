@@ -14,7 +14,7 @@ class Freud(Pictor, DialogUtilities):
   def __init__(self, title='Freud', figure_size=(12, 8)):
     super(Freud, self).__init__(title, figure_size=figure_size)
 
-    self.monitor = self.add_plotter(SleepMonitor())
+    self.monitor = self.add_plotter(SleepMonitor(self))
 
   # region: Commands
 
@@ -41,4 +41,5 @@ class Freud(Pictor, DialogUtilities):
 
 if __name__ == '__main__':
   freud = Freud()
+  # freud.shortcuts.register_key_event()
   freud.show()
