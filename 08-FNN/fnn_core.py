@@ -24,7 +24,7 @@ for _ in range(DIR_DEPTH):
 from tframe import console
 from tframe import Predictor
 
-from freud.talos_utils.slp_config import SLPConfig as Hub
+from freud.talos_utils.slp_config import SleepConfig as Hub
 
 import fnn_du as du
 

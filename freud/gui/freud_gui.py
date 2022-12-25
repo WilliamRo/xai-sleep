@@ -41,5 +41,4 @@ class Freud(Pictor, DialogUtilities):
 
 if __name__ == '__main__':
   freud = Freud()
-  # freud.shortcuts.register_key_event()
   freud.show()
