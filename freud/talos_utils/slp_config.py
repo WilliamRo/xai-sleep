@@ -6,6 +6,9 @@ from tframe.configs.config_base import Flag
 
 class SleepConfig(SmartTrainerHub):
 
+  balance_training_stages = Flag.boolean(
+    True, 'Whether to balance training stages', is_key=None)
+
   @property
   def data_name(self):
     return Arguments.parse(self.data_config).func_name

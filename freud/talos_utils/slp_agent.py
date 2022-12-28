@@ -1,4 +1,5 @@
 from typing import List
+from freud.talos_utils.slp_config import SleepConfig
 from freud.talos_utils.slp_set import SleepSet
 from freud.talos_utils.sleep_sets.sleepedfx import SleepEDFx
 from freud.talos_utils.sleep_sets.ucddb import UCDDB
@@ -22,9 +23,7 @@ class SleepAgent(DataAgent):
   `SleepAgent.register_dataset` method.
   """
 
-  roster = {
-    'sleepedfx': SleepEDFx, 'ucddb': UCDDB, 'rrshv1': RRSHSCv1
-  }
+  roster = {'sleepedfx': SleepEDFx, 'ucddb': UCDDB, 'rrshv1': RRSHSCv1}
 
 
   @classmethod
@@ -37,7 +36,6 @@ class SleepAgent(DataAgent):
     """Load data as tframe dataset. The data loading method must be implemented
     in the corresponding subclass of SleepSet
     """
-    from freud.talos_utils.slp_config import SleepConfig
     assert isinstance(th, SleepConfig)
 
     if th.data_name not in cls.roster:

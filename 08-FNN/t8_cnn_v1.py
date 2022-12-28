@@ -15,21 +15,27 @@ def model():
   th = core.th
   model = m.get_initial_model()
 
-  n_filter = int(th.archi_string.split('-')[0])
-  model.add(Donut2D(n_filter, kernel_size=th.kernel_size))
-  m.mu.UNet(2, arc_string=th.archi_string).add_to(model)
-  return m.finalize(model)
+  for layer in th.archi_string.split('-'):
+    if layer[0] == 's': stride, c = 2, int(layer[1:])
+    else: stride, c = 1, int(layer)
+
+    model.add(m.mu.HyperConv1D(
+      c, th.kernel_size, stride, activation='relu',
+      use_batchnorm=th.use_batchnorm))
+
+  return m.finalize(model, flatten=True)
 
 
 def main(_):
   console.start('{} on FNN-SSC task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = False
+  th.rehearse = 0
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
   th.data_config = ''
+  th.input_shape = [3000, 2]
 
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
@@ -47,8 +53,7 @@ def main(_):
   th.kernel_size = 3
   th.activation = 'relu'
 
-  # TODO
-  th.archi_string = ''
+  th.archi_string = '128-s128-s128-s64-s32'
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
@@ -65,9 +70,7 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
-  th.mark = '{}({})'.format(
-    model_name, th.archi_string + '-' + th.link_indices_str)
-  th.mark += th.data_config
+  th.mark = '{}({})'.format(model_name, th.archi_string)
   th.gather_summ_name = th.prefix + summ_name + '.sum'
   core.activate()
 

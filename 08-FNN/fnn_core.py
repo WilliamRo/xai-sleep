@@ -46,6 +46,8 @@ th.gpu_memory_fraction = 0.9
 # Data configuration
 # -----------------------------------------------------------------------------
 th.input_shape = None  # TODO
+th.output_dim = 5
+th.balance_training_stages = True
 
 # -----------------------------------------------------------------------------
 # Set common trainer configs
@@ -66,6 +68,10 @@ def activate():
   assert callable(th.model)
   model = th.model()
   assert isinstance(model, Predictor)
+
+  if th.rehearse:
+    model.rehearse(build_model=False)
+    return
 
   # Load data
   train_set, val_set = du.load_data()
