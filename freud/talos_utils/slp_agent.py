@@ -1,5 +1,9 @@
 from typing import List
 from freud.talos_utils.slp_set import SleepSet
+from freud.talos_utils.sleep_sets.sleepedfx import SleepEDFx
+from freud.talos_utils.sleep_sets.ucddb import UCDDB
+from freud.talos_utils.sleep_sets.rrshv1 import RRSHSCv1
+
 from tframe import console
 from tframe.data.base_classes import DataAgent
 
@@ -10,9 +14,18 @@ import os
 class SleepAgent(DataAgent):
   """Load sleep data according to `th.data_config` whose syntax is
       '<data_name> (configs)*'
-  Here, <data_name> should be one of
-  (1) 'sleepedfx'; (2) 'ucddb'; (3) 'rrshv1'
+  Here, built-in <data_name>s include
+  (1) 'sleepedfx'; (2) 'ucddb'; (3) 'rrshv1'.
+  Note that <data_name> is also the corresponding folder name.
+
+  Customized dataset can be registered into `roster` via
+  `SleepAgent.register_dataset` method.
   """
+
+  roster = {
+    'sleepedfx': SleepEDFx, 'ucddb': UCDDB, 'rrshv1': RRSHSCv1
+  }
+
 
   @classmethod
   def load_data(cls) -> List[SleepSet]:
@@ -21,26 +34,24 @@ class SleepAgent(DataAgent):
 
   @classmethod
   def load_as_tframe_data(cls, th, **kwargs) -> SleepSet:
-    """"""
+    """Load data as tframe dataset. The data loading method must be implemented
+    in the corresponding subclass of SleepSet
+    """
     from freud.talos_utils.slp_config import SleepConfig
     assert isinstance(th, SleepConfig)
 
-    data_name = th.data_name.lower()
-    if data_name == 'sleepedfx':
-      from freud.talos_utils.sleep_sets.sleepedfx import SleepEDFx as DSClass
-      folder_name = 'sleepedf'
-    elif data_name == 'ucddb':
-      from freud.talos_utils.sleep_sets.ucddb import UCDDB as DSClass
-      folder_name = 'ucddb'
-    elif data_name == 'rrshv1':
-      from freud.talos_utils.sleep_sets.rrshv1 import RRSHSCv1 as DSClass
-      folder_name = 'rrsh'
-    else: raise KeyError(f'!! Unknown data set `{data_name}`')
+    if th.data_name not in cls.roster:
+      raise KeyError(f'!! Unknown data set `{th.data_name}`.')
 
-    data_dir = os.path.join(th.data_dir, folder_name)
-    ds = DSClass.load_as_sleep_set(data_dir)
+    data_dir = os.path.join(th.data_dir, th.data_name)
+    ds = cls.roster[th.data_name].load_as_sleep_set(data_dir)
 
     return ds
+
+
+  @classmethod
+  def register_dataset(cls, data_name, data_class):
+    cls.roster[data_name] = data_class
 
 
 
