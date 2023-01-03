@@ -97,7 +97,7 @@ if __name__ == '__main__':
   import time
 
   console.suppress_logging()
-  data_dir = r'../../../data/sleepedf'
+  data_dir = r'../../../data/sleepedfx'
 
   tic = time.time()
   ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0)

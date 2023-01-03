@@ -13,6 +13,7 @@ import os
 class SleepSet(SequenceSet):
 
   ANNO_KEY = 'stage Ground-Truth'
+  EPOCH_DURATION = 30.0
 
   # region: Properties
 
@@ -27,6 +28,16 @@ class SleepSet(SequenceSet):
   def _check_data(self): pass
 
   # endregion: Overwriting
+
+  # region: Methods for configuration
+
+  def configure(self):
+    """
+    """
+    # (1) extract required channels
+    pass
+
+  # endregion: Methods for configuration
 
   # region: Abstract Methods
 
@@ -123,7 +134,7 @@ if __name__ == '__main__':
     r'sleepedf\SC4001E0-PSG.edf',
     r'ucddb\ucddb002.rec.edf',
     r'rrsh\JJF.edf',
-  ][2]
+  ][0]
 
   file_path = os.path.join(data_root, edf_path)
 

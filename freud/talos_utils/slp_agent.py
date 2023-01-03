@@ -27,7 +27,13 @@ class SleepAgent(DataAgent):
 
 
   @classmethod
-  def load_data(cls) -> List[SleepSet]:
+  def load_data(cls, th) -> List[SleepSet]:
+    assert isinstance(th, SleepConfig)
+
+    ds = cls.load_as_tframe_data(th)
+
+    ds.configure()
+
     return []
 
 
@@ -61,6 +67,9 @@ if __name__ == '__main__':
   th.data_config = 'sleepedfx'
   th.data_dir = r'../../data/'
 
+  # ds = SleepAgent.load_data(th)
   ds = SleepAgent.load_as_tframe_data(th)
+  ds.signal_groups[0].truncate(20000, 60000)
+  sg = ds.signal_groups[0]
   ds.show()
 

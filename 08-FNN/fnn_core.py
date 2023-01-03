@@ -78,7 +78,7 @@ def activate():
 
   # Train or evaluate
   if th.train:
-    model.train(train_set, validation_set=val_set, probe=tu.probe,
+    model.train(train_set, validation_set=val_set, probe=th.probe,
                 trainer_hub=th)
   else:
     val_set.evaluate_denoiser(model)
