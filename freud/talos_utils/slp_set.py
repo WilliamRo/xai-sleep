@@ -1,6 +1,6 @@
 from pictor.objects.signals.digital_signal import DigitalSignal
 from pictor.objects.signals.signal_group import SignalGroup, Annotation
-from tframe.data.sequences.seq_set import SequenceSet
+from tframe.data.sequences.seq_set import SequenceSet, DataSet
 from typing import List
 from tframe import console
 from roma import io
@@ -12,14 +12,34 @@ import os
 
 class SleepSet(SequenceSet):
 
+  class Keys:
+    tapes = 'SleepSet::Keys::tapes'
+
   ANNO_KEY = 'stage Ground-Truth'
   EPOCH_DURATION = 30.0
+
+  CHANNELS = {}
 
   # region: Properties
 
   @property
   def signal_groups(self) -> List[SignalGroup]:
     return self.properties['signal_groups']
+
+  @SequenceSet.property()
+  def validation_set(self) -> DataSet:
+    from tframe import hub as th
+
+    if th.use_rnn: raise NotImplementedError(
+      '!! RNN inputs are not supported currently')
+
+    # Generate FNN inputs
+    # -
+
+
+
+    x, y = None, None
+    return DataSet(x, y, name=f'{self.name}-val')
 
   # endregion: Properties
 
@@ -32,10 +52,11 @@ class SleepSet(SequenceSet):
   # region: Methods for configuration
 
   def configure(self):
-    """
-    """
-    # (1) extract required channels
-    pass
+    """Configure dataset"""
+    # (1) extract required channels according to channel selection
+    for sg in self.signal_groups:
+      tapes = []
+      sg.put_into_pocket(self.Keys.tapes, tapes)
 
   # endregion: Methods for configuration
 

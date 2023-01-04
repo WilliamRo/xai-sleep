@@ -20,9 +20,13 @@ class SleepEDFx(SleepSet):
   Reference: https://www.physionet.org/content/sleep-edfx/1.0.0/
   """
 
-  CHANNEL_NAMES = ['EEG Fpz-Cz', 'EEG Pz-Oz', 'EOG horizontal',
-                   'Resp oro-nasal', 'EMG submental', 'Temp rectal',
-                   'Event marker']
+  CHANNELS = {'1': 'EEG Fpz-Cz',
+              '2': 'EEG Pz-Oz',
+              '3': 'EOG horizontal',
+              '4': 'Resp oro-nasal',
+              '5': 'EMG submental',
+              '6': 'Temp rectal',
+              '7': 'Event marker'}
 
   ANNO_LABELS = ['Sleep stage W', 'Sleep stage 1', 'Sleep stage 2',
                  'Sleep stage 3', 'Sleep stage 4', 'Sleep stage R',
