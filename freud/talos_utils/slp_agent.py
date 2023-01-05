@@ -27,21 +27,23 @@ class SleepAgent(DataAgent):
 
 
   @classmethod
-  def load_data(cls, th) -> List[SleepSet]:
+  def load_data(cls) -> List[SleepSet]:
+    from tframe import hub as th
     assert isinstance(th, SleepConfig)
 
-    ds = cls.load_as_tframe_data(th)
+    ds = cls.load_as_tframe_data()
 
     ds.configure()
 
-    return []
+    return ds
 
 
   @classmethod
-  def load_as_tframe_data(cls, th, **kwargs) -> SleepSet:
+  def load_as_tframe_data(cls, **kwargs) -> SleepSet:
     """Load data as tframe dataset. The data loading method must be implemented
     in the corresponding subclass of SleepSet
     """
+    from tframe import hub as th
     assert isinstance(th, SleepConfig)
 
     if th.data_name not in cls.roster:
@@ -64,12 +66,13 @@ if __name__ == '__main__':
 
   th = Hub(as_global=True)
 
-  th.data_config = 'sleepedfx'
+  th.data_config = 'sleepedfx 1,2;3'
   th.data_dir = r'../../data/'
 
-  # ds = SleepAgent.load_data(th)
-  ds = SleepAgent.load_as_tframe_data(th)
-  ds.signal_groups[0].truncate(20000, 60000)
-  sg = ds.signal_groups[0]
-  ds.show()
+  ds: SleepSet = SleepAgent.load_data()
+  # ds = SleepAgent.load_as_tframe_data(th)
+  # ds.signal_groups[0].truncate(20000, 60000)
+  # sg = ds.signal_groups[0]
+  val_set = ds.validation_set
+  # ds.show()
 

@@ -1,9 +1,10 @@
+from freud.talos_utils.slp_config import SleepConfig
 from pictor.objects.signals.digital_signal import DigitalSignal
 from pictor.objects.signals.signal_group import SignalGroup, Annotation
-from tframe.data.sequences.seq_set import SequenceSet, DataSet
-from typing import List
-from tframe import console
 from roma import io
+from tframe.data.sequences.seq_set import SequenceSet, DataSet
+from tframe import console
+from typing import List
 
 import numpy as np
 import os
@@ -29,13 +30,17 @@ class SleepSet(SequenceSet):
   @SequenceSet.property()
   def validation_set(self) -> DataSet:
     from tframe import hub as th
+    assert isinstance(th, SleepConfig)
 
     if th.use_rnn: raise NotImplementedError(
       '!! RNN inputs are not supported currently')
 
     # Generate FNN inputs
-    # -
-
+    branches = [[] for _ in th.fusion_channels]
+    for sg in self.signal_groups:
+      tapes = sg.get_from_pocket(self.Keys.tapes)
+      for branch, tape in zip(branches, tapes):
+        branch.append(None)
 
 
     x, y = None, None
@@ -53,9 +58,15 @@ class SleepSet(SequenceSet):
 
   def configure(self):
     """Configure dataset"""
-    # (1) extract required channels according to channel selection
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    # (1) extract required channels as tapes according to channel selection
     for sg in self.signal_groups:
       tapes = []
+      for chn_lst in th.fusion_channels:
+        tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
+        tapes.append(tape)
       sg.put_into_pocket(self.Keys.tapes, tapes)
 
   # endregion: Methods for configuration
