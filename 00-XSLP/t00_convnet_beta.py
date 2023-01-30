@@ -22,7 +22,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'sleepedf:20:0,2,4'
+    th.data_config = 'sleepedfx:20:0,2,4'
 
     if 'apnea' in th.data_config:
         th.output_dim = 2

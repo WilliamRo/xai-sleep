@@ -56,7 +56,7 @@ def main(_):
 
   th.train = True
   th.overwrite = True
-  th.use_gate = True
+  th.add_noise = True
   th.ratio = 0.3
   th.test_config = 'test-data:0,1'
   th.show_in_monitor = True

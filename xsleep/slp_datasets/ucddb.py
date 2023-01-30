@@ -42,7 +42,7 @@ class UCDDB(SleepSet):
   # region: Abstract Methods (Data IO)
 
   @classmethod
-  def load_as_tframe_data(cls, data_dir, data_name=None, **kwargs) -> SleepSet:
+  def load_as_sleep_set(cls, data_dir, data_name=None, **kwargs) -> SleepSet:
     data_dir = os.path.join(data_dir, 'ucddb')
     tfd_path = os.path.join(data_dir, 'ucddb.tfds')
 
@@ -52,14 +52,14 @@ class UCDDB(SleepSet):
     # Otherwise, wrap raw data into tframe data and save
     console.show_status(f'Loading raw data from `{data_dir}` ...')
 
-    signal_groups = cls.load_raw_data(data_dir, save_xai_rec=True)
+    signal_groups = cls.load_as_signal_groups(data_dir, save_xai_rec=True)
     data_set = UCDDB(name='ucddb-1.0.0', signal_groups=signal_groups)
     io.save_file(data_set, tfd_path, verbose=True)
     return data_set
 
 
   @classmethod
-  def load_raw_data(cls, data_dir, save_xai_rec=False, **kwargs):
+  def load_as_signal_groups(cls, data_dir, save_xai_rec=False, **kwargs):
     """Load raw data into signal groups. For each subject, four categories of
     data are read:
     (1) EEG
@@ -197,7 +197,7 @@ if __name__ == '__main__':
 
   # _ = UCDDB.load_raw_data(th.data_dir, save_xai_rec=True, overwrite=False)
 
-  data_set = UCDDB.load_as_tframe_data(th.data_dir)
+  data_set = UCDDB.load_as_sleep_set(th.data_dir)
   data_set.report()
   data_set.show()
 

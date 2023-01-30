@@ -2,16 +2,16 @@ from gate_core import th
 from slp_datasets.sleepedfx import SleepEDFx
 
 
-th.use_gate = True
-th.data_config = 'sleepedf:1:1,4'
-th.ratio = 0
+th.add_noise = True
+th.data_config = 'sleepedf:20:0,2,4'
+th.ratio = 0.5
 th.overwrite = True
-th.show_in_monitor = False
+th.show_in_monitor = True
 data_name, data_num, channel_select = th.data_config.split(':')
-data_set = SleepEDFx.load_as_tframe_data(th.data_dir,
-                                         data_name,
-                                         data_num,
-                                         suffix='-alpha')
+data_set = SleepEDFx.load_as_sleep_set(th.data_dir,
+                                       data_name,
+                                       data_num,
+                                       suffix='-alpha')
 data_set.configure(channel_select=channel_select)
 data_set.report()
 data_set.show()

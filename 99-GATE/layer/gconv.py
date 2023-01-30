@@ -58,10 +58,10 @@ class GatedConv1D(HyperConv1D):
         gates = conv1d(x, c, s*10, 6)
         gates = conv1d(gates, c*2, s*5, 5)
         gates = conv1d(gates, c, s*2, 10)
-        gates = conv1d(gates, th.input_shape[1], 5, 2)
+        gates = conv1d(gates, x.shape[2].value, 5, 2)
         gates = mu.GlobalAveragePooling1D()(gates)
-        gates = tf.reshape(gates, [-1, 1, th.input_shape[1]])
-        gates = tf.nn.softmax(gates)
+        gates = tf.reshape(gates, [-1, 1, x.shape[2].value])
+        gates = tf.nn.sigmoid(gates)
 
         # Apply gates and return
         y = x * gates

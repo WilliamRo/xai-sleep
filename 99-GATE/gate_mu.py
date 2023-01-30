@@ -47,6 +47,7 @@ def get_data_fusion_model():
   # add feature_extract net
   feature_extracting_net(model)
   return finalize(model)
+
 def get_data_fusion_model_gate():
   model = get_container(flatten=False)
   # add gate
@@ -80,6 +81,43 @@ def get_feature_fusion_model():
   # Input 3
   c = len(fusion_channels[2])
   li = oc.init_a_limb('input-3', [3000, c])
+  feature_extracting_net(li)
+
+  oc.set_gates([1, 1, 1])
+  return finalize(model)
+
+def get_feature_fusion_model_gate():
+  from tframe.nets.octopus import Octopus
+  from gate_core import th
+
+  model = get_container(flatten=False)
+  oc: Octopus = model.add(Octopus())
+
+  fusion_channels = th.fusion_channels
+  assert len(fusion_channels) == 3
+
+  # Input 1
+  c = len(fusion_channels[0])
+  li = oc.init_a_limb('input-1', [3000, c])
+  li.add(GatedConv1D(filters=32, kernel_size=5,
+                     activation=th.activation,
+                     use_batchnorm=th.use_batchnorm))
+  feature_extracting_net(li)
+
+  # Input 2
+  c = len(fusion_channels[1])
+  li = oc.init_a_limb('input-2', [3000, c])
+  li.add(GatedConv1D(filters=32, kernel_size=5,
+                     activation=th.activation,
+                     use_batchnorm=th.use_batchnorm))
+  feature_extracting_net(li)
+
+  # Input 3
+  c = len(fusion_channels[2])
+  li = oc.init_a_limb('input-3', [3000, c])
+  li.add(GatedConv1D(filters=32, kernel_size=5,
+                     activation=th.activation,
+                     use_batchnorm=th.use_batchnorm))
   feature_extracting_net(li)
 
   oc.set_gates([1, 1, 1])

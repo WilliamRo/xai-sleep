@@ -1,14 +1,23 @@
-import os.path
-from typing import List
-from tframe.data.sequences.seq_set import SequenceSet
-from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
-from roma import console
+from pictor.objects.signals.digital_signal import DigitalSignal
+from pictor.objects.signals.signal_group import SignalGroup, Annotation
+from roma import io
+from tframe.data.sequences.seq_set import SequenceSet, DataSet
+from tframe import console
 
+from typing import List
 import numpy as np
+import os.path
 
 
 class SleepSet(SequenceSet):
-  STAGE_KEY = 'STAGE'
+
+  class Keys:
+    tapes = 'SleepSet::Keys::tapes'
+
+  ANNO_KEY = 'stage Ground-Truth'
+  EPOCH_DURATION = 30.0
+
+  CHANNELS = {}
 
   # region: Properties
 
@@ -21,11 +30,11 @@ class SleepSet(SequenceSet):
   # region: APIs
 
   @classmethod
-  def load_as_tframe_data(cls, data_dir):
+  def load_as_sleep_set(cls, data_dir):
     raise NotImplementedError
 
   @classmethod
-  def load_raw_data(cls, data_dir):
+  def load_as_signal_groups(cls, data_dir):
     raise NotImplementedError
 
   def configure(self, **kwargs):
@@ -37,31 +46,49 @@ class SleepSet(SequenceSet):
   def report(self):
     raise NotImplementedError
 
+  @staticmethod
+  def save_sg_file_if_necessary(pid, sg_path, n_patients, i, sg, **kwargs):
+    if kwargs.get('save_sg', True):
+      console.show_status(f'Saving `{pid}` data ...')
+      console.print_progress(i, n_patients)
+      io.save_file(sg, sg_path)
+      console.show_status(f'Data saved to `{sg_path}`.')
+
   # endregion: APIs
 
   # region: Data IO
-  @classmethod
+  @staticmethod
   def read_digital_signals_mne(
-    self,
-    file_path: str,
-    groups=None,
-    dtype=np.float32,
-    label_index=None,
+          file_path: str,
+          groups=None,
+          dtype=np.float32,
+          **kwargs
   ) -> List[DigitalSignal]:
     """Read .edf file using `mne` package.
 
     :param groups: A list/tuple of channel names groups by sampling frequency.
            If not provided, data will be read in a channel by channel fashion.
-    :param label_index: A list of selected label index
+    :param max_sfreq: maximum sampling frequency
+    :param allow_rename: option to allow rename file when target extension is
+           not .edf.
     """
     import mne.io
+
+    max_sfreq = kwargs.get('max_sfreq', None)
+
+    # Rename file if necessary
+    file_path = file_path
+    if file_path[-4:] != '.edf' and kwargs.get('allow_rename', False):
+      os.rename(file_path, file_path + '.edf')
+      file_path += '.edf'
 
     open_file = lambda exclude=(): mne.io.read_raw_edf(
       file_path, exclude=exclude, preload=False, verbose=False)
 
     # Initialize groups if not provided, otherwise get channel_names from groups
     if groups is None:
-      with open_file() as file: channel_names = file.ch_names
+      with open_file() as file:
+        channel_names = file.ch_names
       groups = [[chn] for chn in channel_names]
     else:
       channel_names = [chn for g in groups for chn in g]
@@ -69,16 +96,21 @@ class SleepSet(SequenceSet):
     # Generate exclude lists
     exclude_lists = [[chn for chn in channel_names if chn not in g]
                      for g in groups]
-    # Read raw data
+
+    # Read raw data {sfreq:[(ch_name, data),(),..,()], sfreq:[(),..], ..}
     signal_dict = {}
     for exclude_list in exclude_lists:
       with open_file(exclude_list) as file:
         sfreq = file.info['sfreq']
-        if sfreq not in signal_dict: signal_dict[sfreq] = []
-        select_index = np.intersect1d(np.arange(file.get_data().shape[1]),
-                                      label_index[sfreq])
+
+        # Resample to `max_sfreq` if necessary
+        if max_sfreq is not None and sfreq > max_sfreq:
+          file.resample(max_sfreq)
+          sfreq = max_sfreq
+
         # Read signal
-        signal_dict[sfreq].append((file.ch_names, file.get_data()[:,select_index]))
+        if sfreq not in signal_dict: signal_dict[sfreq] = []
+        signal_dict[sfreq].append((file.ch_names, file.get_data()))
 
     # Wrap data into DigitalSignals
     digital_signals = []
@@ -92,102 +124,29 @@ class SleepSet(SequenceSet):
 
     return digital_signals
 
-  @classmethod
-  def read_sleepedf_data_pyedflib(cls,
-                                  fn: str,
-                                  channel_list: List[str] = None,
-                                  freq_modifier=None,
-                                  label_index=None) -> List[DigitalSignal]:
-    """Read .edf file using pyedflib package.
+  @staticmethod
+  def read_annotations_mne(file_path: str, labels=None) -> Annotation:
+    """Read annotations using `mne` package"""
+    import mne
 
-    :param fn: file name
-    :param channel_list: list of channels. None by default.
-    :param freq_modifier: This arg is for datasets such as Sleep-EDF, in which
-                          frequency provided is incorrect.
-    :return: a list of DigitalSignals
-    """
-    import pyedflib
+    # Read mne.Annotations
+    mne_anno: mne.Annotations = mne.read_annotations(file_path)
 
-    # Sanity check
-    assert os.path.exists(fn)
+    # Automatically generate labels if necessary
+    if labels is None: labels = list(sorted(set(mne_anno.description)))
 
-    signal_dict = {}
-    with pyedflib.EdfReader(fn) as file:
-      # Check channels
-      all_channels = file.getSignalLabels()
-      if channel_list is None: channel_list = all_channels
-      # Read channels
-      for channel_name in channel_list:
-        # Get channel id
-        chn = all_channels.index(channel_name)
-        frequency = file.getSampleFrequency(chn)
-        # Apply freq_modifier if provided
-        if callable(freq_modifier): frequency = freq_modifier(frequency)
-        # Initialize an item in signal_dict if necessary
-        if frequency not in signal_dict: signal_dict[frequency] = []
-        # Select only the data with labels
-        select_idx = np.intersect1d(np.arange(len(file.readSignal(chn))),
-                                    label_index[frequency])
-        # Read signal
-        signal_dict[frequency].append(
-          (channel_name, file.readSignal(chn)[select_idx]))
+    # Read intervals and annotations
+    intervals, annotations = [], []
+    label2int = {lb: i for i, lb in enumerate(labels)}
+    for onset, duration, label in zip(
+            mne_anno.onset, mne_anno.duration, mne_anno.description):
+      intervals.append((onset, onset + duration))
+      annotations.append(label2int[label])
 
-    # Wrap data into DigitalSignals
-    digital_signals = []
-    for frequency, signal_list in signal_dict.items():
-      ticks = np.arange(len(signal_list[0][1])) / frequency
-      digital_signals.append(DigitalSignal(
-        np.stack([x for _, x in signal_list], axis=-1), ticks=ticks,
-        channel_names=[name for name, _ in signal_list],
-        label=f'Freq=' f'{frequency}'))
+    return Annotation(intervals, annotations, labels=labels)
 
-    return digital_signals
-
-  @classmethod
-  def read_sleepedf_anno_mne(cls, fn: str, allow_rename=True) -> tuple:
-    from mne import read_annotations
-
-    ann2label = {'Sleep stage W': 0, 'Sleep stage 1': 1, 'Sleep stage 2': 2,
-                 'Sleep stage 3': 3, 'Sleep stage 4': 3, 'Sleep stage R': 4,
-                 'Movement time': 5, 'Sleep stage ?': 5}
-    # Check extension
-    if fn[-3:] != 'edf':
-      if not allow_rename:
-        # Rename .rec file if necessary, since mne package works only for
-        # files with .rec extension
-        raise TypeError(f'!! extension of `{fn}` is not .edf')
-      os.rename(fn, fn + '.edf')
-      fn = fn + '.edf'
-
-    assert os.path.exists(fn)
-
-    labels = []
-    labels_index = {}  #{100:[], 1:[]}
-    labels_index_high = []
-    labels_index_low = []
-    raw_anno = read_annotations(fn)
-    anno = raw_anno.to_data_frame().values
-    anno_onset = anno[:, 0]
-    anno_dura = anno[:, 1]
-    anno_desc = anno[:, 2]
-    for index, duration in enumerate(anno_dura):
-      h, m, s = anno_onset[index].strftime("%H:%M:%S").split(':')
-      onset_timestamp = int(h) * 3600 + int(m) * 60 + int(s)
-      duration_epoch = int(duration / 30)
-      label = ann2label[anno_desc[index]]
-      # if label != 5:
-      label_epochs = np.ones(duration_epoch, dtype=np.int) * label
-      labels.extend(label_epochs)
-      idx_high_frequency = int(onset_timestamp * 100) + np.arange(duration * 100, dtype=np.int)
-      idx_low_frequency = int(onset_timestamp) + np.arange(duration, dtype=np.int)
-      labels_index_high.extend(idx_high_frequency)
-      labels_index_low.extend(idx_low_frequency)
-    labels_index[100] = labels_index_high
-    labels_index[1] = labels_index_low
-    return labels, labels_index
-
-  @classmethod
-  def read_rrsh_data_mne(cls, fn: str, channel_list: List[str] = None,
+  @staticmethod
+  def read_rrsh_data_mne(fn: str, channel_list: List[str] = None,
                          start=None, end=None) -> List[DigitalSignal]:
     """Read .edf file using `mne` package"""
     from mne.io import read_raw_edf
@@ -225,8 +184,8 @@ class SleepSet(SequenceSet):
 
     return digital_signals
 
-  @classmethod
-  def read_rrsh_anno_xml(cls, fn: str, allow_rename=True) -> list:
+  @staticmethod
+  def read_rrsh_anno_xml(fn: str, allow_rename=True) -> List:
     import xml.dom.minidom as xml
 
 
@@ -248,9 +207,104 @@ class SleepSet(SequenceSet):
 
     return stage_anno
 
+  @staticmethod
+  def try_to_load_sg_directly(
+          pid, sg_path, n_patients, i, signal_groups, **kwargs):
+    console_symbol = f'[{i + 1}/{n_patients}]'
+    if os.path.exists(sg_path) and not kwargs.get('overwrite', False):
+      console.show_status(
+        f'Loading `{pid}` data from `{sg_path}` ...', symbol=console_symbol)
+      console.print_progress(i, n_patients)
+      sg = io.load_file(sg_path)
+      signal_groups.append(sg)
+      return True
+
+    # Otherwise, create sg from raw file
+    console.show_status(f'Reading `{pid}` data ...', symbol=console_symbol)
+    console.print_progress(i, n_patients)
+    return False
   # endregion: Data IO
 
   # region: Data Configuration
+  def remove_wake_signal(self, config='terry'):
+    assert config == 'terry'
+    # For each patient
+    for sg in self.signal_groups:
+      # cut annotations
+      annotation = sg.annotations[self.ANNO_KEY]
+      label = annotation.annotations
+      wake_index = np.argwhere(np.array(label) == 0)
+      wake_begin, wake_end = wake_index[0][0], wake_index[-1][0]
+      intervals = annotation.intervals
+      intervals[wake_begin] = (max(intervals[wake_begin][0], intervals[wake_begin][1]-1800), intervals[wake_begin][1])
+      intervals[wake_end] = (intervals[wake_end][0], min(intervals[wake_end][0]+1800, intervals[wake_end][1]))
+
+      for ds in sg.digital_signals:
+        # TODO
+        freq = int(ds.sfreq)
+        _start, _end = intervals[wake_begin][0] * freq, intervals[wake_end][1] * freq
+        ds.data = ds.data[int(_start):int(_end)]
+
+  def interpolate(self, sg, chn_names) -> List:
+    """
+     convert channels to the same sampling frequency: 100hz
+    -------------------------------------------------------------
+    Parameters:
+     :param sg: sigal person
+     :param chn_names: channel you selected
+     :return: chn_data
+    """
+    chn_data = []
+    for name in chn_names:
+      feq = float(sg.channel_signal_dict[name].sfreq)
+      if feq == 1:
+        from scipy import interpolate
+        x_old = np.linspace(0, 1, len(sg[name]))
+        y_old = sg[name]
+        x = np.linspace(0, 1, len(x_old) * 100)
+        f = interpolate.interp1d(x_old, y_old, kind='linear')
+        y = f(x)
+        sg[name] = y
+        chn_data.append(y)
+      else:
+        chn_data.append(sg[name])
+    return chn_data
+
+  def add_noise(self, features, targets, chn_names, remove_data_total, select_label_index_total):
+    from tframe import hub as th
+    from random import sample
+
+    for index, feature in enumerate(features):
+      select_data_index = []
+      target = targets[index]
+      target_index = np.arange(len(target))
+      bad_index = sample(list(target_index), int(len(target_index) * th.ratio))
+      for i in bad_index:
+        assert len(remove_data_total) > 0
+        # seed = np.random.randint(0, len(remove_data_total), dtype=np.int)
+        temp_index = i * 3000 + np.arange(3000, dtype=np.int)
+        random_channel = [np.random.randint(0, len(chn_names), dtype=np.int) for j in range(len(chn_names) - 1)]
+        random_channel = list(set(random_channel))
+        for i in random_channel:
+          # feature[list(temp_index), i] = remove_data_total[seed][:, i]
+          feature[list(temp_index), i] = 0
+      features[index] = feature
+
+      if th.show_in_monitor:
+        from scipy import signal
+        sg = self.signal_groups[index]
+        select_label_index = select_label_index_total[index]
+        for i, name in enumerate(chn_names):
+          freq = float(sg.channel_signal_dict[name].sfreq)
+          for label_index in select_label_index:
+            data_index = int(label_index * 30 * freq) + np.arange(30 * freq, dtype=np.int)
+            select_data_index.extend(data_index)
+          data = feature[:, i]
+          if freq == 1:
+            data = signal.resample(data, data.shape[0] // 100)
+          sg[name][select_data_index] = data
+          select_data_index.clear()
+        self.signal_groups[index] = sg
 
   def format_data(self):
     console.show_status(f'Formating data...')

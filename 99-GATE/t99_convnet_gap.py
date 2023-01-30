@@ -1,5 +1,5 @@
-import dsn_core as core
-import dsn_mu as m
+import gate_core as core
+import gate_mu as m
 
 from tframe import console
 from tframe import tf
@@ -8,9 +8,12 @@ from tframe.utils.organizer.task_tools import update_job_dir
 
 # -----------------------------------------------------------------------------
 # Define model here
-# ----------------------------------------------------------------------------
-model_name = 'DeepSleepNet'
+# -----------------------------------------------------------------------------
+model_name = 'data_fusion'
 id = 1
+
+
+def model(): return m.get_data_fusion_model()
 
 
 def main(_):
@@ -20,44 +23,55 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'dsn:10:0,2,4'
-    th.output_dim = 5
-    th.input_shape = [3000, 1]
+    th.data_config = 'sleepedf:20:0,2,4'
 
-    # ---------------------------------------------------------------------------
+    th.output_dim = 5
+    channel_num = len(th.data_config.split(':')[2].split(','))
+    th.input_shape = [3000, channel_num]
+
+    # --------------------------------------------------------------------------
     # 1. folder/file names and device
     # ---------------------------------------------------------------------------
     update_job_dir(id, model_name)
     summ_name = model_name
     th.prefix = '{}_'.format(date_string())
-    th.visible_gpu_id = 0
 
-    # ---------------------------------------------------------------------------
+    th.visible_gpu_id = 0
+    # -------------------;a--------------------------------------------------------
     # 2. model setup
     # ---------------------------------------------------------------------------
+    th.model = model
+
+    th.kernel_size = 3
     th.activation = 'relu'
     th.use_batchnorm = True
-
-    th.train = True
-
     # ---------------------------------------------------------------------------
     # 3. trainer setup
     # ---------------------------------------------------------------------------
     th.epoch = 1000
     th.batch_size = 32
+    th.dropout = 0.5
+    th.archi_string = '16-16-m-32-32-m-64'
+
     th.optimizer = 'adam'
     th.learning_rate = 0.0001
+
+    th.rehearse = True
+    th.train = True
     th.overwrite = True
+    th.add_noise = True
+    th.ratio = 0
+    th.test_config = 'test-data:0,1'
+    th.show_in_monitor = False
+
     th.print_cycle = 10
     th.save_model = True
 
     # ---------------------------------------------------------------------------
     # 4. other stuff and activate
     # ---------------------------------------------------------------------------
-    th.mark = '{}({})'.format(model_name, th.data_config.split(':')[0])
+    th.mark = '{}({})_{}'.format(model_name, th.data_config.split(':')[0], 'gap')
     th.gather_summ_name = th.prefix + summ_name + '.sum'
-
-    th.model = m.get_model
     core.activate()
 
 

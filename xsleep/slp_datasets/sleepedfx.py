@@ -23,9 +23,6 @@ class SleepEDFx(SleepSet):
   (sleep patterns) were manually scored by well-trained technicians according
   to the Rechtschaffen and Kales manual, and are also available. """
 
-  TICKS_PER_EPOCH = 100 * 30
-  STAGE_KEY = 'STAGE'
-  STAGE_LABELS = ['Wake', 'N1', 'N2', 'N3', 'REM', 'Unknown']
   CHANNEL = {'0': 'EEG Fpz-Cz',
              '1': 'EEG Pz-Oz',
              '2': 'EOG horizontal',
@@ -33,7 +30,11 @@ class SleepEDFx(SleepSet):
              '4': 'EMG submental',
              '5': 'Temp rectal',
              '6': 'Event marker'}
-
+  ANNO_LABELS = ['Sleep stage W', 'Sleep stage 1', 'Sleep stage 2',
+                 'Sleep stage 3', 'Sleep stage 4', 'Sleep stage R',
+                 'Movement time', 'Sleep stage ?']
+  ANNO_LABELS_AASM = ['Sleep stage W', 'Sleep stage 1', 'Sleep stage 2',
+                      'Sleep stage 3', 'Sleep stage R']
   class DetailKeys:
     number = 'Study Number'
     height = 'Height (cm)'
@@ -53,8 +54,8 @@ class SleepEDFx(SleepSet):
   # region: Abstract Methods (Data IO)
 
   @classmethod
-  def load_as_tframe_data(cls, data_dir, data_name=None, first_k=None,
-                          suffix='', **kwargs) -> SleepSet:
+  def load_as_sleep_set(cls, data_dir, data_name=None, first_k=None,
+                        suffix='', **kwargs):
     """...
 
     suffix list
@@ -74,95 +75,81 @@ class SleepEDFx(SleepSet):
     console.show_status(f'Loading raw data from `{data_dir}` ...')
 
     if suffix == '':
-      signal_groups = cls.load_raw_data(
-        data_dir, save_xai_rec=True, first_k=first_k, **kwargs)
+      signal_groups = cls.load_as_signal_groups(
+        data_dir, first_k=first_k, **kwargs)
       data_set = SleepEDFx(name=f'Sleep-EDF-Expanded{suffix_k}',
                            signal_groups=signal_groups)
     elif suffix == '-alpha':
-      data_set: SleepEDFx = cls.load_as_tframe_data(
-        os.path.dirname(data_dir),
-        data_name, first_k)
+      data_set: SleepEDFx = cls.load_as_sleep_set(
+        os.path.dirname(data_dir), data_name, first_k)
       data_set.remove_wake_signal(config='terry')
     else:
       raise KeyError(f'!! Unknown suffix `{suffix}`')
 
     data_set.save(tfd_path)
     console.show_status(f'Dataset saved to `{tfd_path}`')
-    # Save and return
-    # io.save_file(data_set, tfd_path, verbose=True)
     return data_set
 
   @classmethod
-  def load_raw_data(cls, data_dir, save_xai_rec=False, first_k=None,
-                    **kwargs):
-    """Load raw data into signal groups. For each subject, four categories of
-    data are read:
-    (1) PSG
-    (2) Stage labels
+  def load_as_signal_groups(cls, data_dir, first_k=None, **kwargs):
+    """Directory structure of SleepEDFx dataset is as follows:
+
+       sleep-edf-database-expanded-1.0.0
+         |- sleep-cassette
+            |- SC4001E0-PSG.edf
+            |- SC4001EC-Hypnogram.edf
+            |- ...
+         |- sleep-telemetry
+            |- ST7011J0-PSG.edf
+            |- ST7011JP-Hypnogram.edf
+            |- ...
+
+    However, this method supports loading SleepEDFx data from arbitrary
+    folder, given that this folder contains SleepEDFx data.
+
+    Parameters
+    ----------
+    :param data_dir: a directory contains pairs of *-PSG.edf and *-Hypnogram.edf
     """
     # Sanity check
     assert os.path.exists(data_dir)
 
     # Create an empty list
-    sleep_groups: List[SignalGroup] = []
+    signal_groups: List[SignalGroup] = []
 
     # Get all .edf files
     hypnogram_file_list: List[str] = walk(data_dir, 'file', '*Hypnogram*')
     if first_k is not None and first_k != '':
       hypnogram_file_list = hypnogram_file_list[:int(first_k)]
-    N = len(hypnogram_file_list)
+    n_patients = len(hypnogram_file_list)
     # Read records in order
     for i, hypnogram_file in enumerate(hypnogram_file_list):
       # Get id
-      id: str = os.path.split(hypnogram_file)[-1].split('-')[0]
+      id: str = os.path.split(hypnogram_file)[-1].split('-')[0][:7]
 
-      # If the corresponding .rec file exists, read it directly
-      xai_rec_path = os.path.join(data_dir, id + '(complete)' + '.xrec')
-      if os.path.exists(xai_rec_path) and not kwargs.get('overwrite', False):
-        console.show_status(
-          f'Loading `{id}` from {data_dir} ...',
-          prompt=f'[{i + 1}' f'/{N}]')
-        console.print_progress(i, N)
-        sg = io.load_file(xai_rec_path)
-        sleep_groups.append(sg)
-        continue
+      # If the corresponding .sg file exists, read it directly
+      sg_path = os.path.join(data_dir, id + '(raw)' + '.sg')
+      if cls.try_to_load_sg_directly(id, sg_path, n_patients, i,
+                                     signal_groups, **kwargs): continue
 
-      console.show_status(f'Reading record `{id}` ...',
-                          prompt=f'[{i + 1}/{N}]')
-      console.print_progress(i, N)
+      # (1) read annotations
+      annotation = cls.read_annotations_mne(hypnogram_file, labels=cls.ANNO_LABELS)
 
-      # (1) Read stage labels [0,1,2...]
-      labels, label_index = cls.read_sleepedf_anno_mne(hypnogram_file)
-      # (2) Read PSG file
-      fn = os.path.join(data_dir, id[:7] + '0' + '-PSG.edf')
+      # (2) read PSG file
+      fn = os.path.join(data_dir, id + '0' + '-PSG.edf')
       assert os.path.exists(fn)
-      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
-        fn, label_index=label_index)
-      data_epoch_num = int(digital_signals[0].length
-                           // (digital_signals[0].sfreq * 30))
-      if len(labels) > data_epoch_num:
-        for ds in digital_signals:
-          ds.data = ds.data[:int(data_epoch_num*ds.sfreq*30)]
-          labels = labels[:data_epoch_num]
+      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(fn, dtype=np.float16)
 
-      # verify the length of stages and data
-      data_epoch_num = int(digital_signals[0].length
-                           // (digital_signals[0].sfreq * 30))
-      assert len(labels) == data_epoch_num
-
-      # Wrap data into signal group
+      # wrap data into signal group
       sg = SignalGroup(digital_signals, label=f'{id}')
-      sg.set_annotation(cls.STAGE_KEY, 30, np.array(labels), cls.STAGE_LABELS)
-      sleep_groups.append(sg)
+      sg.annotations[cls.ANNO_KEY] = annotation
+      signal_groups.append(sg)
 
-      # Save sg if necessary
-      if save_xai_rec:
-        console.show_status(f'Saving `{id}` to `{data_dir}` ...')
-        console.print_progress(i, N)
-        io.save_file(sg, xai_rec_path)
+      # save sg if necessary
+      cls.save_sg_file_if_necessary(id, sg_path, n_patients, i, sg, **kwargs)
 
-    console.show_status(f'Successfully read {N} records')
-    return sleep_groups
+    console.show_status(f'Successfully read {n_patients} records')
+    return signal_groups
 
   def configure(self, **kwargs):
     """
@@ -170,45 +157,14 @@ class SleepEDFx(SleepSet):
     targets: [tg1, tg2, tg3]
     """
     import numpy as np
-    from scipy import signal
     from tframe import hub as th
-    from random import sample
-
-    def data_preprocess(data):
-      # # 滤波
-      # b, a = signal.butter(7, 0.7, 'lowpass')
-      # filted_data = signal.filtfilt(b, a, data)
-      # 归一化
-      arr_mean = np.mean(data)
-      arr_std = np.std(data)
-      precessed_data = (data - arr_mean) / arr_std
-      return precessed_data
-
-    # remove and save unknown data
-    def clean_data(data, annotation):
-      remove_label_index = np.argwhere(annotation==5)
-      remove_data_index = []
-      sample_length = th.random_sample_length
-      for index in remove_label_index:
-        data_index = int(index * sample_length) + np.arange(sample_length, dtype=np.int)
-        remove_data_index.extend(data_index)
-      select_data_index = np.setdiff1d(np.arange(len(data)), remove_data_index)
-      select_label_index = np.setdiff1d(np.arange(len(annotation)), remove_label_index)
-      assert len(select_label_index) == len(select_data_index) // sample_length
-      select_data = data[select_data_index]
-      select_label = annotation[select_label_index]
-      remove_data = data[remove_data_index]
-      select_data_index_total.append(select_data_index)
-      if len(remove_data) >= sample_length:
-        remove_data = np.split(remove_data, len(remove_data) // sample_length)
-      return select_data, select_label, remove_data, select_label_index
 
     channel_select = kwargs.get('channel_select', None)
     console.show_status(f'configure data...')
 
     features = []
     targets = []
-    unknown = []
+    remove_data_total = []
     select_data_index_total = []
     select_label_index_total = []
 
@@ -218,56 +174,77 @@ class SleepEDFx(SleepSet):
       chn_names = [self.CHANNEL[channel_select]]
 
     for sg in self.signal_groups:
-      chn_data = []
-      for name in chn_names: # interpolate 1 Hz to 100 Hz
-        feq = float(sg.channel_signal_dict[name].sfreq)
-        if feq == 1:
-          from scipy import interpolate
-          x_old = np.linspace(0, 1, len(sg[name]))
-          y_old = sg[name]
-          x = np.linspace(0, 1, len(x_old)*100)
-          f = interpolate.interp1d(x_old, y_old, kind='linear')
-          y = f(x)
-          chn_data.append(y)
-        else:
-          chn_data.append(sg[name])
-      sg_data = np.stack([data_preprocess(data) for data in chn_data], axis=-1)
-      if th.use_rnn is True:
-        sg_data = data_preprocess(sg[chn_names[0]])
-      sg_annotation = sg.annotations[self.STAGE_KEY].annotations
-      sg_data, sg_annotation, unknown_data, label_index= clean_data(sg_data, sg_annotation)
+      # configure data
+      chn_data = self.interpolate(sg, chn_names)
+      sg_data = np.stack([data for data in chn_data], axis=-1)
+
+      # configure annotation
+      annotations = np.array(sg.annotations[self.ANNO_KEY].annotations)
+      wake_begin = np.argwhere(annotations == 0)[0][0]
+      wake_end = np.argwhere(annotations == 0)[-1][0]
+      intervals = sg.annotations[self.ANNO_KEY].intervals
+      sg_annotation = []
+      for index, interval in enumerate(intervals[wake_begin:wake_end+1]):
+        sg_annotation.extend(np.ones(int(interval[1] - interval[0]) // 30, dtype=np.int) * annotations[index])
+
+      # convert to aasm format
+      sg_data, sg_annotation, remove_data, data_index, label_index = self.clean_data(sg_data, sg_annotation)
+      sg_annotation = np.where(sg_annotation == 4, 3, sg_annotation)
+      sg_annotation = np.where(sg_annotation == 5, 4, sg_annotation)
+      sg.annotations[self.ANNO_KEY].labels = self.ANNO_LABELS_AASM
+
       features.append(sg_data)
       targets.append(sg_annotation)
+      select_data_index_total.append(data_index)
       select_label_index_total.append(label_index)
-      unknown.extend(unknown_data)
+      remove_data_total.extend(remove_data)
 
     if th.add_noise:
-      for index, feature in enumerate(features):
-        target = targets[index]
-        target_index = np.arange(len(target))
-        bad_index = sample(list(target_index),int(len(target_index) * th.ratio))
-        for i in bad_index:
-          seed = np.random.randint(0, len(unknown), dtype=np.int)
-          temp_index = i * 3000 + np.arange(3000, dtype=np.int)
-          random_channel = [np.random.randint(0,len(chn_names),dtype=np.int) for j in range(len(chn_names)-1)]
-          random_channel = list(set(random_channel))
-          for i in random_channel:
-            feature[list(temp_index), i] = unknown[seed][:,i]
-            # feature[list(temp_index), i] = 0
-        features[index] = feature
-        if th.show_in_monitor:
-          sg = self.signal_groups[index]
-          for i, name in enumerate(chn_names):
-            sg[name][select_data_index_total[index]] = feature[:,i]
-          self.signal_groups[index] = sg
+      self.add_noise(features, targets, chn_names, remove_data_total, select_label_index_total)
+
     # features[i].shape = [L_i, n_channels]
     self.features = features
     # targets[i].shape = [L_i,]
     self.targets = targets
-    self.unknown = unknown
+    self.unknown = remove_data_total
     self.label_index = select_label_index_total
 
     console.show_status(f'Finishing configure data...')
+
+  def data_preprocess(self, data):
+    from scipy import signal
+    # 滤波
+    # b, a = signal.butter(7, 0.7, 'lowpass')
+    # filted_data = signal.filtfilt(b, a, data)
+    # 归一化
+    arr_mean = np.mean(data)
+    arr_std = np.std(data)
+    precessed_data = (data - arr_mean) / arr_std
+    return precessed_data
+
+  def clean_data(self, data, annotation):
+    """
+    remove and save unknown data
+    """
+    from tframe import hub as th
+
+    epoch_length = th.random_sample_length
+    assert data.shape[0] == len(annotation) * epoch_length
+
+    remove_label_index = np.argwhere(np.array(annotation) > 5)
+    remove_data_index = []
+    for index in remove_label_index:
+      data_index = int(index * epoch_length) + np.arange(epoch_length, dtype=np.int)
+      remove_data_index.extend(data_index)
+    select_data_index = np.setdiff1d(np.arange(len(data)), remove_data_index)
+    select_label_index = np.setdiff1d(np.arange(len(annotation)), remove_label_index)
+    assert len(select_label_index) == len(select_data_index) // epoch_length
+    select_data = data[select_data_index]
+    select_label = np.array(annotation)[select_label_index]
+    remove_data = data[remove_data_index]
+    if len(remove_data) >= epoch_length:
+      remove_data = np.split(remove_data, len(remove_data) // epoch_length)
+    return select_data, select_label, remove_data, select_data_index, select_label_index
 
   def report(self):
     console.show_info('Sleep-EDFx Dataset')
@@ -276,46 +253,14 @@ class SleepEDFx(SleepSet):
 
   # endregion: Abstract Methods (Data IO)
 
-  # region: Preprocess
-
-  def remove_wake_signal(self, config='terry'):
-    assert config == 'terry'
-
-    # For each patient
-    for sg in self.signal_groups:
-      # Cut annotations
-      annotation = sg.annotations[self.STAGE_KEY]
-      non_zero_indice = np.argwhere(annotation.annotations != 0)
-
-      start, end = min(non_zero_indice)[0], max(non_zero_indice)[0]
-
-      margin = 60
-      start, end = start - margin, end + margin
-      if start < 0: start = 0
-
-      annotation.intervals = annotation.intervals[start:end]
-      annotation.annotations = annotation.annotations[start:end]
-
-      for ds in sg.digital_signals:
-        # TODO
-        freq = int(float(ds.sfreq))
-        _start, _end = start * freq * 30, end * freq * 30
-        ds.data = ds.data[_start:_end]
-
-  # endregion: Preprocess
-
-  # region: Overwriting
-
   def _check_data(self):
     """This method will be called during splitting dataset"""
     # assert len(self.signal_groups) > 0
     pass
 
-  # endregion: Overwriting
-
   # region: Data Visualization
 
-  def show(self):
+  def show_old(self):
     from pictor import Pictor
     from pictor.plotters import Monitor
     from tframe import hub as th
@@ -360,20 +305,30 @@ class SleepEDFx(SleepSet):
 
     p.show()
 
+  def show(self, *funcs, **kwargs):
+    from freud.gui.freud_gui import Freud
+
+    # Initialize pictor and set objects
+    freud = Freud(title=str(self.__class__.__name__))
+    freud.objects = self.signal_groups
+
+    for func in [func for func in funcs if callable(func)]: func(freud.monitor)
+
+    for k, v in kwargs.items(): freud.monitor.set(k, v, auto_refresh=False)
+    freud.show()
   # endregion: Data Visualization
 
 
 if __name__ == '__main__':
-  # th.data_config = 'sleepedf'
+  # th.data_config = 'sleepedfx'
   from xslp_core import th
 
-  data_config = 'sleepedf:10:0,1,2'
+  data_config = 'sleepedfx:10:0,1,2'
   # _ = UCDDB.load_raw_data(th.data_dir, save_xai_rec=True, overwrite=False)
   data_name, data_num, channel_select = data_config.split(':')
-  # SLEEPEDF.load_raw_data(os.path.join(th.data_dir, 'sleepedf'), overwrite=True)
-  data_set = SleepEDFx.load_as_tframe_data(th.data_dir,
-                                           data_name,
-                                           data_num,
-                                           suffix='-alpha')
-  data_set.report()
+  # SLEEPEDF.load_raw_data(os.path.join(th.data_dir, 'sleepedfx'), overwrite=True)
+  data_set = SleepEDFx.load_as_sleep_set(th.data_dir,
+                                         data_name,
+                                         data_num,
+                                         suffix='')
   data_set.show()

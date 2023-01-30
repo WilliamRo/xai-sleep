@@ -6,10 +6,10 @@ from tframe.utils.note import Note
 import matplotlib.pyplot as plt
 
 
-# sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1215_s99_allchn_noise_unknown_beta.sum'
-# sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1215_s99_allchn_noise_zero_beta.sum'
-sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\1212_s99_allchn_noise_unknown.sum'
-sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\1212_s99_allchn_noise_zero.sum'
+sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1223_s99_allchn_noise_unknown_beta.sum'
+sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1223_s99_allchn_noise_unknown_beta_gate.sum'
+# sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\1212_s99_allchn_noise_unknown.sum'
+# sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\1217_s99_allchn_noise_unknown_gate.sum'
 
 # load notes
 notes = Note.load(sum_path)
@@ -63,11 +63,11 @@ for notes in notes_ratio_all2:
 
 def plotter(ax: plt.Axes):
   ax.plot(xlabel, mean_accuracy_all, color='red', linewidth=1, alpha=1,
-          marker='s', label='unknown')
+          marker='s', label='original')
   ax.fill_between(xlabel, confidence_low_all, confidence_high_all,
                   alpha=0.3, color='red')
   ax.plot(xlabel, mean_accuracy_all2, color='blue', linewidth=1, alpha=1,
-          marker='s', label='zero')
+          marker='s', label='gate')
   ax.fill_between(xlabel, confidence_low_all2, confidence_high_all2,
                   alpha=0.3, color='blue')
   ax.plot(xlabel, np.ones(len(xlabel)) * 48.99, color='gray', linewidth=2,
@@ -78,7 +78,7 @@ def plotter(ax: plt.Axes):
           alpha=0.9, linestyle='-', label='EEG')
   ax.set_xlabel('p(%)', loc='right')
   ax.set_ylabel('accuracy(%)', loc='top')
-  ax.set_title('data fusion',fontweight='bold', loc='center')
+  ax.set_title('feature fusion', fontweight='bold', loc='center')
   ax.legend()
 
 p = Pictor(figure_size=(8, 5))

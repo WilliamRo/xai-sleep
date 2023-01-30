@@ -44,10 +44,10 @@ class SLPAgent(DataAgent):
                     console.show_status(f'loading {tfd_config_path}...')
                     dataset = pickle.load(_input_)
             else:
-                dataset = cls.load_as_tframe_data(data_dir=th.data_dir,
-                                                  data_name=dataset_name,
-                                                  first_k=data_num,
-                                                  suffix=suffix)
+                dataset: SleepSet = cls.load_as_tframe_data(data_dir=th.data_dir,
+                                                            data_name=dataset_name,
+                                                            first_k=data_num,
+                                                            suffix=suffix)
                 # Configure dataset (put thi block into right position)
                 configure = kwargs.get('configure', None)
                 if callable(configure):
@@ -78,8 +78,9 @@ class SLPAgent(DataAgent):
 
         return train_set, val_set, test_set
 
-    @classmethod
-    def load_as_tframe_data(cls, data_dir, data_name=None,
+    @staticmethod
+    def load_as_tframe_data(data_dir: str,
+                            data_name=None,
                             **kwargs) -> SleepSet:
         """Return: an instance of SleepSet whose `properties` attribute contains
            {'signal_groups': [<a list of SignalGroup>]}
@@ -96,11 +97,11 @@ class SLPAgent(DataAgent):
         else:
             raise KeyError(f'!! Unknown dataset `{data_name}`')
 
-        data_set = DataSet.load_as_tframe_data(data_dir, data_name, **kwargs)
+        data_set: SleepSet = DataSet.load_as_sleep_set(data_dir, data_name, **kwargs)
         return data_set
 
-    @classmethod
-    def _get_tfd_file_path(cls, data_dir, data_name, **kwargs):
+    @staticmethod
+    def _get_tfd_file_path(data_dir, data_name, **kwargs):
         suffix = kwargs['suffix']
         return os.path.join(data_dir, data_name, f'{data_name}{suffix}.tfds')
 
@@ -141,7 +142,7 @@ class SLPAgent(DataAgent):
             data_set_name = th.data_config.split(':')[0]
             if data_set_name == 'rrsh':
                 data_set.__class__ = RRSHSet
-            elif data_set_name in ['sleepedf', 'dsn']:
+            elif data_set_name in ['sleepedfx', 'dsn']:
                 data_set.__class__ = SleepEDFx
             data_set.show()
     # endregion: Model evaluation
@@ -150,6 +151,6 @@ class SLPAgent(DataAgent):
 if __name__ == '__main__':
     from tframe import hub as th
 
-    # th.data_config = 'sleepedf:10:0,1,2'
+    # th.data_config = 'sleepedfx:10:0,1,2'
     # dataset = SLPAgent.load_as_tframe_data(th.data_dir, suffix='-alpha')
     print(th.show_in_monitor)

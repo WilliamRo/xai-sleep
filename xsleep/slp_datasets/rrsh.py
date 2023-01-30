@@ -69,8 +69,8 @@ class RRSHSet(SleepSet):
   # region: Abstract Methods (Data IO)
 
   @classmethod
-  def load_as_tframe_data(cls, data_dir, data_name=None, first_k=None, suffix='',
-                          **kwargs) -> SleepSet:
+  def load_as_sleep_set(cls, data_dir, data_name=None, first_k=None, suffix='',
+                        **kwargs):
     """...
 
     suffix list
@@ -90,13 +90,13 @@ class RRSHSet(SleepSet):
     console.show_status(f'Loading raw data from `{data_dir}` ...')
 
     if suffix == '':
-      signal_groups = cls.load_raw_data(
+      signal_groups = cls.load_as_signal_groups(
         data_dir, save_xai_rec=True, first_k=first_k, **kwargs)
       data_set = RRSHSet(name=f'RRSHSet{suffix_k}',
                          signal_groups=signal_groups)
     elif suffix == '-alpha':
-      data_set: RRSHSet = cls.load_as_tframe_data(os.path.dirname(data_dir),
-                                                    data_name, first_k)
+      data_set: RRSHSet = cls.load_as_sleep_set(os.path.dirname(data_dir),
+                                                data_name, first_k)
       data_set.remove_wake_signal(config='terry')
     else: raise KeyError(f'!! Unknown suffix `{suffix}`')
 
@@ -108,7 +108,7 @@ class RRSHSet(SleepSet):
 
 
   @classmethod
-  def load_raw_data(cls, data_dir, save_xai_rec=False, first_k=None, **kwargs):
+  def load_as_signal_groups(cls, data_dir, save_xai_rec=False, first_k=None, **kwargs):
     """Load raw data into signal groups. For each subject, four categories of
     data are read:
     (1) PSG
@@ -338,15 +338,15 @@ class RRSHSet(SleepSet):
 if __name__ == '__main__':
   from xslp_core import th
 
-  # th.data_config = 'sleepedf'
+  # th.data_config = 'sleepedfx'
 
   th.data_config = 'rrsh:10:1,2,3'
   # _ = UCDDB.load_raw_data(th.data_dir, save_xai_rec=True, overwrite=False)
   data_name, data_num, _ = th.data_config.split(':')
-  # SLEEPEDF.load_raw_data(os.path.join(th.data_dir, 'sleepedf'), overwrite=True)
-  data_set = RRSHSet.load_as_tframe_data(th.data_dir,
-                                         data_name,
-                                         data_num)
+  # SLEEPEDF.load_raw_data(os.path.join(th.data_dir, 'sleepedfx'), overwrite=True)
+  data_set = RRSHSet.load_as_sleep_set(th.data_dir,
+                                       data_name,
+                                       data_num)
   data_set.report()
   data_set.show()
 

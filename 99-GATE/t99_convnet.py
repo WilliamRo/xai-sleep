@@ -13,7 +13,7 @@ model_name = 'data_fusion'
 id = 1
 
 
-def model(): return m.get_data_fusion_model_gate()
+def model(): return m.get_data_fusion_model()
 
 
 def main(_):
@@ -57,8 +57,8 @@ def main(_):
   th.learning_rate = 0.0001
 
   th.train = True
-  th.overwrite = True
-  th.add_noise = True
+  th.overwrite = False
+  th.add_noise = False
   th.ratio = 0
   th.test_config = 'test-data:0,1'
   th.show_in_monitor = False

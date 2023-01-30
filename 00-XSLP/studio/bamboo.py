@@ -20,7 +20,7 @@ except ValueError:
     # convert sum to protocal 4
     pickle.dump(notes, f, pickle.HIGHEST_PROTOCOL)
 # config
-data_configs = ['sleepedf:20:0,2,4', 'sleepedf:20:0,1,2']
+data_configs = ['sleepedfx:20:0,2,4', 'sleepedfx:20:0,1,2']
 
 notes_all = []
 mean_accuracy_all = []
