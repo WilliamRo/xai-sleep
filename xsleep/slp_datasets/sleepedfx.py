@@ -138,7 +138,7 @@ class SleepEDFx(SleepSet):
       # (2) read PSG file
       fn = os.path.join(data_dir, id + '0' + '-PSG.edf')
       assert os.path.exists(fn)
-      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(fn, dtype=np.float16)
+      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(fn)
 
       # wrap data into signal group
       sg = SignalGroup(digital_signals, label=f'{id}')
@@ -176,7 +176,7 @@ class SleepEDFx(SleepSet):
     for sg in self.signal_groups:
       # configure data
       chn_data = self.interpolate(sg, chn_names)
-      sg_data = np.stack([data for data in chn_data], axis=-1)
+      sg_data = np.stack([SleepSet.iqr_standardize(data) for data in chn_data], axis=-1)
 
       # configure annotation
       annotations = np.array(sg.annotations[self.ANNO_KEY].annotations)
@@ -185,7 +185,8 @@ class SleepEDFx(SleepSet):
       intervals = sg.annotations[self.ANNO_KEY].intervals
       sg_annotation = []
       for index, interval in enumerate(intervals[wake_begin:wake_end+1]):
-        sg_annotation.extend(np.ones(int(interval[1] - interval[0]) // 30, dtype=np.int) * annotations[index])
+        sg_annotation.extend(np.ones(int(interval[1] - interval[0]) // 30, dtype=np.int)
+                             * annotations[index])
 
       # convert to aasm format
       sg_data, sg_annotation, remove_data, data_index, label_index = self.clean_data(sg_data, sg_annotation)
@@ -211,17 +212,6 @@ class SleepEDFx(SleepSet):
 
     console.show_status(f'Finishing configure data...')
 
-  def data_preprocess(self, data):
-    from scipy import signal
-    # 滤波
-    # b, a = signal.butter(7, 0.7, 'lowpass')
-    # filted_data = signal.filtfilt(b, a, data)
-    # 归一化
-    arr_mean = np.mean(data)
-    arr_std = np.std(data)
-    precessed_data = (data - arr_mean) / arr_std
-    return precessed_data
-
   def clean_data(self, data, annotation):
     """
     remove and save unknown data
@@ -230,6 +220,8 @@ class SleepEDFx(SleepSet):
 
     epoch_length = th.random_sample_length
     assert data.shape[0] == len(annotation) * epoch_length
+
+    # clean outlier
 
     remove_label_index = np.argwhere(np.array(annotation) > 5)
     remove_data_index = []

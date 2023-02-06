@@ -37,14 +37,6 @@ class SleepSet(SequenceSet):
   def load_as_signal_groups(cls, data_dir):
     raise NotImplementedError
 
-  def configure(self, **kwargs):
-    """
-    channel_select examples: '0,2,6'
-    """
-    raise NotImplementedError
-
-  def report(self):
-    raise NotImplementedError
 
   @staticmethod
   def save_sg_file_if_necessary(pid, sg_path, n_patients, i, sg, **kwargs):
@@ -54,7 +46,34 @@ class SleepSet(SequenceSet):
       io.save_file(sg, sg_path)
       console.show_status(f'Data saved to `{sg_path}`.')
 
-  # endregion: APIs
+  @staticmethod
+  def normalize(data):
+    from scipy import signal
+    # 滤波
+    # b, a = signal.butter(7, 0.7, 'lowpass')
+    # filted_data = signal.filtfilt(b, a, data)
+    # 归一化
+    arr_mean = np.mean(data)
+    arr_std = np.std(data)
+    preprocessed_data = (data - arr_mean) / arr_std
+    return preprocessed_data
+
+  @staticmethod
+  def iqr_standardize(data):
+    def sub_meidan(arr):
+      median = np.median(arr)
+      arr = arr - median
+      return arr
+
+    def cal_iqr(arr):
+      qr1 = np.quantile(arr, 0.25)
+      qr2 = np.quantile(arr, 0.75)
+      iqr = qr2 - qr1
+      arr = arr / iqr
+      return arr
+
+    preprocessed_data = cal_iqr(sub_meidan(data))
+    return preprocessed_data
 
   # region: Data IO
   @staticmethod
@@ -306,6 +325,12 @@ class SleepSet(SequenceSet):
           select_data_index.clear()
         self.signal_groups[index] = sg
 
+  def configure(self, **kwargs):
+    """
+    channel_select examples: '0,2,6'
+    """
+    raise NotImplementedError
+
   def format_data(self):
     console.show_status(f'Formating data...')
     features = self.features
@@ -327,7 +352,7 @@ class SleepSet(SequenceSet):
     # split data to train_set and test_data
     if th.test_config:
       test_index = [int(i) for i in th.test_config.split(':')[1].split(',')]
-    else: test_index = [0,1]
+    else: test_index = [0, 1]
     train_index = np.setdiff1d(np.arange(int(th.data_config.split(':')[1])), test_index)
     test_feature = np.vstack(np.array(features, dtype=object)[test_index])
     test_label = np.vstack(np.array(targets, dtype=object)[test_index])
@@ -384,6 +409,9 @@ class SleepSet(SequenceSet):
 
   def fusion_channels(self, channels):
     return [s.split(',') for s in channels.split(';')]
+
+  def report(self):
+    raise NotImplementedError
 
   def show(self):
     from pictor import Pictor
