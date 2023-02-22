@@ -144,6 +144,14 @@ class SleepSet(SequenceSet):
     return digital_signals
 
   @staticmethod
+  def read_numpy_array(
+          file_path: str,
+          groups=None,
+          dtype=np.float32,
+          **kwargs
+  ) -> List[DigitalSignal]:
+    pass
+  @staticmethod
   def read_annotations_mne(file_path: str, labels=None) -> Annotation:
     """Read annotations using `mne` package"""
     import mne

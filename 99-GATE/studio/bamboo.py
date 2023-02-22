@@ -6,10 +6,10 @@ from tframe.utils.note import Note
 import matplotlib.pyplot as plt
 
 
-sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1223_s99_allchn_noise_unknown_beta.sum'
-sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1223_s99_allchn_noise_unknown_beta_gate.sum'
-# sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\1212_s99_allchn_noise_unknown.sum'
-# sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\1217_s99_allchn_noise_unknown_gate.sum'
+# sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1223_s99_allchn_noise_unknown_beta.sum'
+# sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\02_feature_fusion\1223_s99_allchn_noise_unknown_beta_gate.sum'
+sum_path = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\0216_data_fusion.sum'
+sum_path2 = r'E:\wanglin\project\deep_learning\xai-sleep\99-GATE\01_data_fusion\1217_s99_allchn_noise_unknown_gate.sum'
 
 # load notes
 notes = Note.load(sum_path)

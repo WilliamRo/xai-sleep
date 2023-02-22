@@ -54,7 +54,7 @@ def output_and_build(model):
   assert isinstance(th, Config)
   # Add output layer
   model.add(mu.Conv1D(int(FIRST_FILTER*np.sqrt(2)), 1, activation=Activation('tanh')))
-  model.add(mu.AveragePooling1D(th.random_sample_length,th.random_sample_length))
+  model.add(mu.AveragePooling1D(th.random_sample_length, th.random_sample_length))
   model.add(mu.Conv1D(th.output_dim, 1, activation=Activation('relu')))
   model.add(mu.Conv1D(th.output_dim, 1, activation=Activation('softmax')))
   # Build model and return

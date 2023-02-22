@@ -13,7 +13,7 @@ model_name = 'data_fusion'
 id = 1
 
 
-def model(): return m.get_data_fusion_model()
+def model(): return m.get_data_fusion_model_gate()
 
 
 def main(_):
