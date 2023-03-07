@@ -40,7 +40,7 @@ class SleepAgent(DataAgent):
     train_ids = list(range(len(ds.signal_groups)))
     val_test_ids = [train_ids, train_ids]
 
-    for i, key in enumerate(['valids', 'testids']):
+    for i, key in enumerate(['val_ids', 'test_ids']):
       if key in th.data_kwargs:
         val_test_ids[i] = [int(s) for s in th.data_kwargs[key].split(',')]
         train_ids = list(set(train_ids) - set(val_test_ids[i]))
