@@ -33,9 +33,21 @@ class SleepAgent(DataAgent):
 
     ds = cls.load_as_tframe_data()
 
+    # Put tapes into each group
     ds.configure()
 
-    return ds
+    # Split data set
+    train_ids = list(range(len(ds.signal_groups)))
+    val_test_ids = [train_ids, train_ids]
+
+    for i, key in enumerate(['valids', 'testids']):
+      if key in th.data_kwargs:
+        val_test_ids[i] = [int(s) for s in th.data_kwargs[key].split(',')]
+        train_ids = list(set(train_ids) - set(val_test_ids[i]))
+
+    return [ds.get_subset_by_patient_id(ids, name) for name, ids
+            in zip(['train', 'val', 'test'],
+                   [train_ids, val_test_ids[0], val_test_ids[1]])]
 
 
   @classmethod

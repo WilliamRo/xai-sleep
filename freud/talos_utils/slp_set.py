@@ -143,6 +143,15 @@ class SleepSet(SequenceSet):
 
   # endregion: Methods for configuration
 
+  # region: Public Methods
+
+  def get_subset_by_patient_id(self, indices, name_suffix='subset'):
+    return self.__class__(
+      name=f'{self.name}-{name_suffix}',
+      signal_groups=[self.signal_groups[i] for i in indices])
+
+  # endregion: Public Methods
+
   # region: Abstract Methods
 
   @classmethod
