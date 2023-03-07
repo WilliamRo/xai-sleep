@@ -34,7 +34,7 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepedfx 1,2 val_ids=12,13,14,15 test_ids=16,17,18,19'
+  th.data_config = 'sleepedfx 1,2'
   th.input_shape = [3000, 2]
 
   # ---------------------------------------------------------------------------
@@ -64,6 +64,7 @@ def main(_):
 
   th.optimizer = 'adam'
   th.learning_rate = 0.0003
+  th.balance_classes = True
 
   th.train = True
   th.overwrite = True

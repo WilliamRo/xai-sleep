@@ -46,7 +46,8 @@ th.gpu_memory_fraction = 0.9
 # Data configuration
 # -----------------------------------------------------------------------------
 th.input_shape = None  # TODO
-th.output_dim = 5
+th.num_classes = 5
+th.output_dim = th.num_classes
 th.balance_training_stages = True
 
 # -----------------------------------------------------------------------------
@@ -61,6 +62,8 @@ th.validation_per_round = 1
 
 th.export_tensors_upon_validation = True
 
+th.val_batch_size = 128
+
 
 
 def activate():
@@ -74,14 +77,18 @@ def activate():
     return
 
   # Load data
-  train_set, val_set = du.load_data()
+  train_set, val_set, test_set = du.load_data()
 
   # Train or evaluate
   if th.train:
-    model.train(train_set, validation_set=val_set, probe=th.probe,
-                trainer_hub=th)
+    model.train(train_set, validation_set=val_set,
+                test_set=test_set, trainer_hub=th)
   else:
-    val_set.evaluate_denoiser(model)
+    pass
+
+  model.evaluate_pro(test_set, batch_size=128, verbose=True,
+                     show_confusion_matrix=True, show_class_detail=True)
+
 
   # End
   model.shutdown()

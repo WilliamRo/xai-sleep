@@ -72,7 +72,7 @@ class SleepSet(SequenceSet):
     targets = convert_to_one_hot(targets, n_classes)
 
     return DataSet(features, targets, name=f'{self.name}-val',
-                   NUM_CLASSES=n_classes)
+                   NUM_CLASSES=n_classes, CLASSES=self['CLASSES'])
 
   # endregion: Properties
 
@@ -124,6 +124,9 @@ class SleepSet(SequenceSet):
     from tframe import hub as th
     assert isinstance(th, SleepConfig)
 
+    # (0) Set class names for ConfusionMatrix
+    self.properties['CLASSES'] = ['Wake', 'REM', 'N1', 'N2', "N3"]
+
     # (1) extract required channels as tapes according to channel selection
     for sg in self.signal_groups:
       tapes = []
@@ -148,7 +151,8 @@ class SleepSet(SequenceSet):
   def get_subset_by_patient_id(self, indices, name_suffix='subset'):
     return self.__class__(
       name=f'{self.name}-{name_suffix}',
-      signal_groups=[self.signal_groups[i] for i in indices])
+      signal_groups=[self.signal_groups[i] for i in indices],
+      CLASSES=self['CLASSES'])
 
   # endregion: Public Methods
 
@@ -161,7 +165,7 @@ class SleepSet(SequenceSet):
   @classmethod
   def load_as_sleep_set(cls, data_dir, **kwargs) -> SequenceSet:
     sg = cls.load_as_signal_groups(data_dir, **kwargs)
-    return cls(name=str(cls.__class__), signal_groups=sg)
+    return cls(name=cls.__name__, signal_groups=sg)
 
   # endregion: Abstract Methods
 

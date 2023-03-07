@@ -9,7 +9,7 @@ def load_data():
 
   data_sets = SleepAgent.load_data()
 
-  return data_sets
+  return [ds.validation_set for ds in data_sets]
 
 
 
@@ -17,10 +17,14 @@ if __name__ == '__main__':
   from fnn_core import th
 
   th.data_config = 'sleepedfx 1,2'
-  th.data_config = 'sleepedfx 1,2 valids=12,13,14,15 testids=16,17,18,19'
+  th.data_config = 'sleepedfx 1,2 val_ids=12,13,14,15 test_ids=16,17,18,19'
+  th.data_config = 'sleepedfx 1,2'
 
-  ds = load_data()
+  train_set, _, _ = load_data()
   th.balance_classes = True
+
+  assert isinstance(train_set, DataSet)
+
 
 
 
