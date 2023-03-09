@@ -26,7 +26,8 @@ class GatedConv1D(ConvBase):
     gate = tf.nn.sigmoid(gate)
 
     # (1)
-    context.add_tensor_to_export(f'{self.full_name}', gate)
+    _gate = tf.concat([gate] * 10, axis=1)
+    context.add_tensor_to_export(f'{self.full_name}', _gate)
 
     #
     y = self.conv1d(
