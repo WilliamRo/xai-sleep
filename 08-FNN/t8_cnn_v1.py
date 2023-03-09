@@ -16,7 +16,7 @@ def model():
   model = m.get_initial_model()
 
   for layer in th.archi_string.split('-'):
-    if layer[0] == 's': stride, c = 2, int(layer[1:])
+    if layer[0] == 's': stride, c = 3, int(layer[1:])
     else: stride, c = 1, int(layer)
 
     model.add(m.mu.HyperConv1D(
@@ -35,6 +35,8 @@ def main(_):
   # 0. date set setup
   # ---------------------------------------------------------------------------
   th.data_config = 'sleepedfx 1,2'
+  th.data_config += ' val_ids=16,17 test_ids=18,19'
+  th.data_config += ' preprocess=iqr'
   th.input_shape = [3000, 2]
 
   # ---------------------------------------------------------------------------
@@ -52,21 +54,23 @@ def main(_):
 
   th.kernel_size = 3
   th.activation = 'relu'
+  th.use_batchnorm = True
 
-  th.archi_string = '128-s128-s128-s64-s32'
+  th.archi_string = '16-s16-32-s32-64'
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
   th.epoch = 1000
   th.early_stop = True
 
-  th.batch_size = 32
+  th.batch_size = 64
 
   th.optimizer = 'adam'
-  th.learning_rate = 0.0003
+  th.learning_rate = 0.0001
   th.balance_classes = True
 
   th.train = True
+  th.patience = 20
   th.overwrite = True
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate

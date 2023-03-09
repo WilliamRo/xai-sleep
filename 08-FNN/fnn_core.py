@@ -40,7 +40,7 @@ th.data_dir = os.path.join(ROOT, 'data')
 # Device configuration
 # -----------------------------------------------------------------------------
 th.allow_growth = False
-th.gpu_memory_fraction = 0.9
+th.gpu_memory_fraction = 0.5
 
 # -----------------------------------------------------------------------------
 # Data configuration
@@ -62,7 +62,8 @@ th.validation_per_round = 1
 
 th.export_tensors_upon_validation = True
 
-th.val_batch_size = 128
+th.val_batch_size = 64
+th.val_progress_bar = True
 
 
 

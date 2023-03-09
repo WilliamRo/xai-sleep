@@ -23,6 +23,13 @@ class SleepSet(SequenceSet):
 
   CHANNELS = {}
 
+  # valid data-kwargs in th.data_config
+  VALID_KWARGS = ['val_ids',
+                  'test_ids',
+                  'preprocess',
+                  'mad',                  # max absolute deviation (IQR)
+                  ]
+
   # region: Properties
 
   @property
@@ -124,16 +131,30 @@ class SleepSet(SequenceSet):
     from tframe import hub as th
     assert isinstance(th, SleepConfig)
 
+    # Check data-kwargs
+    for key in th.data_kwargs:
+      if key not in self.VALID_KWARGS: raise KeyError(
+        f'!! `{key}` is not a valid data-kwargs')
+
     # (0) Set class names for ConfusionMatrix
     self.properties['CLASSES'] = ['Wake', 'REM', 'N1', 'N2', "N3"]
 
     # (1) extract required channels as tapes according to channel selection
-    for sg in self.signal_groups:
+    console.show_status('Extracting tapes ...')
+    for i, sg in enumerate(self.signal_groups):
+      console.print_progress(i, len(self.signal_groups))
+
       tapes = []
       tape_sfreq_dict = {}
       for chn_lst in th.fusion_channels:
         # tape.shape = [L, C], TODO: fusion channels should have the same sfreq
         tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
+
+        # (*) preprocess signals channel-wisely
+        if th.data_kwargs.get('preprocess', None) in ('iqr',):
+          mad = float(th.data_kwargs.get('mad', 10))
+          tape = DigitalSignal.preprocess_iqr(tape, max_abs_deviation=mad)
+
         tapes.append(tape)
 
         # Save corresponding sfreq
