@@ -1,4 +1,5 @@
 from tframe import mu
+from tframe import tf
 
 
 
@@ -20,6 +21,12 @@ def finalize(model: mu.Classifier, flatten=False):
   model.add(mu.Activation('softmax'))
 
   model.build(metric=['f1', 'accuracy'], batch_metric='accuracy')
+
+  # Export variables
+  # model.launch_model(th.overwrite)
+  # from tframe import context
+  # context.add_var_to_export('W', tf.trainable_variables()[-2])
+
   return model
 
 
