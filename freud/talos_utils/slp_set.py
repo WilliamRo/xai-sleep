@@ -17,11 +17,14 @@ class SleepSet(SequenceSet):
   class Keys:
     tapes = 'SleepSet::Keys::tapes'
     tape_sfreq_dict = 'SleepSet::Keys::tape_sfreq_dict'
+    map_dict = 'SleepSet::Keys::map_dict'
+    epoch_tables = 'SleepSet::Keys::epoch_table'
 
   ANNO_KEY = 'stage Ground-Truth'
   EPOCH_DURATION = 30.0
 
   CHANNELS = {}
+  NUM_CLASSES = 5
 
   # valid data-kwargs in th.data_config
   VALID_KWARGS = ['val_ids',
@@ -63,23 +66,33 @@ class SleepSet(SequenceSet):
 
         branch.append(x)
       # Find stage_ids
-      stage_ids.extend(self.get_stage_id_list_from_sg(sg))
+      stage_ids.extend(self.get_sg_epoch_tables(sg)[1])
 
     # TODO currently only single branch is supported
     assert len(branches) == 1
     features = np.concatenate(branches[0], axis=0)
-    # TODO: here len(ids) may > len(branches[i], e.g., in SleepEDFx data
+    # TODO: here len(ids) may > len(branches[i]), e.g., in SleepEDFx data
     stage_ids = stage_ids[:len(features)]
     nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
 
     # Removed invalid epochs
-    n_classes = 5
+    n_classes = self.NUM_CLASSES
     features = np.delete(features, nan_indices, axis=0)
     targets = [v for v in stage_ids if v is not None]
     targets = convert_to_one_hot(targets, n_classes)
 
+    # NUM_CLASSES and CLASSES properties are for confusion matrix label
     return DataSet(features, targets, name=f'{self.name}-val',
                    NUM_CLASSES=n_classes, CLASSES=self['CLASSES'])
+
+  @SequenceSet.property()
+  def epoch_table(self):
+    """table[i] = [(sg, start_t, duration), ...]"""
+    table = [[] for _ in range(self.NUM_CLASSES + 1)]
+    for sg in self.signal_groups:
+      for i in range(self.NUM_CLASSES + 1):
+        table[i].extend(self.get_sg_epoch_tables(sg)[0][i])
+    return table
 
   # endregion: Properties
 
@@ -87,37 +100,126 @@ class SleepSet(SequenceSet):
 
   def _check_data(self): pass
 
+  # region: gen_batches
+
+  def _get_branches_randomly(self, batch_size: int):
+    """Currently only 1 branch is supported"""
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    if th.use_rnn: raise NotImplementedError(
+      '!! RNN inputs are not supported currently')
+
+    # Generate FNN inputs
+    branches = [[] for _ in th.fusion_channels]
+    assert len(branches) == 1
+    stage_ids = []
+
+    # epoch_table = [[(sg, start_t, duration), ...], ...]
+    for sid in np.random.randint(0, self.NUM_CLASSES, batch_size):
+      table = self.epoch_table[sid]
+      sg, start_t, duration = table[np.random.randint(0, len(table))]
+
+      # Get tape and fs
+      for branch, tape in zip(branches, sg.get_from_pocket(self.Keys.tapes)):
+        fs = sg.get_from_pocket(self.Keys.tape_sfreq_dict)[tape.tobytes()]
+        # Sliding-window augmentation, default epoch_delta = 0.2
+        start_t += (np.random.rand() * 2 - 1) * duration * th.epoch_delta
+        d = int(duration * fs)
+        start_i = min(max(int(start_t * fs), 0), len(tape) - d)
+        branch.append(tape[start_i:start_i+d])
+        stage_ids.append(sid)
+
+    # Generate features and targets
+    features = np.stack(branches[0], axis=0)
+    targets = convert_to_one_hot(stage_ids, self.NUM_CLASSES)
+
+    return DataSet(features, targets, NUM_CLASSES=5)
+
+  def gen_batches(self, batch_size, shuffle=False, is_training=False):
+    """Generate FNN batches"""
+    # Validate training set
+    if not is_training:
+      for batch in self.validation_set.gen_batches(batch_size): yield batch
+      return
+
+    round_len = self.get_round_length(batch_size, training=is_training)
+    assert batch_size != -1
+
+    # Generate batches
+    for i in range(round_len):
+      data_batch = self._get_branches_randomly(batch_size)
+      # Preprocess if necessary
+      if self.batch_preprocessor is not None:
+        data_batch = self.batch_preprocessor(data_batch, is_training)
+      # Make sure data_batch is a regular array
+      if not data_batch.is_regular_array: data_batch = data_batch.stack
+      # Yield data batch
+      yield data_batch
+
+    # Clear dynamic_round_len
+    self._clear_dynamic_round_len()
+
+  # endregion: gen_batches
+
+  @property
+  def size(self): return len(self.validation_set.features)
+
   # endregion: Overwriting
 
   # region: Standards
 
-  def get_stage_id_list_from_sg(self, sg: SignalGroup, anno_key=None):
-    """Get standard stage ID list from a signal group, following
-       0: Wake, 1: REM, 2: N1, 3: N2, 4: N3
+  @classmethod
+  def get_map_dict(cls, sg: SignalGroup):
+    # TODO: currently only AASM standard is supported
+    assert cls.NUM_CLASSES == 5
+    anno: Annotation = sg.annotations[cls.ANNO_KEY]
+
+    def _init_map_dict(labels):
+      map_dict = {}
+      for i, label in enumerate(labels):
+        if 'W' in label: j = 0
+        elif '1' in label: j = 1
+        elif '2' in label: j = 2
+        elif '3' in label or '4' in label: j = 3
+        elif 'R' in label: j = 4
+        else: j = None
+        map_dict[i] = j
+      return map_dict
+
+    return sg.get_from_pocket(
+      cls.Keys.map_dict, initializer=lambda: _init_map_dict(anno.labels))
+
+  @classmethod
+  def get_sg_epoch_tables(cls, sg: SignalGroup):
+    """[Rule] 0: Wake, 1: N1, 2: N2, 3: N3, 4: REM, None: Unknown
+       (1) table_per_class = [[(sg, start_i, duration), ...], ...]
+       (2) table_id = [0, 1, 2, ...]
     """
-    # Get annotation
-    if anno_key is None: anno_key = self.ANNO_KEY
-    anno: Annotation = sg.annotations[anno_key]
+    def _init_sg_epoch_tables():
+      # Get annotation
+      anno: Annotation = sg.annotations[cls.ANNO_KEY]
+      # Generate map_dict
+      map_dict = cls.get_map_dict(sg)
+      # 5 stages + 1 unknown label
+      table_per_class = [[] for i in range(cls.NUM_CLASSES + 1)]
+      table_id = []
 
-    # Generate map_dict
-    map_dict = {}
-    for i, label in enumerate(anno.labels):
-      if 'W' in label: j = 0
-      elif 'R' in label: j = 1
-      elif '1' in label: j = 2
-      elif '2' in label: j = 3
-      elif '3' in label or '4' in label: j = 4
-      else: j = None
-      map_dict[i] = j
+      for interval, anno_id in zip(anno.intervals, anno.annotations):
+        sid = map_dict[anno_id]
+        N = (interval[-1] - interval[0]) / cls.EPOCH_DURATION
+        # Check N
+        assert N == int(N)
 
-    stage_ids = []
-    for interval, anno_id in zip(anno.intervals, anno.annotations):
-      id = map_dict[anno_id]
-      N = (interval[-1] - interval[0]) / self.EPOCH_DURATION
-      assert N == int(N)
-      stage_ids.extend([id] * int(N))
+        # The 1st element in tuple is for future concatenating
+        table_per_class[sid if sid is not None else 5].extend([
+          (sg, interval[0] + i * cls.EPOCH_DURATION, cls.EPOCH_DURATION)
+          for i in range(int(N))])
+        table_id.extend([sid] * int(N))
+      return table_per_class, table_id
 
-    return stage_ids
+    return sg.get_from_pocket(
+      cls.Keys.epoch_tables, initializer=_init_sg_epoch_tables)
 
   # endregion: Standards
 
@@ -137,7 +239,7 @@ class SleepSet(SequenceSet):
         f'!! `{key}` is not a valid data-kwargs')
 
     # (0) Set class names for ConfusionMatrix
-    self.properties['CLASSES'] = ['Wake', 'REM', 'N1', 'N2', "N3"]
+    self.properties['CLASSES'] = ['Wake', 'N1', 'N2', 'N3', 'REM']
 
     # (1) extract required channels as tapes according to channel selection
     console.show_status('Extracting tapes ...')

@@ -12,6 +12,10 @@ class SleepConfig(SmartTrainerHub):
 
   balance_training_stages = Flag.boolean(
     True, 'Whether to balance training stages', is_key=None)
+  epoch_delta = Flag.float(
+    0.0, 'Delta for generating batches, should be in [0, 1)', is_key=None)
+  use_gen_batches_buffer = Flag.boolean(
+    False, 'Whether to use gen_batches buffer')
 
   # region: Properties
 

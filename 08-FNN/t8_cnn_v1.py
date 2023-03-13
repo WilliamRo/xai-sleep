@@ -36,7 +36,7 @@ def main(_):
   # ---------------------------------------------------------------------------
   th.data_config = 'sleepedfx 1,2'
   th.data_config += ' val_ids=16,17 test_ids=18,19'
-  th.data_config += ' preprocess=iqr'
+  # th.data_config += ' preprocess=iqr'
   th.input_shape = [3000, 2]
 
   # ---------------------------------------------------------------------------
@@ -62,7 +62,6 @@ def main(_):
   # ---------------------------------------------------------------------------
   th.epoch = 1000
   th.early_stop = True
-
   th.batch_size = 64
 
   th.optimizer = 'adam'
@@ -70,8 +69,10 @@ def main(_):
   th.balance_classes = True
 
   th.train = True
-  th.patience = 20
+  th.patience = 10
   th.overwrite = True
+
+  # th.epoch_delta = 0.2
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
