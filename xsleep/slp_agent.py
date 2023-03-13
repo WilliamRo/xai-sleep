@@ -54,12 +54,12 @@ class SLPAgent(DataAgent):
                     dataset = configure(dataset, channel_select=channel_select)
                 else:
                     dataset.configure(channel_select=channel_select)
-                dataset.save(tfd_config_path)
+                # dataset.save(tfd_config_path)
             format = kwargs.get('format', None)
             if callable(format):
               dataset = format(dataset)
             else: dataset.format_data()
-            dataset.save(tfd_format_path)
+            # dataset.save(tfd_format_path)
             console.show_status(f'Saving {tfd_format_path} ...')
 
         # Convert dense label to one-hot

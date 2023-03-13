@@ -1,6 +1,5 @@
 from slp_agent import SLPAgent
 
-
 def load_data():
   # Load data
   # ...
