@@ -31,7 +31,7 @@ class SleepSet(SequenceSet):
                   'test_ids',
                   'preprocess',
                   'mad',                  # max absolute deviation (IQR)
-                  ]
+                  'sg_preprocess']
 
   # region: Properties
 
@@ -256,6 +256,9 @@ class SleepSet(SequenceSet):
         if th.data_kwargs.get('preprocess', None) in ('iqr',):
           mad = float(th.data_kwargs.get('mad', 10))
           tape = DigitalSignal.preprocess_iqr(tape, max_abs_deviation=mad)
+        elif th.data_kwargs.get('preprocess', None) in ('std',):
+          tape = tape - np.mean(tape, axis=0)
+          tape = tape / (np.std(tape, axis=0) + 1e-6)
 
         tapes.append(tape)
 
@@ -287,7 +290,9 @@ class SleepSet(SequenceSet):
 
   @classmethod
   def load_as_sleep_set(cls, data_dir, **kwargs) -> SequenceSet:
-    sg = cls.load_as_signal_groups(data_dir, **kwargs)
+    from tframe import hub as th
+    preprocess = th.data_kwargs.get('sg_preprocess', '')
+    sg = cls.load_as_signal_groups(data_dir, preprocess=preprocess, **kwargs)
     return cls(name=cls.__name__, signal_groups=sg)
 
   # endregion: Abstract Methods

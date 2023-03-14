@@ -37,6 +37,7 @@ def main(_):
   th.data_config = 'sleepedfx 1,2'
   th.data_config += ' val_ids=16,17 test_ids=18,19'
   # th.data_config += ' preprocess=iqr'
+  th.data_config += ' sg_preprocess=trim;iqr'
   th.input_shape = [3000, 2]
 
   # ---------------------------------------------------------------------------
