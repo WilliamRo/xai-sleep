@@ -204,6 +204,7 @@ class SleepSet(SequenceSet):
       table_per_class = [[] for i in range(cls.NUM_CLASSES + 1)]
       table_id = []
 
+      t0 = anno.intervals[0][0]
       for interval, anno_id in zip(anno.intervals, anno.annotations):
         sid = map_dict[anno_id]
         N = (interval[-1] - interval[0]) / cls.EPOCH_DURATION
@@ -212,7 +213,7 @@ class SleepSet(SequenceSet):
 
         # The 1st element in tuple is for future concatenating
         table_per_class[sid if sid is not None else 5].extend([
-          (sg, interval[0] + i * cls.EPOCH_DURATION, cls.EPOCH_DURATION)
+          (sg, interval[0] + i * cls.EPOCH_DURATION - t0, cls.EPOCH_DURATION)
           for i in range(int(N))])
         table_id.extend([sid] * int(N))
       return table_per_class, table_id

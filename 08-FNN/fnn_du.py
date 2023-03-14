@@ -10,7 +10,7 @@ def load_data():
   data_sets = SleepAgent.load_data()
 
   js = [1, 2]
-  if th.epoch_delta == 0: js.append(0)
+  # if th.epoch_delta == 0: js.append(0)
   for j in js: data_sets[j] = data_sets[j].validation_set
 
   return data_sets
