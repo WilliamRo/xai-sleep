@@ -61,7 +61,7 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
-  th.epoch = 1000
+  th.epoch = 10000
   th.early_stop = True
   th.batch_size = 64
 
@@ -70,10 +70,11 @@ def main(_):
   th.balance_classes = True
 
   th.train = True
-  th.patience = 10
+  th.patience = 20
   th.overwrite = True
 
-  # th.epoch_delta = 0.2
+  th.validate_train_set = True
+  th.epoch_delta = 0.2
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------

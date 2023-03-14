@@ -16,7 +16,6 @@ class SleepSet(SequenceSet):
 
   class Keys:
     tapes = 'SleepSet::Keys::tapes'
-    tape_sfreq_dict = 'SleepSet::Keys::tape_sfreq_dict'
     map_dict = 'SleepSet::Keys::map_dict'
     epoch_tables = 'SleepSet::Keys::epoch_table'
 
@@ -52,12 +51,11 @@ class SleepSet(SequenceSet):
     stage_ids = []
     for sg in self.signal_groups:
       tapes = sg.get_from_pocket(self.Keys.tapes)
-      tape_sfreq_dict = sg.get_from_pocket(self.Keys.tape_sfreq_dict)
-      for branch, tape in zip(branches, tapes):
+      for branch, tape_tuple in zip(branches, tapes):
+        tape, sfreq = tape_tuple
         assert isinstance(tape, np.ndarray)
 
         # tape.shape = [L, C]
-        sfreq = tape_sfreq_dict[tape.tobytes()]
         ticks_per_epoch = int(self.EPOCH_DURATION * sfreq)
 
         # Truncate tape if necessary
@@ -121,8 +119,9 @@ class SleepSet(SequenceSet):
       sg, start_t, duration = table[np.random.randint(0, len(table))]
 
       # Get tape and fs
-      for branch, tape in zip(branches, sg.get_from_pocket(self.Keys.tapes)):
-        fs = sg.get_from_pocket(self.Keys.tape_sfreq_dict)[tape.tobytes()]
+      for branch, tape_tuple in zip(
+          branches, sg.get_from_pocket(self.Keys.tapes)):
+        tape, fs = tape_tuple
         # Sliding-window augmentation, default epoch_delta = 0.2
         start_t += (np.random.rand() * 2 - 1) * duration * th.epoch_delta
         d = int(duration * fs)
@@ -247,7 +246,6 @@ class SleepSet(SequenceSet):
       console.print_progress(i, len(self.signal_groups))
 
       tapes = []
-      tape_sfreq_dict = {}
       for chn_lst in th.fusion_channels:
         # tape.shape = [L, C], TODO: fusion channels should have the same sfreq
         tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
@@ -260,15 +258,11 @@ class SleepSet(SequenceSet):
           tape = tape - np.mean(tape, axis=0)
           tape = tape / (np.std(tape, axis=0) + 1e-6)
 
-        tapes.append(tape)
-
-        # Save corresponding sfreq
+        # Get corresponding sfreq
         sfreq = sg.channel_signal_dict[self.CHANNELS[chn_lst[0]]].sfreq
-        # 'str(tape.data)' is not working
-        tape_sfreq_dict[tape.tobytes()] = sfreq
+        tapes.append((tape, sfreq))
 
       sg.put_into_pocket(self.Keys.tapes, tapes)
-      sg.put_into_pocket(self.Keys.tape_sfreq_dict, tape_sfreq_dict)
 
   # endregion: Methods for configuration
 
