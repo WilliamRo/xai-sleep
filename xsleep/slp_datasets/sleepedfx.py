@@ -86,7 +86,7 @@ class SleepEDFx(SleepSet):
     else:
       raise KeyError(f'!! Unknown suffix `{suffix}`')
 
-    data_set.save(tfd_path)
+    # data_set.save(tfd_path)
     console.show_status(f'Dataset saved to `{tfd_path}`')
     return data_set
 
@@ -133,12 +133,92 @@ class SleepEDFx(SleepSet):
                                      signal_groups, **kwargs): continue
 
       # (1) read annotations
+      hypnogram_file = os.path.join(data_dir, hypnogram_file)
       annotation = cls.read_annotations_mne(hypnogram_file, labels=cls.ANNO_LABELS)
 
       # (2) read PSG file
       fn = os.path.join(data_dir, id + '0' + '-PSG.edf')
       assert os.path.exists(fn)
       digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(fn)
+
+      # wrap data into signal group
+      sg = SignalGroup(digital_signals, label=f'{id}')
+      sg.annotations[cls.ANNO_KEY] = annotation
+      signal_groups.append(sg)
+
+      # save sg if necessary
+      cls.save_sg_file_if_necessary(id, sg_path, n_patients, i, sg, **kwargs)
+
+    console.show_status(f'Successfully read {n_patients} records')
+    return signal_groups
+
+  @classmethod
+  def load_as_signal_groups_peiyan(cls, data_dir, first_k=None, **kwargs):
+    """Directory structure of SleepEDFx dataset is as follows:
+
+       sleep-edf-database-expanded-1.0.0
+         |- sleep-cassette
+            |- SC4001E0-PSG.edf
+            |- SC4001EC-Hypnogram.edf
+            |- ...
+         |- sleep-telemetry
+            |- ST7011J0-PSG.edf
+            |- ST7011JP-Hypnogram.edf
+            |- ...
+
+    However, this method supports loading SleepEDFx data from arbitrary
+    folder, given that this folder contains SleepEDFx data.
+
+    Parameters
+    ----------
+    :param data_dir: a directory contains pairs of *-PSG.edf and *-Hypnogram.edf
+    """
+    # Sanity check
+    assert os.path.exists(data_dir)
+
+    # Create an empty list
+    signal_groups: List[SignalGroup] = []
+
+    # Get all .edf files
+    hypnogram_file_list: List[str] = walk(data_dir, 'file', '*Hypnogram*')
+    # hypnogram_file_list: List[str] = [
+    #   'SC4151EC-Hypnogram.edf', 'SC4112EC-Hypnogram.edf', 'SC4211EC-Hypnogram.edf',
+    #   'SC4281GC-Hypnogram.edf', 'SC4422EA-Hypnogram.edf', 'SC4071EC-Hypnogram.edf',
+    #   'SC4081EC-Hypnogram.edf', 'SC4011EH-Hypnogram.edf', 'SC4061EC-Hypnogram.edf',
+    #   'SC4651EP-Hypnogram.edf', 'SC4031EC-Hypnogram.edf', 'SC4142EU-Hypnogram.edf',
+    #   'SC4102EC-Hypnogram.edf', 'SC4181EC-Hypnogram.edf', 'SC4312EM-Hypnogram.edf',
+    #   'SC4001EC-Hypnogram.edf', 'SC4482FJ-Hypnogram.edf', 'SC4021EH-Hypnogram.edf',
+    #   'SC4122EV-Hypnogram.edf', 'SC4051EC-Hypnogram.edf',
+    # ]
+    if first_k is not None and first_k != '':
+      hypnogram_file_list = hypnogram_file_list[:int(first_k)]
+    n_patients = len(hypnogram_file_list)
+
+    data_file_path = os.path.join(data_dir, 'Sleep_100hz_Novel_CNN_eog_denoise.npy')
+    data_sets = np.load(data_file_path).reshape(20, -1)
+    # Read records in order
+    for i, hypnogram_file in enumerate(hypnogram_file_list):
+      # Get id
+      id: str = os.path.split(hypnogram_file)[-1].split('-')[0][:7]
+
+      # If the corresponding .sg file exists, read it directly
+      sg_path = os.path.join(data_dir, id + '(novel_eog)' + '.sg')
+      if cls.try_to_load_sg_directly(id, sg_path, n_patients, i,
+                                     signal_groups, **kwargs): continue
+
+      # (1) read annotations
+      hypnogram_file = os.path.join(data_dir, hypnogram_file)
+      annotation = cls.read_annotations_mne(hypnogram_file, labels=cls.ANNO_LABELS)
+
+      # (2) read PSG file
+      fn = os.path.join(data_dir, id + '0' + '-PSG.edf')
+      assert os.path.exists(fn)
+      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(fn)
+      for ds in digital_signals:
+        freq = int(ds.sfreq)
+        ds.data = ds.data[: freq * 78180]
+        if freq == 100:
+          ds.data[:, 0] = data_sets[i]
 
       # wrap data into signal group
       sg = SignalGroup(digital_signals, label=f'{id}')
@@ -176,15 +256,16 @@ class SleepEDFx(SleepSet):
     for sg in self.signal_groups:
       # configure data
       chn_data = self.interpolate(sg, chn_names)
-      sg_data = np.stack([SleepSet.iqr_standardize(data) for data in chn_data], axis=-1)
+      for index, data in enumerate(chn_data):
+        if index == 0: continue
+        else: chn_data[index] = SleepSet.normalize(data)
+      sg_data = np.stack([data for data in chn_data], axis=-1)
 
       # configure annotation
       annotations = np.array(sg.annotations[self.ANNO_KEY].annotations)
-      wake_begin = np.argwhere(annotations == 0)[0][0]
-      wake_end = np.argwhere(annotations == 0)[-1][0]
       intervals = sg.annotations[self.ANNO_KEY].intervals
       sg_annotation = []
-      for index, interval in enumerate(intervals[wake_begin:wake_end+1]):
+      for index, interval in enumerate(intervals):
         sg_annotation.extend(np.ones(int(interval[1] - interval[0]) // 30, dtype=np.int)
                              * annotations[index])
 

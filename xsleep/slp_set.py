@@ -144,14 +144,6 @@ class SleepSet(SequenceSet):
     return digital_signals
 
   @staticmethod
-  def read_numpy_array(
-          file_path: str,
-          groups=None,
-          dtype=np.float32,
-          **kwargs
-  ) -> List[DigitalSignal]:
-    pass
-  @staticmethod
   def read_annotations_mne(file_path: str, labels=None) -> Annotation:
     """Read annotations using `mne` package"""
     import mne
@@ -265,11 +257,30 @@ class SleepSet(SequenceSet):
       intervals = annotation.intervals
       intervals[wake_begin] = (max(intervals[wake_begin][0], intervals[wake_begin][1]-1800), intervals[wake_begin][1])
       intervals[wake_end] = (intervals[wake_end][0], min(intervals[wake_end][0]+1800, intervals[wake_end][1]))
+      intervals = intervals[wake_begin: wake_end+1]
+      label = label[wake_begin: wake_end+1]
+
+      annotation.intervals = intervals
+      annotation.annotations = label
+
 
       for ds in sg.digital_signals:
         # TODO
         freq = int(ds.sfreq)
-        _start, _end = intervals[wake_begin][0] * freq, intervals[wake_end][1] * freq
+        _start, _end = intervals[0][0] * freq, intervals[-1][1] * freq
+        index = 0
+        if int(_end) > ds.data.shape[0]:
+          _end = ds.data.shape[0]
+          for i, interval in enumerate(intervals):
+            if interval[1] >= (_end // freq):
+              index = i
+              break
+          intervals[index] = (intervals[index][0], float(_end // freq))
+          intervals = intervals[0: index + 1]
+          label = label[0: index + 1]
+          annotation.intervals = intervals
+          annotation.annotations = label
+
         ds.data = ds.data[int(_start):int(_end)]
 
   def interpolate(self, sg, chn_names) -> List:

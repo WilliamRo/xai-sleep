@@ -81,6 +81,9 @@ def get_data_fusion_model_cam():
   return finalize_cam(model)
 # endregion: data_fusion
 
+def get_feature_fusion_model_cam():
+
+  pass
 # region: feature fusion
 def get_feature_fusion_model():
   from tframe.nets.octopus import Octopus

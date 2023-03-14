@@ -1,5 +1,5 @@
-import gate_core as core
-import gate_mu as m
+import senet_core as core
+import senet_mu as mu
 
 from tframe import console
 from tframe import tf
@@ -9,11 +9,11 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'feature_fusion'
-id = 2
+model_name = 'senet'
+id = 1
 
 
-def model(): return m.get_feature_fusion_model()
+def model(): return mu.get_cscnn_model()
 
 
 def main(_):
@@ -23,7 +23,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'sleepedf:20:0,2,4'
+    th.data_config = 'sleepedf:20:0'
 
     th.output_dim = 5
     channel_num = len(th.data_config.split(':')[2].split(','))
@@ -40,22 +40,22 @@ def main(_):
     # -------------------;a--------------------------------------------------------
     # 2. model setup
     # ---------------------------------------------------------------------------
-    th.channels = '0;1;2'
 
     th.model = model
     th.kernel_size = 3
     th.activation = 'relu'
-    th.use_batchnorm = True
+    th.use_batchnorm = False
     # ---------------------------------------------------------------------------
     # 3. trainer setup
     # ---------------------------------------------------------------------------
     th.epoch = 1000
     th.batch_size = 32
     th.dropout = 0.5
-    th.archi_string = '8-8-m-16-16-m-64'
+    th.archi_string = '16-16-m-32-32-m-64'
     th.optimizer = 'adam'
     th.learning_rate = 0.0001
 
+    th.rehearse = True
     th.train = True
     th.overwrite = True
     th.add_noise = False

@@ -23,8 +23,8 @@ class PadLayerOdd2Even(Layer):
     pass
 
   @single_input
-  def _link(self, x:tf.Tensor):
-    output = tf.pad(x, paddings=[[0,0],[0, x.shape[1] % 2],[0,0]])
+  def _link(self, x: tf.Tensor):
+    output = tf.pad(x, paddings=[[0, 0], [0, x.shape[1] % 2], [0, 0]])
     encode_shape.append(output.shape[1])
     return output
 
@@ -32,11 +32,11 @@ class Crop2Match(Layer):
   abbreviation = 'crop'
   full_name = abbreviation
 
-  def __init__(self, index:int):
+  def __init__(self, index: int):
     self.index = index
 
   @single_input
-  def _link(self, x:tf.Tensor):
+  def _link(self, x: tf.Tensor):
     diff = tf.maximum(0, x.shape[1] - encode_shape[self.index])
     start = diff // 2 + diff % 2
     return x[:, start:start+encode_shape[self.index], :]
