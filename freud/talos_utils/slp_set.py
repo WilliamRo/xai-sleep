@@ -290,9 +290,12 @@ class SleepSet(SequenceSet):
 
   @classmethod
   def load_as_sleep_set(cls, data_dir, **kwargs) -> SequenceSet:
-    from tframe import hub as th
-    preprocess = th.data_kwargs.get('sg_preprocess', '')
-    sg = cls.load_as_signal_groups(data_dir, preprocess=preprocess, **kwargs)
+    try:
+      from tframe import hub as th
+      kwargs['preprocess'] = th.data_kwargs.get('sg_preprocess', '')
+    except: pass
+
+    sg = cls.load_as_signal_groups(data_dir, **kwargs)
     return cls(name=cls.__name__, signal_groups=sg)
 
   # endregion: Abstract Methods

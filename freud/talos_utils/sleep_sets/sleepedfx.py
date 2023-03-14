@@ -182,7 +182,8 @@ if __name__ == '__main__':
   data_dir = r'../../../data/sleepedfx'
 
   tic = time.time()
-  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0, preprocess='trim')
+  preprocess = 'trim;iqr'
+  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0, preprocess=preprocess)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
