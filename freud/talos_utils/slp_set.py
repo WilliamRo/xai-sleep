@@ -23,7 +23,7 @@ class SleepSet(SequenceSet):
   EPOCH_DURATION = 30.0
 
   CHANNELS = {}
-  NUM_CLASSES = 5
+  NUM_STAGES = 5
 
   # valid data-kwargs in th.data_config
   VALID_KWARGS = ['val_ids',
@@ -74,7 +74,7 @@ class SleepSet(SequenceSet):
     nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
 
     # Removed invalid epochs
-    n_classes = self.NUM_CLASSES
+    n_classes = self.NUM_STAGES
     features = np.delete(features, nan_indices, axis=0)
     targets = [v for v in stage_ids if v is not None]
     targets = convert_to_one_hot(targets, n_classes)
@@ -86,9 +86,9 @@ class SleepSet(SequenceSet):
   @SequenceSet.property()
   def epoch_table(self):
     """table[i] = [(sg, start_t, duration), ...]"""
-    table = [[] for _ in range(self.NUM_CLASSES + 1)]
+    table = [[] for _ in range(self.NUM_STAGES + 1)]
     for sg in self.signal_groups:
-      for i in range(self.NUM_CLASSES + 1):
+      for i in range(self.NUM_STAGES + 1):
         table[i].extend(self.get_sg_epoch_tables(sg)[0][i])
     return table
 
@@ -114,7 +114,7 @@ class SleepSet(SequenceSet):
     stage_ids = []
 
     # epoch_table = [[(sg, start_t, duration), ...], ...]
-    for sid in np.random.randint(0, self.NUM_CLASSES, batch_size):
+    for sid in np.random.randint(0, self.NUM_STAGES, batch_size):
       table = self.epoch_table[sid]
       sg, start_t, duration = table[np.random.randint(0, len(table))]
 
@@ -131,7 +131,7 @@ class SleepSet(SequenceSet):
 
     # Generate features and targets
     features = np.stack(branches[0], axis=0)
-    targets = convert_to_one_hot(stage_ids, self.NUM_CLASSES)
+    targets = convert_to_one_hot(stage_ids, self.NUM_STAGES)
 
     return DataSet(features, targets, NUM_CLASSES=5)
 
@@ -171,7 +171,7 @@ class SleepSet(SequenceSet):
   @classmethod
   def get_map_dict(cls, sg: SignalGroup):
     # TODO: currently only AASM standard is supported
-    assert cls.NUM_CLASSES == 5
+    assert cls.NUM_STAGES == 5
     anno: Annotation = sg.annotations[cls.ANNO_KEY]
 
     def _init_map_dict(labels):
@@ -201,7 +201,7 @@ class SleepSet(SequenceSet):
       # Generate map_dict
       map_dict = cls.get_map_dict(sg)
       # 5 stages + 1 unknown label
-      table_per_class = [[] for i in range(cls.NUM_CLASSES + 1)]
+      table_per_class = [[] for i in range(cls.NUM_STAGES + 1)]
       table_id = []
 
       t0 = anno.intervals[0][0]
@@ -251,14 +251,6 @@ class SleepSet(SequenceSet):
         # tape.shape = [L, C], TODO: fusion channels should have the same sfreq
         tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
 
-        # (*) preprocess signals channel-wisely
-        if th.data_kwargs.get('preprocess', None) in ('iqr',):
-          mad = float(th.data_kwargs.get('mad', 10))
-          tape = DigitalSignal.preprocess_iqr(tape, max_abs_deviation=mad)
-        elif th.data_kwargs.get('preprocess', None) in ('std',):
-          tape = tape - np.mean(tape, axis=0)
-          tape = tape / (np.std(tape, axis=0) + 1e-6)
-
         # Get corresponding sfreq
         sfreq = sg.channel_signal_dict[self.CHANNELS[chn_lst[0]]].sfreq
         tapes.append((tape, sfreq))
@@ -273,7 +265,7 @@ class SleepSet(SequenceSet):
     return self.__class__(
       name=f'{self.name}-{name_suffix}',
       signal_groups=[self.signal_groups[i] for i in indices],
-      CLASSES=self['CLASSES'])
+      CLASSES=self['CLASSES'], NUM_CLASSES=self.NUM_STAGES)
 
   # endregion: Public Methods
 
@@ -291,7 +283,7 @@ class SleepSet(SequenceSet):
     except: pass
 
     sg = cls.load_as_signal_groups(data_dir, **kwargs)
-    return cls(name=cls.__name__, signal_groups=sg)
+    return cls(name=cls.__name__, signal_groups=sg, NUM_CLASSES=cls.NUM_STAGES)
 
   # endregion: Abstract Methods
 

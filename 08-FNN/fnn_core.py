@@ -87,8 +87,9 @@ def activate():
   else:
     pass
 
-  model.evaluate_pro(test_set, batch_size=128, verbose=True,
-                     show_confusion_matrix=True, show_class_detail=True)
+  for ds in (train_set.validation_set, val_set, test_set):
+    model.evaluate_pro(ds, batch_size=128, verbose=True,
+                       show_confusion_matrix=True, show_class_detail=True)
 
 
   # End
