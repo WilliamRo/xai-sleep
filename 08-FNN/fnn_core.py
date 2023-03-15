@@ -68,6 +68,8 @@ th.val_progress_bar = True
 
 
 def activate():
+  if 'deactivate' in th.developer_code: return
+
   # Build model
   assert callable(th.model)
   model = th.model()

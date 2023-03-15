@@ -1,8 +1,9 @@
 from freud.data_io.mne_based import read_digital_signals_mne
 from freud.gui.sleep_monitor import SleepMonitor
 from pictor import Pictor
-from pictor.objects.signals.signal_group import SignalGroup
+from pictor.objects.signals.signal_group import SignalGroup, Annotation
 from pictor.plugins import DialogUtilities
+from roma import console
 
 import os
 import numpy as np
@@ -34,6 +35,28 @@ class Freud(Pictor, DialogUtilities):
 
     # Refresh if necessary
     if auto_refresh: self.refresh()
+
+  def standardize_stage_annotation(self, standard='aasm', auto_refresh=True):
+    from freud.talos_utils.slp_set import SleepSet
+
+    assert standard == 'aasm'
+    ANNO_KEY = 'stage Ground-Truth'
+    for sg in self.objects:
+      assert isinstance(sg, SignalGroup)
+      if ANNO_KEY not in sg.annotations: continue
+
+      map_dict = SleepSet.get_map_dict(sg)
+      for k in list(map_dict.keys()):
+        if map_dict[k] is None: map_dict[k] = 6
+
+      anno: Annotation = sg.annotations[ANNO_KEY]
+      anno.labels = SleepSet.AASM_LABELS
+      anno.annotations = [map_dict[a] for a in anno.annotations]
+
+      console.show_status(f'Stages in `{sg.label}` has been standardized.')
+
+    if auto_refresh: self.refresh()
+  ssa = standardize_stage_annotation
 
   # endregion: Commands
 

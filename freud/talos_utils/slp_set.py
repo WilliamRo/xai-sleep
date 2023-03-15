@@ -25,6 +25,8 @@ class SleepSet(SequenceSet):
   CHANNELS = {}
   NUM_STAGES = 5
 
+  AASM_LABELS = ['Wake', 'N1', 'N2', 'N3', 'REM', '?']
+
   # valid data-kwargs in th.data_config
   VALID_KWARGS = ['val_ids',
                   'test_ids',
@@ -46,42 +48,7 @@ class SleepSet(SequenceSet):
     if th.use_rnn: raise NotImplementedError(
       '!! RNN inputs are not supported currently')
 
-    # Generate FNN inputs
-    branches = [[] for _ in th.fusion_channels]
-    stage_ids = []
-    for sg in self.signal_groups:
-      tapes = sg.get_from_pocket(self.Keys.tapes)
-      for branch, tape_tuple in zip(branches, tapes):
-        tape, sfreq = tape_tuple
-        assert isinstance(tape, np.ndarray)
-
-        # tape.shape = [L, C]
-        ticks_per_epoch = int(self.EPOCH_DURATION * sfreq)
-
-        # Truncate tape if necessary
-        L = tape.shape[0] // ticks_per_epoch * ticks_per_epoch
-        x = tape[:L].reshape([-1, ticks_per_epoch, tape.shape[-1]])
-
-        branch.append(x)
-      # Find stage_ids
-      stage_ids.extend(self.get_sg_epoch_tables(sg)[1])
-
-    # TODO currently only single branch is supported
-    assert len(branches) == 1
-    features = np.concatenate(branches[0], axis=0)
-    # TODO: here len(ids) may > len(branches[i]), e.g., in SleepEDFx data
-    stage_ids = stage_ids[:len(features)]
-    nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
-
-    # Removed invalid epochs
-    n_classes = self.NUM_STAGES
-    features = np.delete(features, nan_indices, axis=0)
-    targets = [v for v in stage_ids if v is not None]
-    targets = convert_to_one_hot(targets, n_classes)
-
-    # NUM_CLASSES and CLASSES properties are for confusion matrix label
-    return DataSet(features, targets, name=f'{self.name}-val',
-                   NUM_CLASSES=n_classes, CLASSES=self['CLASSES'])
+    return self.extract_data_set(include_targets=True)
 
   @SequenceSet.property()
   def epoch_table(self):
@@ -247,6 +214,7 @@ class SleepSet(SequenceSet):
       console.print_progress(i, len(self.signal_groups))
 
       tapes = []
+      # fusion_channels = [['1', '2'], ['3']]
       for chn_lst in th.fusion_channels:
         # tape.shape = [L, C], TODO: fusion channels should have the same sfreq
         tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
@@ -266,6 +234,51 @@ class SleepSet(SequenceSet):
       name=f'{self.name}-{name_suffix}',
       signal_groups=[self.signal_groups[i] for i in indices],
       CLASSES=self['CLASSES'], NUM_CLASSES=self.NUM_STAGES)
+
+  def extract_data_set(self, include_targets=False):
+    """Extract talos.DataSet from self.signal_groups based on th.
+       Note that self.configure method should be called beforehand. """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    # Generate FNN inputs
+    branches = [[] for _ in th.fusion_channels]
+    stage_ids = []
+    for sg in self.signal_groups:
+      tapes = sg.get_from_pocket(self.Keys.tapes)
+      for branch, tape_tuple in zip(branches, tapes):
+        tape, sfreq = tape_tuple
+        assert isinstance(tape, np.ndarray)
+
+        # tape.shape = [L, C]
+        ticks_per_epoch = int(self.EPOCH_DURATION * sfreq)
+
+        # Truncate tape if necessary
+        L = tape.shape[0] // ticks_per_epoch * ticks_per_epoch
+        x = tape[:L].reshape([-1, ticks_per_epoch, tape.shape[-1]])
+
+        branch.append(x)
+      # Find stage_ids if necessary
+      if include_targets: stage_ids.extend(self.get_sg_epoch_tables(sg)[1])
+
+    # TODO currently only single branch is supported
+    assert len(branches) == 1
+    features = np.concatenate(branches[0], axis=0)
+
+    # TODO: here len(ids) may > len(branches[i]), e.g., in SleepEDFx data
+    if include_targets:
+      stage_ids = stage_ids[:len(features)]
+      nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
+
+      # Removed invalid epochs
+      features = np.delete(features, nan_indices, axis=0)
+      targets = [v for v in stage_ids if v is not None]
+      targets = convert_to_one_hot(targets, self.NUM_STAGES)
+    else: targets = None
+
+    # NUM_CLASSES and CLASSES properties are for confusion matrix label
+    return DataSet(features, targets, name=f'{self.name}-val',
+                   NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
 
   # endregion: Public Methods
 
@@ -355,7 +368,10 @@ class SleepSet(SequenceSet):
 
     for func in [func for func in funcs if callable(func)]: func(freud.monitor)
 
+    if kwargs.get('return_freud', False): return freud
+
     for k, v in kwargs.items(): freud.monitor.set(k, v, auto_refresh=False)
+
     freud.show()
 
   # endregion: Visualization
