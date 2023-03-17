@@ -9,8 +9,8 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'cnn_v1'
-id = 1
+model_name = 'cheat'
+id = 3
 def model():
   th = core.th
   model = m.get_initial_model()
@@ -31,6 +31,7 @@ def main(_):
 
   th = core.th
   th.rehearse = 0
+  th.developer_code += 'cheat'
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
@@ -38,7 +39,9 @@ def main(_):
   th.data_config += ' val_ids=16,17 test_ids=18,19'
   # th.data_config += ' preprocess=iqr'
   th.data_config += ' sg_preprocess=trim;iqr'
-  th.input_shape = [3000, len(th.fusion_channels[0])]
+  C = len(th.fusion_channels[0])
+  if 'cheat' in th.developer_code: C = C + 1
+  th.input_shape = [3000, C]
 
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
@@ -69,7 +72,7 @@ def main(_):
   th.learning_rate = 0.0001
   th.balance_classes = True
 
-  th.train = True
+  th.train = False
   th.patience = 20
   th.overwrite = True
 
