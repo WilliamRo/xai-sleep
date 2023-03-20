@@ -80,7 +80,17 @@ class CAMonitor(SleepMonitor):
 
     # TODO --------------------------------------------------------------------
 
-    print('CAM ...')
+    tensor = model.children[4].children[0].output_tensor
+    tensors = [tensor]
+    # results = model.evaluate(tensors, ds, 128)
+
+    i = 0
+    a = model.children[-1].children[0].output_tensor[:, i]
+
+    from tframe import tf
+    grads = tf.gradients(a[0], tensor)
+    results = model.evaluate(grads[0], ds, 128)
+
 
   def show_curves(self, x: np.ndarray, fig: plt.Figure, i: int):
     super(CAMonitor, self).show_curves(x, fig, i)
