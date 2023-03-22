@@ -23,7 +23,7 @@ def model():
       c, th.kernel_size, stride, activation='relu',
       use_batchnorm=th.use_batchnorm))
 
-  return m.finalize(model, flatten=True)
+  return m.finalize(model, flatten=True, use_gap=True)
 
 
 def main(_):
@@ -57,7 +57,7 @@ def main(_):
   th.activation = 'relu'
   th.use_batchnorm = True
 
-  th.archi_string = '16-s16-32-s32-64'
+  th.archi_string = '16-s16-32-s32-64-5'
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------

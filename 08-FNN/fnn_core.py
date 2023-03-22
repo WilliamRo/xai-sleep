@@ -22,7 +22,7 @@ for _ in range(DIR_DEPTH):
   if sys.path[0] != ROOT: sys.path.insert(0, ROOT)
 # =============================================================================
 from tframe import console
-from tframe import Predictor
+from tframe import Classifier
 
 from freud.talos_utils.slp_config import SleepConfig as Hub
 
@@ -73,7 +73,7 @@ def activate():
   # Build model
   assert callable(th.model)
   model = th.model()
-  assert isinstance(model, Predictor)
+  assert isinstance(model, Classifier)
 
   if th.rehearse:
     model.rehearse(build_model=False)
@@ -91,7 +91,9 @@ def activate():
 
   for ds in (train_set.validation_set, val_set, test_set):
     model.evaluate_pro(ds, batch_size=128, verbose=True,
-                       show_confusion_matrix=True, show_class_detail=True)
+                       show_confusion_matrix=True,
+                       plot_confusion_matrix=False,
+                       show_class_detail=True)
 
 
   # End

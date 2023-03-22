@@ -72,7 +72,7 @@ def main(_):
   th.learning_rate = 0.0001
   th.balance_classes = True
 
-  th.train = False
+  th.train = True
   th.patience = 20
   th.overwrite = True
 
