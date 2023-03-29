@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pyedflib
-import mne.io
 import mne
 
 
@@ -106,7 +105,7 @@ if __name__ == '__main__':
     compare_edf_data = True
 
     #prepare file name
-    data_config = 'sleepedf:20:0,2'
+    data_config = 'sleepedfx:20:0,2'
     data_name, data_num, channel_select = data_config.split(':')
     f_name = 'SC4001E0-PSG.edf'
     h_name = 'SC4001EC-Hypnogram.edf'

@@ -68,6 +68,8 @@ th.random_sample_length = 3000
 
 
 def activate():
+  if 'deactivate' in th.developer_code: return
+
   # Build model
   assert callable(th.model)
   model = th.model()
@@ -79,30 +81,34 @@ def activate():
                    path=model.agent.ckpt_dir, mark='model')
     return
 
+  # Load data
+  train_set, val_set, test_set = du.load_data()
+
   if th.train:
-    # Load data
-    train_set, val_set, test_set = du.load_data()
-    if th.centralize_data: th.data_mean = train_set.feature_mean
     model.train(train_set, validation_set=val_set, test_set=test_set,
                 trainer_hub=th)
     model = model.agent.launch_model
 
   else:
     # Evaluate on test set
-    import pickle
-    dataset_name, data_num, _ = th.data_config.split(':')
-    person_num = '(all)' if data_num == '' else f'({data_num})'
-    prefix = dataset_name + person_num
-    model_architecture = 'fnn'
-    if th.use_rnn:
-      model_architecture = 'rnn'
-    tfd_format_path = os.path.join(th.data_dir, dataset_name,
-                                   f'{prefix}-format-{model_architecture}{th.input_shape[0]}.tfds')
-    if os.path.exists(tfd_format_path):
-      with open(tfd_format_path, 'rb') as _input_:
-        console.show_status(f'loading {tfd_format_path}...')
-        dataset = pickle.load(_input_)
-        du.SLPAgent.evaluate_model(model, dataset)
+    # import pickle
+    # dataset_name, data_num, _ = th.data_config.split(':')
+    # person_num = '(all)' if data_num == '' else f'({data_num})'
+    # prefix = dataset_name + person_num
+    # model_architecture = 'fnn'
+    # if th.use_rnn:
+    #   model_architecture = 'rnn'
+    # tfd_format_path = os.path.join(th.data_dir, dataset_name,
+    #                                f'{prefix}-format-{model_architecture}{th.input_shape[0]}.tfds')
+    # if os.path.exists(tfd_format_path):
+    #   with open(tfd_format_path, 'rb') as _input_:
+    #     console.show_status(f'loading {tfd_format_path}...')
+    #     dataset = pickle.load(_input_)
+    #     du.SLPAgent.evaluate_model(model, dataset)
+
+    for ds in (train_set, val_set, test_set):
+      model.evaluate_pro(ds, batch_size=128, verbose=True,
+                         show_confusion_matrix=True, show_class_detail=True)
 
   # End
   model.shutdown()

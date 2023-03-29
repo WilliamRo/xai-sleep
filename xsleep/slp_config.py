@@ -1,6 +1,6 @@
 from tframe.trainers import SmartTrainerHub
 from tframe.configs.config_base import Flag
-from roma import console
+from freud.talos_utils.slp_config import SleepConfig
 
 import re
 
@@ -24,10 +24,8 @@ class SLPConfig(SmartTrainerHub):
 
   channels = Flag.string('', 'Channels to read from edfs', is_key=None)
 
-  @property
   def fusion_channels(self):
     return [s.split(',') for s in self.channels.split(';')]
-
 
 
 # New hub class inherited from SmartTrainerHub must be registered

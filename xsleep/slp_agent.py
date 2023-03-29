@@ -88,7 +88,7 @@ class SLPAgent(DataAgent):
           e.g., data_set = SleepEDFx(name=f'Sleep-EDF-Expanded{suffix_k}',
                                      signal_groups=signal_groups)
         """
-        if data_name in ['sleepedf', 'dsn']:
+        if data_name in ['sleepedfx', 'dsn']:
             from xsleep.slp_datasets.sleepedfx import SleepEDFx as DataSet
         elif data_name == 'ucddb':
             from xsleep.slp_datasets.ucddb import UCDDB as DataSet
