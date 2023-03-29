@@ -22,7 +22,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     th.data_config = 'dsn:10:0,2,4'
     th.output_dim = 5
-    th.input_shape = [3000, 1]
+    th.input_shape = [3000, 3]
 
     # ---------------------------------------------------------------------------
     # 1. folder/file names and device
@@ -35,11 +35,12 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 2. model setup
     # ---------------------------------------------------------------------------
+    th.model = m.get_model
     th.activation = 'relu'
     th.use_batchnorm = True
 
     th.train = True
-
+    th.rehearse = True
     # ---------------------------------------------------------------------------
     # 3. trainer setup
     # ---------------------------------------------------------------------------
@@ -50,6 +51,8 @@ def main(_):
     th.overwrite = True
     th.print_cycle = 10
     th.save_model = True
+    th.archi_string = '16-16-m-32-32-m-64'
+    th.kernel_size = 3
 
     # ---------------------------------------------------------------------------
     # 4. other stuff and activate
@@ -57,7 +60,6 @@ def main(_):
     th.mark = '{}({})'.format(model_name, th.data_config.split(':')[0])
     th.gather_summ_name = th.prefix + summ_name + '.sum'
 
-    th.model = m.get_model
     core.activate()
 
 
