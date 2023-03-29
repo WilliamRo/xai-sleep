@@ -22,7 +22,7 @@ def normalize(data):
     return preprocess_data
 
 th.add_noise = False
-th.data_config = 'sleepedf:20:0,2,4'
+th.data_config = 'sleepedfx:20:0,2,4'
 th.ratio = 0
 th.overwrite = True
 th.show_in_monitor = True

@@ -23,7 +23,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'sleepedf:20:0,2,4'
+    th.data_config = 'sleepedfx:20:0,2,4'
 
     th.output_dim = 5
     channel_num = len(th.data_config.split(':')[2].split(','))
@@ -57,6 +57,7 @@ def main(_):
     th.learning_rate = 0.0001
 
     th.train = True
+    th.rehearse = False
     th.overwrite = True
     th.add_noise = False
     th.ratio = 0

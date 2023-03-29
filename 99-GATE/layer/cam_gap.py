@@ -10,7 +10,7 @@ import tensorflow as tf
 
 
 class GlobalAveragePooling1D(Layer):
-  full_name = 'gate1_avg'
+  full_name = 'global_average_pooling'
   abbreviation = 'gap1d'
 
   @init_with_graph
@@ -25,11 +25,13 @@ class GlobalAveragePooling1D(Layer):
     assert isinstance(input_, tf.Tensor)
     shape = input_.shape.as_list()
     assert len(shape) == 3
-    dimension = kwargs.get('dimension')
-    if dimension is None:
-      dimension = 'channel'
+    dimension = kwargs.get('dimension', 'channel')
+    # layer_name = self._kwargs.get('layer_name', 'gap_layer')
     if dimension == 'channel':
       output = tf.reduce_mean(input_, axis=1)
     if dimension == 'spatial':
       output = tf.reduce_mean(input_, axis=2)
+    output = tf.expand_dims(output, axis=1)
+    # context.add_tensor_to_export(f'{layer_name}', output)
+    output = tf.squeeze(output, axis=1)
     return output

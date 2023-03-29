@@ -7,12 +7,12 @@ import os
 
 
 th.add_noise = False
-th.data_config = 'sleepedf:20:0'
+th.data_config = 'sleepedfx:20:0'
 th.ratio = 0
 th.overwrite = True
 th.show_in_monitor = True
 data_name, data_num, channel_select = th.data_config.split(':')
-data_dir = os.path.join(th.data_dir, 'sleepedf')
+data_dir = os.path.join(th.data_dir, 'sleepedfx')
 sgs1 = SleepEDFx.load_as_signal_groups(data_dir,
                                        first_k=20,)
 sgs2 = SleepEDFx.load_as_signal_groups_peiyan(data_dir,
@@ -22,7 +22,7 @@ data1 = sgs1[10].digital_signals[0].data[:7818000, 0]
 data1 = SleepSet.normalize(data1)
 data2 = sgs2[10].digital_signals[0].data[:7818000, 0]
 data2 = SleepSet.normalize(data2)
-path = r'E:\wanglin\project\deep_learning\xai-sleep\data\sleepedf\Sleep_100hz_Novel_CNN_eog_denoise.npy'
+path = r'/data/sleepedfx\Sleep_100hz_Novel_CNN_eog_denoise.npy'
 data3 = np.load(path)
 label1 = sgs1[0].annotations['stage Ground-Truth'].annotations
 label2 = sgs2[0].annotations['stage Ground-Truth'].annotations

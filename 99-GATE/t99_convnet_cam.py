@@ -9,7 +9,7 @@ from tframe.utils.organizer.task_tools import update_job_dir
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'data_fusion'
+model_name = 'feature_fusion'
 id = 1
 
 
@@ -23,7 +23,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'sleepedf:20:0,2,4'
+    th.data_config = 'sleepedfx:20:0,2,4'
     th.channels = '0;1;2'
 
     th.output_dim = 5
@@ -38,7 +38,7 @@ def main(_):
     th.prefix = '{}_'.format(date_string())
 
     th.visible_gpu_id = 0
-    # -------------------;a--------------------------------------------------------
+    # ---------------------------------------------------------------------------
     # 2. model setup
     # ---------------------------------------------------------------------------
     th.model = model
@@ -57,7 +57,8 @@ def main(_):
     th.optimizer = 'adam'
     th.learning_rate = 0.0001
 
-    # th.rehearse = True
+    th.export_tensors_upon_validation = True
+    th.rehearse = True
     th.train = True
     th.overwrite = False
     th.add_noise = False
@@ -66,6 +67,7 @@ def main(_):
     th.show_in_monitor = False
 
     th.print_cycle = 10
+    th.patience = 10
     th.save_model = True
 
     # ---------------------------------------------------------------------------

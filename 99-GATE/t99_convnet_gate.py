@@ -23,7 +23,7 @@ def main(_):
     # ---------------------------------------------------------------------------
     # 0. date set setup
     # ---------------------------------------------------------------------------
-    th.data_config = 'sleepedf:20:0,2,4'
+    th.data_config = 'sleepedfx:20:0,2,4'
 
     th.output_dim = 5
     channel_num = len(th.data_config.split(':')[2].split(','))
