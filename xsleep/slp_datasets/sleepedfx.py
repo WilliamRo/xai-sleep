@@ -75,7 +75,7 @@ class SleepEDFx(SleepSet):
     console.show_status(f'Loading raw data from `{data_dir}` ...')
 
     if suffix == '':
-      signal_groups = cls.load_as_signal_groups(
+      signal_groups = cls.load_as_signal_groups_peiyan(
         data_dir, first_k=first_k, **kwargs)
       data_set = SleepEDFx(name=f'Sleep-EDF-Expanded{suffix_k}',
                            signal_groups=signal_groups)
@@ -194,7 +194,7 @@ class SleepEDFx(SleepSet):
       hypnogram_file_list = hypnogram_file_list[:int(first_k)]
     n_patients = len(hypnogram_file_list)
 
-    data_file_path = os.path.join(data_dir, 'Sleep_100hz_Novel_CNN_eog_denoise.npy')
+    data_file_path = os.path.join(data_dir, 'Sleep_100hz_proposed_denoise_Semi_simulated.npy')
     data_sets = np.load(data_file_path).reshape(20, -1)
     # Read records in order
     for i, hypnogram_file in enumerate(hypnogram_file_list):
@@ -202,7 +202,7 @@ class SleepEDFx(SleepSet):
       id: str = os.path.split(hypnogram_file)[-1].split('-')[0][:7]
 
       # If the corresponding .sg file exists, read it directly
-      sg_path = os.path.join(data_dir, id + '(novel_eog)' + '.sg')
+      sg_path = os.path.join(data_dir, id + '(Proposed_Semi_simulated)' + '.sg')
       if cls.try_to_load_sg_directly(id, sg_path, n_patients, i,
                                      signal_groups, **kwargs): continue
 
@@ -216,9 +216,10 @@ class SleepEDFx(SleepSet):
       digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(fn)
       for ds in digital_signals:
         freq = int(ds.sfreq)
-        ds.data = ds.data[: freq * 78180]
+        # ds.data = ds.data[: freq * 78180]
+        ds.data = ds.data[: int(freq * 78150)]
         if freq == 100:
-          ds.data[:, 0] = data_sets[i]
+          ds.data[:, 0] = data_sets[i][:7815000]
 
       # wrap data into signal group
       sg = SignalGroup(digital_signals, label=f'{id}')
@@ -226,7 +227,7 @@ class SleepEDFx(SleepSet):
       signal_groups.append(sg)
 
       # save sg if necessary
-      cls.save_sg_file_if_necessary(id, sg_path, n_patients, i, sg, **kwargs)
+      # cls.save_sg_file_if_necessary(id, sg_path, n_patients, i, sg, **kwargs)
 
     console.show_status(f'Successfully read {n_patients} records')
     return signal_groups
