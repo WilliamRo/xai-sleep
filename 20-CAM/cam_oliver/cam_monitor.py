@@ -96,6 +96,7 @@ class CAMonitor(SleepMonitor):
     # Grad-CAM
     if grad_cam:
       from tframe import tf
+      model = model
       last_conv = model.children[4].children[0].output_tensor
       dense = model.children[-1].children[0].output_tensor
 

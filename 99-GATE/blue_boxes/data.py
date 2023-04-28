@@ -7,33 +7,28 @@ import os
 
 
 th.add_noise = False
-th.data_config = 'sleepedfx:20:0'
+th.data_config = 'sleepedfx:1:0'
 th.ratio = 0
 th.overwrite = True
 th.show_in_monitor = True
 data_name, data_num, channel_select = th.data_config.split(':')
 data_dir = os.path.join(th.data_dir, 'sleepedfx')
 sgs1 = SleepEDFx.load_as_signal_groups(data_dir,
-                                       first_k=20,)
-sgs2 = SleepEDFx.load_as_signal_groups_peiyan(data_dir,
-                                              first_k=20,)
+                                       first_k=1,)
 
-data1 = sgs1[10].digital_signals[0].data[:7818000, 0]
-data1 = SleepSet.normalize(data1)
-data2 = sgs2[10].digital_signals[0].data[:7818000, 0]
-data2 = SleepSet.normalize(data2)
-path = r'/data/sleepedfx\Sleep_100hz_Novel_CNN_eog_denoise.npy'
-data3 = np.load(path)
-label1 = sgs1[0].annotations['stage Ground-Truth'].annotations
-label2 = sgs2[0].annotations['stage Ground-Truth'].annotations
+fpz_cz = sgs1[0].digital_signals[0].data[:, 1]
+resp = sgs1[0].digital_signals[1].data[:30, 1]
+max_val = max(fpz_cz)
+min_val = min(fpz_cz)
+fpz_cz_nomalize = (fpz_cz - min_val) / (max_val - min_val)
+resp_nomalize = (resp - min_val) / (max_val - min_val)
 
-x = np.arange(data1.shape[0])
-x_a = np.arange(len(label1))
+x = np.arange(fpz_cz.shape[0])
 fig, ax = plt.subplots(2, 1)
-ax[0].plot(x, data1, 'r', x, data3[0], 'b', alpha=0.5)
-ax[0].set_title('data')
-ax[1].plot(x, data3[0])
-ax[1].set_title('data2')
+ax[0].plot(x[0:100], fpz_cz[0:100], 'r')
+ax[0].set_title('fpz_cz')
+ax[1].plot(x[0:100], fpz_cz_nomalize[0:100])
+ax[1].set_title('fpz_cz_normalize')
 
 plt.show()
 

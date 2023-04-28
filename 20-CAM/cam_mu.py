@@ -57,7 +57,7 @@ def get_feature_fusion_model():
   model = get_container(flatten=False)
   oc: Octopus = model.add(Octopus())
 
-  fusion_channels = th.fusion_channels()
+  fusion_channels = th.fusion_channels
   assert len(fusion_channels) >= 2
 
   for index, fusion_channel in enumerate(fusion_channels):
