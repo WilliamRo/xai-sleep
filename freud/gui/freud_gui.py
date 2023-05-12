@@ -60,6 +60,18 @@ class Freud(Pictor, DialogUtilities):
 
   # endregion: Commands
 
+  # region: APIs
+
+  @staticmethod
+  def visualize_signal_groups(signal_groups,
+                              title='Freud',
+                              figure_size=(12, 8)):
+    fre = Freud(title, figure_size)
+    fre.objects = signal_groups
+    fre.show()
+
+  # endregion: APIs
+
 
 
 if __name__ == '__main__':
