@@ -67,6 +67,30 @@ class SleepSet(SequenceSet):
 
   # region: gen_batches
 
+  def _get_balanced_batch(self, batch_size):
+    # epoch_table = [[(sg, start_t, duration), ...], ...]
+    for sid in np.random.randint(0, self.NUM_STAGES, batch_size):
+      table = self.epoch_table[sid]
+      sg, start_t, duration = table[np.random.randint(0, len(table))]
+
+      # Get tape and fs
+      for branch, tape_tuple in zip(
+          branches, sg.get_from_pocket(self.Keys.tapes)):
+        tape, fs = tape_tuple
+        # Sliding-window augmentation, default epoch_delta = 0.2
+        start_t += (np.random.rand() * 2 - 1) * duration * th.epoch_delta
+        d = int(duration * fs)
+        start_i = min(max(int(start_t * fs), 0), len(tape) - d)
+        branch.append(tape[start_i:start_i+d])
+        stage_ids.append(sid)
+
+    # Generate features and targets
+    features = np.stack(branches[0], axis=0)
+    targets = convert_to_one_hot(stage_ids, self.NUM_STAGES)
+
+    return DataSet(features, targets, NUM_CLASSES=5)
+    return None
+
   def _get_branches_randomly(self, batch_size: int):
     """Currently only 1 branch is supported"""
     from tframe import hub as th
@@ -103,7 +127,11 @@ class SleepSet(SequenceSet):
     return DataSet(features, targets, NUM_CLASSES=5)
 
   def gen_batches(self, batch_size, shuffle=False, is_training=False):
-    """Generate FNN batches"""
+    """Generate FNN batches (xs, ys). Each xs[i] has a shape of [E, L, C].
+    Here C represents number of channels, E is the number of epochs,
+    and L = fs * 30, where fs is sampling rate and E. Each ys[i] has a shape of
+    [E, 5].
+    """
     # Validate training set
     if not is_training:
       for batch in self.validation_set.gen_batches(batch_size): yield batch
@@ -168,7 +196,7 @@ class SleepSet(SequenceSet):
       # Generate map_dict
       map_dict = cls.get_map_dict(sg)
       # 5 stages + 1 unknown label
-      table_per_class = [[] for i in range(cls.NUM_STAGES + 1)]
+      table_per_class = [[] for _ in range(cls.NUM_STAGES + 1)]
       table_id = []
 
       t0 = anno.intervals[0][0]
