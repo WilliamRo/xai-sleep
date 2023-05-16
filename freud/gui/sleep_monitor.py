@@ -61,6 +61,7 @@ class SleepMonitor(Monitor):
     if model_name is None: model_name = mod.model_name
     model: Classifier = th.model()
     preds = model.classify(ds, batch_size=128, verbose=True)
+    model.shutdown()
 
     # (3) Set preds to annotations
     if stage_permutation is None: stage_permutation = '1,2,3,4,5'
@@ -96,4 +97,5 @@ if __name__ == '__main__':
   m: SleepMonitor = freud.monitor
   m._selected_signal = freud.objects[0]
   t_file_path = r'E:\xai-sleep\08-FNN\01_cnn_v1\checkpoints\0315_cnn_v1(16-s16-32-s32-64)\0315_cnn_v1(16-s16-32-s32-64).py'
+  m.stage('1,2', t_file_path)
   m.stage('1,2', t_file_path)

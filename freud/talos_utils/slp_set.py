@@ -241,6 +241,8 @@ class SleepSet(SequenceSet):
     for i, sg in enumerate(self.signal_groups):
       console.print_progress(i, len(self.signal_groups))
 
+      if sg.in_pocket(self.Keys.tapes): continue
+
       tapes = []
       # fusion_channels = [['1', '2'], ['3']]
       for chn_lst in th.fusion_channels:
