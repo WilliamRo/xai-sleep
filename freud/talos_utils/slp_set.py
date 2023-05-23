@@ -171,6 +171,7 @@ class SleepSet(SequenceSet):
 
     def _init_map_dict(labels):
       map_dict = {}
+      console.show_status('Creating mapping ...')
       for i, label in enumerate(labels):
         if 'W' in label: j = 0
         elif '1' in label: j = 1
@@ -179,6 +180,7 @@ class SleepSet(SequenceSet):
         elif 'R' in label: j = 4
         else: j = None
         map_dict[i] = j
+        console.supplement(f'{label} maps to {j}', level=2)
       return map_dict
 
     return sg.get_from_pocket(
