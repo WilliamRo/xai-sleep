@@ -52,7 +52,12 @@ class SleepSet(SequenceSet):
 
   @SequenceSet.property()
   def epoch_table(self):
-    """table[i] = [(sg, start_t, duration), ...]"""
+    """Epoch table will not be generated before it is called first-time.
+    This table contains NUM_STAGES + 1 (typically 6) lists, each of which
+    contains a list of tuples comprising information of a period of stage,
+    i.e., table[<STAGE_ID>] = [(sg, start_t, duration), ...]. For example,
+    table[0] contains all wake stage information from all signal groups.
+    """
     table = [[] for _ in range(self.NUM_STAGES + 1)]
     for sg in self.signal_groups:
       for i in range(self.NUM_STAGES + 1):
@@ -67,29 +72,77 @@ class SleepSet(SequenceSet):
 
   # region: gen_batches
 
-  def _get_balanced_batch(self, batch_size):
+  # region: Multi-epoch sampling
+
+  def _sample_seqs_from_sg(self, sg, start_time, duration, with_stage=False):
+    """Sample a sequence from a signal group.
+
+    :param sg - signal group.
+    :param start_time - start time in seconds.
+    :param duration - in seconds.
+
+    :return (data, label) if with_stage. Otherwise, return data.
+            data.shape = [L, C]; label.shape = [E],
+            here E is epoch number, equals to L / fs / 30.
+    """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    # For now consider only 1 branch TODO
+    assert len(th.fusion_channels) == 1
+
+    # Only one tape (branch) is considered for now
+    # tape.shape = [L_tape, C]
+    tape, fs = sg.get_from_pocket(self.Keys.tapes)[0]
+
+    start_i, L = int(start_time * fs), int(duration * fs)
+    assert L < tape.shape[0]
+    assert start_i % 30 == 0   # TODO: this assertion is for sleep staging only
+
+    # Make sure start_i is legal
+    start_i = min(max(0, start_i), tape.shape[0] - L)
+    data = tape[start_i:start_i+L]
+
+    if with_stage:
+      stage_ids = self.get_sg_epoch_tables(sg)[1]
+      start_j, L = int(start_time / 30), int(duration / 30)
+      labels = stage_ids[start_j:start_j+L]
+      return data, labels
+
+    return data
+
+  def _get_sequence_randomly(self, batch_size):
+    """Randomly samples a DataSet, whose features.shape = [L, C],
+       targets.shape = [E, 5], mask.shape = [E, 1].
+       Unlike single epoch sampling, class balance is more difficult to
+       achieve when sampling a sequence.
+    """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    features, targets = [], []
+
     # epoch_table = [[(sg, start_t, duration), ...], ...]
     for sid in np.random.randint(0, self.NUM_STAGES, batch_size):
       table = self.epoch_table[sid]
       sg, start_t, duration = table[np.random.randint(0, len(table))]
 
-      # Get tape and fs
-      for branch, tape_tuple in zip(
-          branches, sg.get_from_pocket(self.Keys.tapes)):
-        tape, fs = tape_tuple
-        # Sliding-window augmentation, default epoch_delta = 0.2
-        start_t += (np.random.rand() * 2 - 1) * duration * th.epoch_delta
-        d = int(duration * fs)
-        start_i = min(max(int(start_t * fs), 0), len(tape) - d)
-        branch.append(tape[start_i:start_i+d])
-        stage_ids.append(sid)
+      data, labels = self._sample_seqs_from_sg(
+        sg, start_t, th.epoch_num * 30, with_stage=True)
 
-    # Generate features and targets
-    features = np.stack(branches[0], axis=0)
-    targets = convert_to_one_hot(stage_ids, self.NUM_STAGES)
+      features.append(data)
+      # TODO: ? class is not considered for now
+      t = convert_to_one_hot(labels, self.NUM_STAGES)
+      t = np.reshape(t, [th.epoch_num, self.NUM_STAGES])
+      targets.append(t)
 
-    return DataSet(features, targets, NUM_CLASSES=5)
-    return None
+    features = np.stack(features, axis=0)
+    targets = np.stack(targets, axis=0)
+    return DataSet(features, targets, NUM_CLASSES=self.NUM_STAGES)
+
+  # endregion: Multi-epoch sampling
+
+  # region: Single-epoch sampling
 
   def _get_branches_randomly(self, batch_size: int):
     """Currently only 1 branch is supported"""
@@ -105,8 +158,10 @@ class SleepSet(SequenceSet):
     stage_ids = []
 
     # epoch_table = [[(sg, start_t, duration), ...], ...]
+    # For each record in this batch, first decide its corresponding stage.
     for sid in np.random.randint(0, self.NUM_STAGES, batch_size):
       table = self.epoch_table[sid]
+      # Then choose a random interval
       sg, start_t, duration = table[np.random.randint(0, len(table))]
 
       # Get tape and fs
@@ -125,6 +180,8 @@ class SleepSet(SequenceSet):
     targets = convert_to_one_hot(stage_ids, self.NUM_STAGES)
 
     return DataSet(features, targets, NUM_CLASSES=5)
+
+  # endregion: Single-epoch sampling
 
   def gen_batches(self, batch_size, shuffle=False, is_training=False):
     """Generate FNN batches (xs, ys). Each xs[i] has a shape of [E, L, C].
