@@ -105,7 +105,7 @@ class SleepSet(SequenceSet):
 
     if with_stage:
       stage_ids = self.get_sg_epoch_tables(sg)[1]
-      start_j, L = int(start_time / 30), int(duration / 30)
+      start_j, L = int(start_i / fs / 30), int(duration / 30)
       labels = stage_ids[start_j:start_j+L]
       return data, labels
 
@@ -127,8 +127,13 @@ class SleepSet(SequenceSet):
       table = self.epoch_table[sid]
       sg, start_t, duration = table[np.random.randint(0, len(table))]
 
-      data, labels = self._sample_seqs_from_sg(
-        sg, start_t, th.epoch_num * 30, with_stage=True)
+      MAX_COUNT = 100
+      for count in range(MAX_COUNT):
+        data, labels = self._sample_seqs_from_sg(
+          sg, start_t, th.epoch_num * 30, with_stage=True)
+        if None not in labels: break
+      if None in labels: raise AssertionError(
+        f'!! Failed to sample valid data after {MAX_COUNT} attempts.')
 
       features.append(data)
       # TODO: ? class is not considered for now

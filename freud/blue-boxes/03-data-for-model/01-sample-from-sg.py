@@ -2,6 +2,8 @@ from tframe import console
 from freud.talos_utils.sleep_sets.sleepedfx import SleepEDFx, SleepSet
 from freud.talos_utils.slp_config import SleepConfig
 
+import numpy as np
+
 
 
 console.suppress_logging()
@@ -20,8 +22,25 @@ ds.configure()
 sg = ds.signal_groups[0]
 # data, labels = ds._sample_seqs_from_sg(sg, 0, 60, with_stage=True)
 
-th.epoch_num = 10
-ds = ds._get_sequence_randomly(2)
+# Report overall stage distribution
+console.show_info('Overall stage distribution:')
+Ns = [len(ds.epoch_table[sid]) for sid in range(5)]
+M = sum(Ns)
+for sid in range(5): console.supplement(f'[{sid}] {Ns[sid]/M*100:.1f}%]')
 
+# Report stage distribution with different epoch_num
+for epoch_num in (1, 5, 10, 20):
+  th.epoch_num = epoch_num
 
-print()
+  batch_size = 500
+  batch = ds._get_sequence_randomly(batch_size)
+
+  # Count stage numbers
+  labels = np.argmax(
+    np.reshape(batch.targets, [epoch_num * batch_size, -1]), axis=-1)
+
+  N = len(labels)
+  console.show_info(f'{epoch_num} epochs per sequence, totally {N} epochs')
+  for sid in range(5):
+    n = sum(labels == sid)
+    console.supplement(f'[{sid}] {n/N*100:.1f}%', level=2)
