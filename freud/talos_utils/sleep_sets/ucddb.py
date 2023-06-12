@@ -102,7 +102,7 @@ class UCDDB(SleepSet):
 
       # Wrap data into signal group
       sg = SignalGroup(digital_signals, label=f'{pid}', **detail_dict)
-      sg.set_annotation(cls.ANNO_KEY, 30, stages, cls.ANNO_LABELS)
+      sg.set_annotation(cls.ANNO_KEY_GT_STAGE, 30, stages, cls.ANNO_LABELS)
       signal_groups.append(sg)
 
       # Save sg if necessary

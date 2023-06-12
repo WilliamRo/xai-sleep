@@ -108,7 +108,7 @@ class SleepEDFx(SleepSet):
 
         # Wrap data into signal group
         sg = SignalGroup(digital_signals, label=f'{pid}')
-        sg.annotations[cls.ANNO_KEY] = annotation
+        sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
 
         # Save sg if necessary
         cls.save_sg_file_if_necessary(
@@ -129,7 +129,7 @@ class SleepEDFx(SleepSet):
       # (i) trim wake if required
       if trim is not None:
         trim = float(trim)
-        anno: Annotation = sg.annotations[cls.ANNO_KEY]
+        anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
         ds0 = sg.digital_signals[0]
         # For SleepEDFx data, last interval is usually invalid
         if anno.intervals[-1][0] >= ds0.ticks[-1]:

@@ -19,7 +19,12 @@ class SleepSet(SequenceSet):
     map_dict = 'SleepSet::Keys::map_dict'
     epoch_tables = 'SleepSet::Keys::epoch_table'
 
-  ANNO_KEY = 'stage Ground-Truth'
+  ANNO_KEY_GT_STAGE = 'stage Ground-Truth'  # This is for compatibility
+  class AnnoKeys:
+    stage_gt = 'stage Ground-Truth'
+    left_leg_events_gt = 'event GT-Left-Leg'
+    right_leg_events_gt = 'event GT-Right-Leg'
+
   EPOCH_DURATION = 30.0
 
   CHANNELS = {}
@@ -229,7 +234,7 @@ class SleepSet(SequenceSet):
   def get_map_dict(cls, sg: SignalGroup):
     # TODO: currently only AASM standard is supported
     assert cls.NUM_STAGES == 5
-    anno: Annotation = sg.annotations[cls.ANNO_KEY]
+    anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
 
     def _init_map_dict(labels):
       map_dict = {}
@@ -256,7 +261,7 @@ class SleepSet(SequenceSet):
     """
     def _init_sg_epoch_tables():
       # Get annotation
-      anno: Annotation = sg.annotations[cls.ANNO_KEY]
+      anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
       # Generate map_dict
       map_dict = cls.get_map_dict(sg)
       # 5 stages + 1 unknown label
