@@ -36,7 +36,7 @@ class LegMonitor(SleepMonitor):
         label = anno_config.arg_list[0]
         line.set_label(label)
         legend_handles.append(line)
-      elif key.lower() in ('event', 'event-auto'):
+      elif key.lower() in ('event', 'event_auto'):
         color = 'blue' if 'auto' not in key.lower() else 'red'
         self._plot_event(ax, package, color=color)
       else:
@@ -88,9 +88,9 @@ class LegMonitor(SleepMonitor):
 
     intervals = [(x[i1], x[i2]) for i1, i2 in interval_indices]
     anno = Annotation(intervals, labels=key)
-    anno_key = f'event-auto {key}-alpha'
+    anno_key = f'event_auto {key}-alpha'
     self._selected_signal.annotations[anno_key] = anno
-    self.toggle_annotation(*anno_key.split(' '))
+    self.toggle_annotation(*anno_key.split(' '), force_on=True)
 
     # from leg.leg_move_marker import marker_alpha
     # from leg.leg_move_marker import marker_beta
@@ -139,6 +139,16 @@ class LegMonitor(SleepMonitor):
                              description='Find next leg movement event')
     self.register_a_shortcut('P', lambda : self.next_prev_leg_event(-1),
                              description='Find previous leg movement event')
-    self.register_a_shortcut('L', lambda : self.mark_leg_move('l'),
-                             description='marker leg/left')
+
+    self.shortcuts['L'] = (lambda : self.mark_leg_move('l'),
+                           'marker leg/left', 'yello')
+
+    def toggle_gt_events():
+      keys = ['event Limb-Movement-(Left)', 'event Limb-Movement-(Right)']
+      for i, k in enumerate(keys):
+        self.toggle_annotation(*k.split(' '), auto_refresh=i==len(keys)-1)
+
+    self.register_a_shortcut('a', toggle_gt_events,
+                             description='Toggle ground-truth events')
+
   # endregion: Useful Commands
