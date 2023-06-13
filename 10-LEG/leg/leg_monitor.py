@@ -81,7 +81,7 @@ class LegMonitor(SleepMonitor):
 
     x, y = self._selected_signal.name_tick_data_dict[key]
     tic = time.time()
-    interval_indices = mark_single_channel_alpha(y)
+    interval_indices = mark_single_channel_alpha(y, self._selected_signal.dominate_signal.sfreq)
     if verbose:
       elapsed = time.time() - tic
       console.show_info(f'Time elapsed for mark_leg_move = {elapsed:.2f} sec.')
@@ -95,7 +95,7 @@ class LegMonitor(SleepMonitor):
     # from leg.leg_move_marker import marker_alpha
     # from leg.leg_move_marker import marker_beta
     # # 1. prepare data
-    # sg: SignalGroup = self._selected_signal
+    # sg: SignalGroup =
     # self._leg_annotations_to_show['ground_truth']={}
     # self._leg_annotations_to_show['alpha']={}
     #
@@ -139,5 +139,6 @@ class LegMonitor(SleepMonitor):
                              description='Find next leg movement event')
     self.register_a_shortcut('P', lambda : self.next_prev_leg_event(-1),
                              description='Find previous leg movement event')
-
+    self.register_a_shortcut('L', lambda : self.mark_leg_move('l'),
+                             description='marker leg/left')
   # endregion: Useful Commands
