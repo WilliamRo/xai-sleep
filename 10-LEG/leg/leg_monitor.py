@@ -9,6 +9,9 @@ from pictor.objects.signals.scrolling import Scrolling
 
 
 class LegMonitor(SleepMonitor):
+  """This plotter is used in combination with RRSHv1 dataset"""
+
+  # region: Annotation Plotter
 
   def _plot_annotation(self, ax: plt.Axes, s: Scrolling):
     axes_dict, kwargs = {}, {}
@@ -32,22 +35,19 @@ class LegMonitor(SleepMonitor):
         label = anno_config.arg_list[0]
         line.set_label(label)
         legend_handles.append(line)
-
       elif key.lower() in ('event'):
         kwargs['index'] = i
-        if package.intervals: self._plot_event(ax, package, anno_config, **kwargs)
-
+        if package.intervals:
+          self._plot_event(ax, package)
       else:
         raise KeyError(f'!! Unknown annotation key `{key}`')
-
 
     # Show legend if necessary
     if len(legend_handles) > 1 or self.get('anno_legend'):
       ax.legend(handles=legend_handles, framealpha=1.0).set_zorder(99)
 
-
-  def _plot_event(self, ax: plt.Axes, package, config: Arguments, index):
-
+  def _plot_event(self, ax: plt.Axes, package, color='blue'):
+    # Find which channel to draw events
     channel_key = package.labels
 
     # get y,x
@@ -61,14 +61,19 @@ class LegMonitor(SleepMonitor):
 
     colorlist = ['red', 'blue', 'green', 'yellow']
     for anno in annos:
-      rect = plt.Rectangle((anno[0],y),(anno[1] - anno[0]),1,facecolor='blue',fill=True,alpha=0.25)
+      rect = plt.Rectangle(
+        (anno[0], y), (anno[1] - anno[0]), 1,
+        facecolor=color, fill=True, alpha=0.25)
       ax.add_patch(rect)
       # ax.legend()
 
   pe = _plot_event
 
+  # endregion: Annotation Plotter
 
-  def mark_leg_move(self,channel_keys):
+  # region: Auto Marking Methods
+
+  def mark_leg_move(self, channel_keys):
     from leg.leg_move_marker import marker_alpha
     from leg.leg_move_marker import marker_beta
     # 1. prepare data
@@ -81,3 +86,40 @@ class LegMonitor(SleepMonitor):
       self._leg_annotations_to_show['alpha'][channel_key] = marker_alpha(sg,channel_key)
 
   mlm = mark_leg_move
+
+  # endregion: Auto Marking Methods
+
+  # region: Useful Commands
+
+  def next_prev_leg_event(self, direction):
+    """direction should be -1 or 1"""
+    assert direction in (-1, 1)
+    # Get current start time
+    ss = self._selected_signal
+    _, ticks, _ = ss.get_channels('Leg/L')[0]
+    T0 = ticks[0]
+
+    # Find next leg event
+    keys = ['event Limb-Movement-(Left)', 'event Limb-Movement-(Right)']
+    intervals = []
+    for k in keys: intervals += ss.annotations[k].intervals
+    intervals = sorted(intervals, key=lambda x: x[0], reverse=direction==-1)
+
+    gap = 1
+    for t0, _ in intervals:
+      if direction == 1:
+        if t0 > T0 + gap: break
+      else:
+        if t0 < T0 - gap: break
+
+    self.goto(t0)
+
+  def register_shortcuts(self):
+    super(LegMonitor, self).register_shortcuts()
+
+    self.register_a_shortcut('N', lambda : self.next_prev_leg_event(1),
+                             description='Find next leg movement event')
+    self.register_a_shortcut('P', lambda : self.next_prev_leg_event(-1),
+                             description='Find previous leg movement event')
+
+  # endregion: Useful Commands
