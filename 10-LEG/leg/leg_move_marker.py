@@ -1,6 +1,8 @@
-import numpy as np
 from pictor.objects.signals.signal_group import SignalGroup, Annotation
 from scipy import signal
+from roma import console
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -18,7 +20,11 @@ def mark_single_channel_alpha(y, fs):
 
   fs = int(fs)
   i = 0
-  while i<len(y):
+
+  L = len(y)
+  while i < L:
+    console.print_progress(i, L)
+
     #看是否更新静息状态
     sig = y[i]
     h = min(i + fs * 8, len(y))

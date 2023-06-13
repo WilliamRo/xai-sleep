@@ -17,6 +17,7 @@ signal_segments = []
 sg = signal_groups[0]
 seg_indices = [
   (26430, 26455), (26740, 26800),
+  (26000, 28000)
 ]
 
 for t1, t2 in seg_indices:
