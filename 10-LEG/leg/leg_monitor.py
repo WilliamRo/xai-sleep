@@ -1,10 +1,11 @@
 from freud.gui.sleep_monitor import SleepMonitor
 from roma.spqr.arguments import Arguments
-import matplotlib.pyplot as plt
-import numpy as np
-
+from roma import console
 from pictor.objects.signals.signal_group import SignalGroup, Annotation
 from pictor.objects.signals.scrolling import Scrolling
+
+import matplotlib.pyplot as plt
+import time
 
 
 
@@ -35,10 +36,9 @@ class LegMonitor(SleepMonitor):
         label = anno_config.arg_list[0]
         line.set_label(label)
         legend_handles.append(line)
-      elif key.lower() in ('event'):
-        kwargs['index'] = i
-        if package.intervals:
-          self._plot_event(ax, package)
+      elif key.lower() in ('event', 'event-auto'):
+        color = 'blue' if 'auto' not in key.lower() else 'red'
+        self._plot_event(ax, package, color=color)
       else:
         raise KeyError(f'!! Unknown annotation key `{key}`')
 
@@ -73,17 +73,35 @@ class LegMonitor(SleepMonitor):
 
   # region: Auto Marking Methods
 
-  def mark_leg_move(self, channel_keys):
-    from leg.leg_move_marker import marker_alpha
-    from leg.leg_move_marker import marker_beta
-    # 1. prepare data
-    sg: SignalGroup = self._selected_signal
-    self._leg_annotations_to_show['ground_truth']={}
-    self._leg_annotations_to_show['alpha']={}
+  def mark_leg_move(self, leg='l', verbose=True):
+    from leg.leg_move_marker import mark_single_channel_alpha
 
-    for a, channel_key in enumerate(channel_keys):
-      self._leg_annotations_to_show['ground_truth'][channel_key] = marker_beta(sg,channel_key)
-      self._leg_annotations_to_show['alpha'][channel_key] = marker_alpha(sg,channel_key)
+    assert leg in ('l', 'r')
+    key = 'Leg/L' if leg == 'l' else 'Leg/R'
+
+    x, y = self._selected_signal.name_tick_data_dict[key]
+    tic = time.time()
+    interval_indices = mark_single_channel_alpha(y)
+    if verbose:
+      elapsed = time.time() - tic
+      console.show_info(f'Time elapsed for mark_leg_move = {elapsed:.2f} sec.')
+
+    intervals = [(x[i1], x[i2]) for i1, i2 in interval_indices]
+    anno = Annotation(intervals, labels=key)
+    anno_key = f'event-auto {key}-alpha'
+    self._selected_signal.annotations[anno_key] = anno
+    self.toggle_annotation(*anno_key.split(' '))
+
+    # from leg.leg_move_marker import marker_alpha
+    # from leg.leg_move_marker import marker_beta
+    # # 1. prepare data
+    # sg: SignalGroup = self._selected_signal
+    # self._leg_annotations_to_show['ground_truth']={}
+    # self._leg_annotations_to_show['alpha']={}
+    #
+    # for a, channel_key in enumerate(channel_keys):
+    #   self._leg_annotations_to_show['ground_truth'][channel_key] = marker_beta(sg,channel_key)
+    #   self._leg_annotations_to_show['alpha'][channel_key] = marker_alpha(sg,channel_key)
 
   mlm = mark_leg_move
 

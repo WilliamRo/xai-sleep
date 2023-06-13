@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 
 
 
+def mark_single_channel_alpha(y):
+  """Returns a list of intervals (indices): [(i1, i2), (i3, i4), ...]"""
+  pass
+
+
 def marker_alpha(sg: SignalGroup,channel_key) -> Annotation:
   anno = {}
   anno['start'] = []
