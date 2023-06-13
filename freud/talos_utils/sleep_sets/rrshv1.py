@@ -87,6 +87,7 @@ class RRSHSCv1(SleepSet):
         if tagNames != ['Name', 'Start', 'Duration', 'Input']: continue
 
         key = nodes[0].childNodes[0].data
+        key = 'event ' + key.replace(' ', '-')
         input_channel = nodes[3].childNodes[0].data
         if key not in anno_dict: anno_dict[key] = Annotation(
           [], labels=input_channel)

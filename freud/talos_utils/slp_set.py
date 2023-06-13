@@ -19,11 +19,7 @@ class SleepSet(SequenceSet):
     map_dict = 'SleepSet::Keys::map_dict'
     epoch_tables = 'SleepSet::Keys::epoch_table'
 
-  ANNO_KEY_GT_STAGE = 'stage Ground-Truth'  # This is for compatibility
-  class AnnoKeys:
-    stage_gt = 'stage Ground-Truth'
-    left_leg_events_gt = 'event GT-Left-Leg'
-    right_leg_events_gt = 'event GT-Right-Leg'
+  ANNO_KEY_GT_STAGE = 'stage Ground-Truth'
 
   EPOCH_DURATION = 30.0
 

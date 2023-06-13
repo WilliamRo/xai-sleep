@@ -10,35 +10,12 @@ from pictor.objects.signals.scrolling import Scrolling
 
 class LegMonitor(SleepMonitor):
 
-  def __init__(self, pictor=None, window_duration=60, channels: str='*'):
-    """
-    :param window_duration: uses second as unit
-    """
-    # Call parent's constructor
-    super(LegMonitor, self).__init__(pictor=pictor, window_duration=window_duration, channels=channels)
-
-    # Specific attributes
-    self._leg_annotations_to_show = {}
-
-    self.new_settable_attr('leg', False, bool, '...')
-
-  def register_shortcuts(self):
-    super(LegMonitor, self).register_shortcuts()
-
-    self.register_a_shortcut('A', lambda: self.flip('leg'),
-                             'Whether to show leg movement annotation')
-
-
   def _plot_annotation(self, ax: plt.Axes, s: Scrolling):
     axes_dict, kwargs = {}, {}
     legend_handles = []
     for i, anno_str in enumerate(self._annotations_to_show):
       anno_config = Arguments.parse(anno_str)
       key: str = anno_config.func_name
-      if key.lower() in ('sleep_stage', 'stage'):
-        plot_method = self._plot_stage
-        kwargs['index'] = i
-      else: raise KeyError(f'!! Unknown annotation key `{key}`')
 
       # Try to fetch package
       start_time, end_time = ax.get_xlim()
@@ -46,53 +23,49 @@ class LegMonitor(SleepMonitor):
       if package is None: continue
 
       # Get results
-      right_ax, line = plot_method(
-        ax, axes_dict.get(key, None), package, anno_config, **kwargs)
-      axes_dict[key] = right_ax
-      # Set label to line
-      label = anno_config.arg_list[0]
-      line.set_label(label)
-      legend_handles.append(line)
+      if key.lower() in ('sleep_stage', 'stage'):
+        kwargs['index'] = i
+        right_ax, line = self._plot_stage(
+          ax, axes_dict.get(key, None), package, anno_config, **kwargs)
+        axes_dict[key] = right_ax
+        # Set label to line
+        label = anno_config.arg_list[0]
+        line.set_label(label)
+        legend_handles.append(line)
 
-    # TODO: -----------------------------------------------------
-    if self.get('leg'):
-      # if not(self._leg_annotations_to_show):
-      #   self.mark_leg_move(['Leg/L','Leg/R'])
-      self.plot_events(['Leg/L', 'Leg/R'], 'leg_move', ax, s)
+      elif key.lower() in ('event'):
+        kwargs['index'] = i
+        if package.intervals: self._plot_event(ax, package, anno_config, **kwargs)
 
-    # TODO: -----------------------------------------------------
+      else:
+        raise KeyError(f'!! Unknown annotation key `{key}`')
+
 
     # Show legend if necessary
     if len(legend_handles) > 1 or self.get('anno_legend'):
       ax.legend(handles=legend_handles, framealpha=1.0).set_zorder(99)
 
 
-  def plot_events(self, channel_keys: str, anno_key: str, ax: plt.Axes, s):
+  def _plot_event(self, ax: plt.Axes, package, config: Arguments, index):
 
-    for a, channel_key in enumerate(channel_keys):
-      # get y,x
-      channels = self.get('channels')
-      channels = channels.split(',')
-      N = len(channels)
-      y = N - channels.index(channel_key) - 1
+    channel_key = package.labels
 
-      # data = s.get_channels(channel_key, max_ticks=self.get('max_ticks'))
-      # x = data[0][1]
+    # get y,x
+    channels = self.get('channels')
+    channels = channels.split(',')
+    N = len(channels)
+    y = N - channels.index(channel_key) - 1
 
-      # get marker
-      annos = self._leg_annotations_to_show
+    # get marker
+    annos = package.intervals
 
-      colorlist = ['red', 'blue', 'green', 'yellow']
-      for i, anno_name in enumerate(annos):
-        starts = annos[anno_name][channel_key]['start']
-        durations = annos[anno_name][channel_key]['duration']
+    colorlist = ['red', 'blue', 'green', 'yellow']
+    for anno in annos:
+      rect = plt.Rectangle((anno[0],y),(anno[1] - anno[0]),1,facecolor='blue',fill=True,alpha=0.25)
+      ax.add_patch(rect)
+      # ax.legend()
 
-        for num, anno in enumerate(zip(starts,durations)):
-          rect = plt.Rectangle((anno[0],y),anno[1],1,facecolor=colorlist[i],fill=True,alpha=0.25)
-          ax.add_patch(rect)
-        # ax.legend()
-
-  pe = plot_events
+  pe = _plot_event
 
 
   def mark_leg_move(self,channel_keys):
