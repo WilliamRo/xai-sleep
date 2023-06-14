@@ -75,7 +75,7 @@ class LegMonitor(SleepMonitor):
 
   def mark_leg_move(self, leg='l', verbose=True):
     from leg.leg_move_marker import mark_single_channel_alpha
-
+    from leg.leg_move_evaluation import leg_move_evaluation
     assert leg in ('l', 'r')
     key = 'Leg/L' if leg == 'l' else 'Leg/R'
 
@@ -91,6 +91,11 @@ class LegMonitor(SleepMonitor):
     anno_key = f'event_auto {key}-alpha'
     self._selected_signal.annotations[anno_key] = anno
     self.toggle_annotation(*anno_key.split(' '), force_on=True)
+
+    if 'event Limb-Movement-(Left)' in self._annotations_to_show:
+      leg_move_evaluation(
+        self._selected_signal.annotations['event Limb-Movement-(Left)'].intervals,
+        self._selected_signal.annotations['event_auto Leg/L-alpha'].intervals)
 
     # from leg.leg_move_marker import marker_alpha
     # from leg.leg_move_marker import marker_beta
@@ -132,6 +137,30 @@ class LegMonitor(SleepMonitor):
 
     self.goto(t0)
 
+  def next_prev_marker_error(self, direction):
+    from leg.leg_move_evaluation import leg_move_evaluation
+
+    """direction should be -1 or 1"""
+    assert direction in (-1, 1)
+    # Get current start time
+    ss = self._selected_signal
+    _, ticks, _ = ss.get_channels('Leg/L')[0]
+    T0 = ticks[0]
+
+    # Find next leg event
+    intervals = leg_move_evaluation(
+      self._selected_signal.annotations['event Limb-Movement-(Left)'].intervals,
+      self._selected_signal.annotations['event_auto Leg/L-alpha'].intervals, report=False)
+
+    gap = 1
+    for t0, _ in intervals:
+      if direction == 1:
+        if t0 > T0 + gap: break
+      else:
+        if t0 < T0 - gap: break
+
+    self.goto(t0)
+
   def register_shortcuts(self):
     super(LegMonitor, self).register_shortcuts()
 
@@ -151,4 +180,8 @@ class LegMonitor(SleepMonitor):
     self.register_a_shortcut('a', toggle_gt_events,
                              description='Toggle ground-truth events')
 
+    self.register_a_shortcut('v', lambda: self.next_prev_marker_error(1),
+                             description='Find next marker error')
+    self.register_a_shortcut('c', lambda: self.next_prev_marker_error(-1),
+                             description='Find previous marker error')
   # endregion: Useful Commands
