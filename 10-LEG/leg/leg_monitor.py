@@ -150,7 +150,8 @@ class LegMonitor(SleepMonitor):
     # Find next leg event
     intervals = leg_move_evaluation(
       self._selected_signal.annotations['event Limb-Movement-(Left)'].intervals,
-      self._selected_signal.annotations['event_auto Leg/L-alpha'].intervals, report=False)
+      self._selected_signal.annotations['event_auto Leg/L-alpha'].intervals,
+      report=False)
 
     gap = 1
     for t0, _ in intervals:
