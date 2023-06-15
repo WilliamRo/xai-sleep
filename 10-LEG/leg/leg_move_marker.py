@@ -89,7 +89,7 @@ def mark_single_channel_alpha(y, fs):
     #找大于静息状态+8μV的信号
     if sig>(base+8):
         duration = 0
-        for j in range(i,i+10*fs,fs//4):
+        for j in range(i,i+50*fs,fs//4):
           if np.mean(y[j:(j+fs//4)])<(base+2):
               break
           duration += fs//4
@@ -97,7 +97,7 @@ def mark_single_channel_alpha(y, fs):
         if intervals and i - intervals[-1][1] < fs * 0.3:
           intervals[-1] = (intervals[-1][0], i + duration)
           # intervals[-1][1] = last + duration
-        elif duration >= fs // 2:
+        elif fs // 2 <= duration and duration < fs * 10:
           intervals.append((i, i + duration))
         i = i + duration
     i += 1
