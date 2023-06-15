@@ -83,8 +83,8 @@ def mark_single_channel_alpha(y, fs):
       n += 1
       i += fs * 1
       continue
-    elif n > 7:
-      base = np.mean(y[i:h])
+    elif n > 3:
+      base = np.mean(y[i - fs * 1: i])
 
     #找大于静息状态+8μV的信号
     if sig>(base+8):

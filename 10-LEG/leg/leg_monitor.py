@@ -137,7 +137,7 @@ class LegMonitor(SleepMonitor):
 
     self.goto(t0)
 
-  def next_prev_marker_error(self, direction):
+  def next_prev_marker_error(self, direction, list_name = 'local_error_list'):
     from leg.leg_move_evaluation import leg_move_evaluation
 
     """direction should be -1 or 1"""
@@ -148,10 +148,12 @@ class LegMonitor(SleepMonitor):
     T0 = ticks[0]
 
     # Find next leg event
-    intervals = leg_move_evaluation(
+    _, _, _, TN_list, FP_list, local_error_list = leg_move_evaluation(
       self._selected_signal.annotations['event Limb-Movement-(Left)'].intervals,
       self._selected_signal.annotations['event_auto Leg/L-alpha'].intervals,
       report=False)
+    if list_name =='local_error_list': intervals = local_error_list
+    elif list_name =='FP_list': intervals = FP_list
 
     gap = 1
     for t0, _ in intervals:
@@ -182,7 +184,11 @@ class LegMonitor(SleepMonitor):
                              description='Toggle ground-truth events')
 
     self.register_a_shortcut('v', lambda: self.next_prev_marker_error(1),
-                             description='Find next marker error')
+                             description='Find next local error')
     self.register_a_shortcut('c', lambda: self.next_prev_marker_error(-1),
-                             description='Find previous marker error')
+                             description='Find previous local error')
+    self.register_a_shortcut('f', lambda: self.next_prev_marker_error(1, 'FP_list'),
+                             description='Find next FN error')
+    self.register_a_shortcut('d', lambda: self.next_prev_marker_error(-1, 'FP_list'),
+                             description='Find previous FN error')
   # endregion: Useful Commands
