@@ -12,6 +12,9 @@ import time
 class LegMonitor(SleepMonitor):
   """This plotter is used in combination with RRSHv1 dataset"""
 
+  GT_L_LEG_KEY = 'event Limb-Movement-(Left)'
+  GT_R_LEG_KEY = 'event Limb-Movement-(Right)'
+
   # region: Annotation Plotter
 
   def _plot_annotation(self, ax: plt.Axes, s: Scrolling):
@@ -73,9 +76,32 @@ class LegMonitor(SleepMonitor):
 
   # region: Auto Marking Methods
 
+  def leg_move_evaluation(self, leg='L', report=False, alpha=0.5):
+    from leg.leg_move_evaluation import leg_move_evaluation
+    dt_key = f'event_auto Leg/{leg}-alpha'
+    keys = [self.GT_L_LEG_KEY, dt_key]
+    gt_intervals, dt_intervals = [
+      self._selected_signal.annotations[k].intervals for k in keys]
+
+    # Try to find results in pocket
+    res_key = dt_key + '-metrics'
+    results = self.get_from_pocket(
+      res_key, initializer=lambda: leg_move_evaluation(
+        gt_intervals, dt_intervals, report=report))
+
+    # Print metrics if required
+    if report:
+      Ndt, Ngt = len(dt_intervals), len(gt_intervals)
+      console.show_info(f'Evaluation Metrics (alpha = {alpha})')
+      console.supplement(
+        f'{Ndt} events detected, TP = {results[0]}, GT# = {Ngt}', level=2)
+      console.supplement(f'Precision = {results[1]:.3f}', level=2)
+      console.supplement(f'Recall = {results[2]:.3f} ', level=2)
+
+    return results
+
   def mark_leg_move(self, leg='l', verbose=True):
     from leg.leg_move_marker import mark_single_channel_alpha
-    from leg.leg_move_evaluation import leg_move_evaluation
     assert leg in ('l', 'r')
     key = 'Leg/L' if leg == 'l' else 'Leg/R'
 
@@ -92,21 +118,8 @@ class LegMonitor(SleepMonitor):
     self._selected_signal.annotations[anno_key] = anno
     self.toggle_annotation(*anno_key.split(' '), force_on=True)
 
-    if 'event Limb-Movement-(Left)' in self._annotations_to_show:
-      leg_move_evaluation(
-        self._selected_signal.annotations['event Limb-Movement-(Left)'].intervals,
-        self._selected_signal.annotations['event_auto Leg/L-alpha'].intervals)
-
-    # from leg.leg_move_marker import marker_alpha
-    # from leg.leg_move_marker import marker_beta
-    # # 1. prepare data
-    # sg: SignalGroup =
-    # self._leg_annotations_to_show['ground_truth']={}
-    # self._leg_annotations_to_show['alpha']={}
-    #
-    # for a, channel_key in enumerate(channel_keys):
-    #   self._leg_annotations_to_show['ground_truth'][channel_key] = marker_beta(sg,channel_key)
-    #   self._leg_annotations_to_show['alpha'][channel_key] = marker_alpha(sg,channel_key)
+    if self.GT_L_LEG_KEY in self._annotations_to_show:
+      self.leg_move_evaluation(leg='L', report=True)
 
   mlm = mark_leg_move
 
@@ -114,55 +127,44 @@ class LegMonitor(SleepMonitor):
 
   # region: Useful Commands
 
-  def next_prev_leg_event(self, direction):
+  def _next_prev_interval(self, direction, intervals):
     """direction should be -1 or 1"""
     assert direction in (-1, 1)
+
     # Get current start time
     ss = self._selected_signal
     _, ticks, _ = ss.get_channels('Leg/L')[0]
     T0 = ticks[0]
 
-    # Find next leg event
-    keys = ['event Limb-Movement-(Left)', 'event Limb-Movement-(Right)']
+    gap = 1
+    for t0, _ in intervals:
+      if direction == 1:
+        if t0 > T0 + gap: break
+      else:
+        if t0 < T0 - gap: break
+
+    self.goto(t0)
+
+  def next_prev_leg_event(self, direction):
+    # Get intervals
+    keys = [self.GT_L_LEG_KEY, self.GT_R_LEG_KEY]
     intervals = []
-    for k in keys: intervals += ss.annotations[k].intervals
+    for k in keys:
+      intervals += self._selected_signal.annotations[k].intervals
     intervals = sorted(intervals, key=lambda x: x[0], reverse=direction==-1)
 
-    gap = 1
-    for t0, _ in intervals:
-      if direction == 1:
-        if t0 > T0 + gap: break
-      else:
-        if t0 < T0 - gap: break
+    self._next_prev_interval(direction, intervals)
 
-    self.goto(t0)
-
-  def next_prev_marker_error(self, direction, list_name = 'local_error_list'):
+  def next_prev_marker_error(self, direction, list_name='local_error_list'):
     from leg.leg_move_evaluation import leg_move_evaluation
 
-    """direction should be -1 or 1"""
-    assert direction in (-1, 1)
-    # Get current start time
-    ss = self._selected_signal
-    _, ticks, _ = ss.get_channels('Leg/L')[0]
-    T0 = ticks[0]
-
     # Find next leg event
-    _, _, _, TN_list, FP_list, local_error_list = leg_move_evaluation(
-      self._selected_signal.annotations['event Limb-Movement-(Left)'].intervals,
-      self._selected_signal.annotations['event_auto Leg/L-alpha'].intervals,
-      report=False)
-    if list_name =='local_error_list': intervals = local_error_list
-    elif list_name =='FP_list': intervals = FP_list
+    results = self.leg_move_evaluation(leg='L')
 
-    gap = 1
-    for t0, _ in intervals:
-      if direction == 1:
-        if t0 > T0 + gap: break
-      else:
-        if t0 < T0 - gap: break
+    if list_name == 'local_error_list': intervals = results[5]
+    elif list_name == 'FP_list': intervals = results[4]
 
-    self.goto(t0)
+    self._next_prev_interval(direction, intervals)
 
   def register_shortcuts(self):
     super(LegMonitor, self).register_shortcuts()
@@ -176,7 +178,7 @@ class LegMonitor(SleepMonitor):
                            'marker leg/left', 'yello')
 
     def toggle_gt_events():
-      keys = ['event Limb-Movement-(Left)', 'event Limb-Movement-(Right)']
+      keys = [self.GT_L_LEG_KEY, self.GT_R_LEG_KEY]
       for i, k in enumerate(keys):
         self.toggle_annotation(*k.split(' '), auto_refresh=i==len(keys)-1)
 
@@ -187,8 +189,11 @@ class LegMonitor(SleepMonitor):
                              description='Find next local error')
     self.register_a_shortcut('c', lambda: self.next_prev_marker_error(-1),
                              description='Find previous local error')
-    self.register_a_shortcut('f', lambda: self.next_prev_marker_error(1, 'FP_list'),
-                             description='Find next FN error')
-    self.register_a_shortcut('d', lambda: self.next_prev_marker_error(-1, 'FP_list'),
-                             description='Find previous FN error')
+
+    self.register_a_shortcut(
+      'f', lambda: self.next_prev_marker_error(1, 'FP_list'),
+      description='Find next false positive')
+    self.register_a_shortcut(
+      'd', lambda: self.next_prev_marker_error(-1, 'FP_list'),
+      description='Find previous false positive')
   # endregion: Useful Commands

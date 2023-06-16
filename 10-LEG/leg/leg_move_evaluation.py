@@ -2,7 +2,7 @@ from roma import console
 
 
 
-def leg_move_evaluation(intv_gt, intv_detec, report=True):
+def leg_move_evaluation(intv_gt, intv_detec, report=True, alpha=0.5):
   """
   in - ground-truth intervals
      - detection intervals
@@ -10,10 +10,9 @@ def leg_move_evaluation(intv_gt, intv_detec, report=True):
       - recall
       - three error lists
   """
-  alpha = 0.5
   TP = 0
 
-  TN_list = []
+  FN_list = []
   FP_list = []
   local_error_list = []
   num_d = len(intv_detec)
@@ -34,20 +33,13 @@ def leg_move_evaluation(intv_gt, intv_detec, report=True):
       else: local_error_list.append((x1, x2))
       flag = 1
     elif (x1, x2) not in local_error_list:
-      if (x1, x2) in intv_gt: TN_list.append((x1, x2))
+      if (x1, x2) in intv_gt: FN_list.append((x1, x2))
       elif (x1, x2) in intv_detec: FP_list.append((x1, x2))
 
   precision = TP / num_d
   recall = TP / num_gt
-  # print(f'{TP}, {len(TN_list)}, {len(FP_list)}, {len(local_error_list)}, '
-  #       f'{num_gt}, {num_d}')
-  if report:
-    console.show_info(f'Evaluation Metrics (alpha = {alpha})')
-    console.supplement(
-        f'{num_d} events detected, TP = {TP}, GT# = {num_gt}', level=2)
-    console.supplement(f'Precision = {precision:.3f}', level=2)
-    console.supplement(f'Recall = {recall:.3f} ', level=2)
-  return TP, precision, recall, TN_list, FP_list, local_error_list
+
+  return TP, precision, recall, FN_list, FP_list, local_error_list
 
 
 def search_error(self, intv1, intv2):
