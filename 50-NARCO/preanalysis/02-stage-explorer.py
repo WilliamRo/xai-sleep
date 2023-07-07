@@ -8,7 +8,7 @@ console.suppress_logging()
 
 data_dirs = [
   r'../../data/rrsh',
-  r'../../data/rrsh-nacrolepsy',
+  r'../../data/rrsh-narcolepsy',
 ]
 
 signal_groups = []

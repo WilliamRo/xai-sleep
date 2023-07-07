@@ -113,8 +113,9 @@ class SleepSet(SequenceSet):
     return data
 
   def _get_sequence_randomly(self, batch_size):
-    """Randomly samples a DataSet, whose features.shape = [L, C],
-       targets.shape = [E, 5], mask.shape = [E, 1].
+    """Randomly samples a DataSet, whose features.shape = [B, L, C],
+       targets.shape = [B, E, 5], here L = E * ticks_per_epoch.
+       Note features.shape can be easily reshaped to [B, E, L/E, C].
        Unlike single epoch sampling, class balance is more difficult to
        achieve when sampling a sequence.
     """
@@ -195,6 +196,8 @@ class SleepSet(SequenceSet):
     and L = fs * 30, where fs is sampling rate and E. Each ys[i] has a shape of
     [E, 5].
     """
+    from tframe import hub as th
+
     # Validate training set
     if not is_training:
       for batch in self.validation_set.gen_batches(batch_size): yield batch
@@ -205,7 +208,11 @@ class SleepSet(SequenceSet):
 
     # Generate batches
     for i in range(round_len):
-      data_batch = self._get_branches_randomly(batch_size)
+      if th.epoch_num > 1:
+        data_batch = self._get_sequence_randomly(batch_size)
+      else:
+        data_batch = self._get_branches_randomly(batch_size)
+
       # Preprocess if necessary
       if self.batch_preprocessor is not None:
         data_batch = self.batch_preprocessor(data_batch, is_training)
@@ -345,12 +352,12 @@ class SleepSet(SequenceSet):
         tape, sfreq = tape_tuple
         assert isinstance(tape, np.ndarray)
 
-        # tape.shape = [L, C]
-        ticks_per_epoch = int(self.EPOCH_DURATION * sfreq)
+        # tape.shape = [L, C], default epoch_num is 1
+        ticks_per_seq = int(self.EPOCH_DURATION * sfreq) * th.epoch_num
 
         # Truncate tape if necessary
-        L = tape.shape[0] // ticks_per_epoch * ticks_per_epoch
-        x = tape[:L].reshape([-1, ticks_per_epoch, tape.shape[-1]])
+        L = tape.shape[0] // ticks_per_seq * ticks_per_seq
+        x = tape[:L].reshape([-1, ticks_per_seq, tape.shape[-1]])
 
         branch.append(x)
       # Find stage_ids if necessary
@@ -361,18 +368,22 @@ class SleepSet(SequenceSet):
     features = np.concatenate(branches[0], axis=0)
 
     # TODO: here len(ids) may > len(branches[i]), e.g., in SleepEDFx data
+    data_dict = {}
     if include_targets:
       stage_ids = stage_ids[:len(features)]
-      nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
+      data_dict['mask'] = [(0 if si is None else 1) for si in stage_ids]
 
       # Removed invalid epochs
-      features = np.delete(features, nan_indices, axis=0)
-      targets = [v for v in stage_ids if v is not None]
+      #nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
+      # features = np.delete(features, nan_indices, axis=0)
+      # targets = [v for v in stage_ids if v is not None]
+
+      targets = [0 if si is None else si for si in stage_ids]
       targets = convert_to_one_hot(targets, self.NUM_STAGES)
     else: targets = None
 
     # NUM_CLASSES and CLASSES properties are for confusion matrix label
-    return DataSet(features, targets, name=f'{self.name}-val',
+    return DataSet(features, targets, data_dict, name=f'{self.name}-val',
                    NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
 
   # endregion: Public Methods

@@ -10,15 +10,28 @@ class SleepConfig(SmartTrainerHub):
   <data-name> <channels> [other-setting]
   """
 
-  balance_training_stages = Flag.boolean(
-    True, 'Whether to balance training stages', is_key=None)
+  # region: SleepSet.gen_batches setting
 
   epoch_delta = Flag.float(
     0.0, 'Delta for generating batches, should be in [0, 1)', is_key=None)
   epoch_num = Flag.integer(1, 'Number of epochs in one batch', is_key=None)
 
+  # endregion: SleepSet.gen_batches setting
+
+  # region: Model Setting
+
+  zoom_in_factor = Flag.integer(1, 'Zoom in factor', is_key=None)
+
+  # endregion: Model Setting
+
+  # region: Deprecated
+
+  balance_training_stages = Flag.boolean(
+    True, 'Whether to balance training stages', is_key=None)
   use_gen_batches_buffer = Flag.boolean(
     False, 'Whether to use gen_batches buffer')
+
+  # endregion: Deprecated
 
   # region: Properties
 

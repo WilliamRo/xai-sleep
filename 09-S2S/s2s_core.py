@@ -95,7 +95,6 @@ def activate():
                        plot_confusion_matrix=False,
                        show_class_detail=True)
 
-
   # End
   model.shutdown()
   console.end()

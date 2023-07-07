@@ -20,8 +20,8 @@ def print_stages(path):
 console.suppress_logging()
 data_dir = [
   r'../../data/rrsh',
-  r'../../data/rrsh-nacrolepsy',
+  r'../../data/rrsh-narcolepsy',
 ]
 print_stages(data_dir[0])
-print_stages(data_dir[1])
+# print_stages(data_dir[1])
 

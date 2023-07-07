@@ -70,6 +70,7 @@ class SleepEDFx(SleepSet):
       pp_configs = kwargs.get('preprocess', '').split(';')
       trim = None
       norm = None
+      upsamp = None
       for config in pp_configs:
         mass = config.split(',')
         if 'trim' in mass[0]:
@@ -78,6 +79,8 @@ class SleepEDFx(SleepSet):
         elif 'iqr' == mass[0]:
           norm = ('iqr', '1' if len(mass) < 2 else mass[1],
                   '20' if len(mass) < 3 else mass[2])
+        elif '128' == mass[0]:
+          upsamp = 128
 
       # Generate suffix
       suffix = ''
@@ -85,6 +88,9 @@ class SleepEDFx(SleepSet):
       if norm is not None:
         if suffix: suffix += ';'
         suffix += f"{','.join(norm)}"
+      if upsamp is not None:
+        if suffix: suffix += ';'
+        suffix += f'128'
 
       def _load_raw_sg():
         # If the corresponding .sg file exists, read it directly

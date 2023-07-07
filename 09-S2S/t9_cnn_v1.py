@@ -1,5 +1,5 @@
-import fnn_core as core
-import fnn_mu as m
+import s2s_core as core
+import s2s_mu as m
 
 from tframe import console
 from tframe import tf
@@ -16,7 +16,7 @@ def model():
   model = m.get_initial_model()
 
   for layer in th.archi_string.split('-'):
-    if layer[0] == 's': stride, c = 3, int(layer[1:])
+    if layer[0] == 's': stride, c = 2, int(layer[1:])
     else: stride, c = 1, int(layer)
 
     model.add(m.mu.HyperConv1D(
@@ -27,18 +27,20 @@ def model():
 
 
 def main(_):
-  console.start('{} on FNN-SSC task'.format(model_name.upper()))
+  console.start('{} on S2S-SSC task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = 0
+  th.rehearse = 1
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
   th.data_config = 'sleepedfx 1,2'
   th.data_config += ' val_ids=16,17 test_ids=18,19'
   # th.data_config += ' preprocess=iqr'
-  th.data_config += ' sg_preprocess=trim;iqr'
-  th.input_shape = [3000, len(th.fusion_channels[0])]
+  th.data_config += ' sg_preprocess=trim;iqr;128'
+
+  # th.epoch_num = 5
+  th.input_shape = [3000 * th.epoch_num, len(th.fusion_channels[0])]
 
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
@@ -74,7 +76,6 @@ def main(_):
   th.overwrite = True
 
   th.validate_train_set = True
-  th.epoch_delta = 0.1
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
