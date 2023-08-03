@@ -70,6 +70,7 @@ class SleepEDFx(SleepSet):
       pp_configs = kwargs.get('preprocess', '').split(';')
       trim = None
       norm = None
+      upsamp = None
       for config in pp_configs:
         mass = config.split(',')
         if 'trim' in mass[0]:
@@ -78,6 +79,8 @@ class SleepEDFx(SleepSet):
         elif 'iqr' == mass[0]:
           norm = ('iqr', '1' if len(mass) < 2 else mass[1],
                   '20' if len(mass) < 3 else mass[2])
+        elif '128' == mass[0]:
+          upsamp = 128
 
       # Generate suffix
       suffix = ''
@@ -85,6 +88,9 @@ class SleepEDFx(SleepSet):
       if norm is not None:
         if suffix: suffix += ';'
         suffix += f"{','.join(norm)}"
+      if upsamp is not None:
+        if suffix: suffix += ';'
+        suffix += f'128'
 
       def _load_raw_sg():
         # If the corresponding .sg file exists, read it directly
@@ -108,7 +114,7 @@ class SleepEDFx(SleepSet):
 
         # Wrap data into signal group
         sg = SignalGroup(digital_signals, label=f'{pid}')
-        sg.annotations[cls.ANNO_KEY] = annotation
+        sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
 
         # Save sg if necessary
         cls.save_sg_file_if_necessary(
@@ -129,7 +135,7 @@ class SleepEDFx(SleepSet):
       # (i) trim wake if required
       if trim is not None:
         trim = float(trim)
-        anno: Annotation = sg.annotations[cls.ANNO_KEY]
+        anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
         ds0 = sg.digital_signals[0]
         # For SleepEDFx data, last interval is usually invalid
         if anno.intervals[-1][0] >= ds0.ticks[-1]:

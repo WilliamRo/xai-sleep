@@ -216,8 +216,8 @@ class SleepEDFx(SleepSet):
       digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(fn)
       for ds in digital_signals:
         freq = int(ds.sfreq)
-        # ds.data = ds.data[: freq * 78180]
-        ds.data = ds.data[: int(freq * 78150)]
+        ds.data = ds.data[: freq * 78150]
+        # ds.data = ds.data[: int(freq * 78150)]
         if freq == 100:
           ds.data[:, 0] = data_sets[i][:7815000]
 

@@ -8,7 +8,10 @@ def get_initial_model():
   from fnn_core import th
 
   model = mu.Classifier(mark=th.mark)
-  context.put_into_pocket('08-model', model)
+
+  key = '08-model'
+  if not context.in_pocket(key): context.put_into_pocket('08-model', model)
+
   model.add(mu.Input(sample_shape=th.input_shape))
 
   return model

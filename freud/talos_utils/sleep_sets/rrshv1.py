@@ -1,5 +1,6 @@
 from freud.talos_utils.slp_set import SleepSet
-from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
+from pictor.objects.signals.signal_group import SignalGroup, DigitalSignal
+from pictor.objects.signals.signal_group import Annotation
 from roma.spqr.finder import walk
 from tframe import console
 from typing import List
@@ -38,7 +39,7 @@ class RRSHSCv1(SleepSet):
     """
     import xml.dom.minidom as minidom
 
-    max_sfreq = kwargs.get('max_sfreq', 128.)
+    max_sfreq = kwargs.get('max_sfreq', 128)
 
     signal_groups: List[SignalGroup] = []
 
@@ -54,24 +55,48 @@ class RRSHSCv1(SleepSet):
       # If the corresponding .sg file exists, read it directly
       sg_path = os.path.join(data_dir, pid + f'(max_sf_{max_sfreq}).sg')
       if cls.try_to_load_sg_directly(pid, sg_path, n_patients, i,
-                                      signal_groups, **kwargs): continue
+                                     signal_groups, **kwargs): continue
 
       # (1) read psg data as digital signals
       digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
         os.path.join(data_dir, edf_fn), dtype=np.float16, max_sfreq=max_sfreq)
 
-      # (2) read annotation
+      # Wrap data into signal group
+      sg = SignalGroup(digital_signals, label=f'{pid}')
+      signal_groups.append(sg)
+
+      # (2) read annotations
       xml_fp = os.path.join(data_dir, f'{pid}.xml')
       xml_root = minidom.parse(xml_fp).documentElement
+
+      # (2.1) set stage annotations
       stage_elements = xml_root.getElementsByTagName('SleepStage')
       stages = np.array([int(se.firstChild.data) for se in stage_elements])
       stages[stages == 5] = 4
       stages[stages == 9] = 5
+      sg.set_annotation(cls.ANNO_KEY_GT_STAGE, 30, stages, cls.ANNO_LABELS)
 
-      # Wrap data into signal group
-      sg = SignalGroup(digital_signals, label=f'{pid}')
-      sg.set_annotation(cls.ANNO_KEY, 30, stages, cls.ANNO_LABELS)
-      signal_groups.append(sg)
+      # (2.2) set events annotations
+      events = xml_root.getElementsByTagName('ScoredEvent')
+      # event_keys = ['Limb Movement (Left)', 'Limb Movement (Right)']
+
+      anno_dict = {}
+      for eve in events:
+        nodes = eve.childNodes
+        tagNames = [n.tagName for n in nodes]
+        if tagNames != ['Name', 'Start', 'Duration', 'Input']: continue
+
+        key = nodes[0].childNodes[0].data
+        key = 'event ' + key.replace(' ', '-')
+        input_channel = nodes[3].childNodes[0].data
+        if key not in anno_dict: anno_dict[key] = Annotation(
+          [], labels=input_channel)
+
+        # Append interval
+        start, duration = [float(nodes[i].childNodes[0].data) for i in (1, 2)]
+        anno_dict[key].intervals.append((start, start + duration))
+
+      sg.annotations.update(anno_dict)
 
       # Save sg if necessary
       cls.save_sg_file_if_necessary(pid, sg_path, n_patients, i, sg, **kwargs)

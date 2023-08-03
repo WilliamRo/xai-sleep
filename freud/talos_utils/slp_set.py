@@ -19,7 +19,8 @@ class SleepSet(SequenceSet):
     map_dict = 'SleepSet::Keys::map_dict'
     epoch_tables = 'SleepSet::Keys::epoch_table'
 
-  ANNO_KEY = 'stage Ground-Truth'
+  ANNO_KEY_GT_STAGE = 'stage Ground-Truth'
+
   EPOCH_DURATION = 30.0
 
   CHANNELS = {}
@@ -52,7 +53,12 @@ class SleepSet(SequenceSet):
 
   @SequenceSet.property()
   def epoch_table(self):
-    """table[i] = [(sg, start_t, duration), ...]"""
+    """Epoch table will not be generated before it is called first-time.
+    This table contains NUM_STAGES + 1 (typically 6) lists, each of which
+    contains a list of tuples comprising information of a period of stage,
+    i.e., table[<STAGE_ID>] = [(sg, start_t, duration), ...]. For example,
+    table[0] contains all wake stage information from all signal groups.
+    """
     table = [[] for _ in range(self.NUM_STAGES + 1)]
     for sg in self.signal_groups:
       for i in range(self.NUM_STAGES + 1):
@@ -66,6 +72,84 @@ class SleepSet(SequenceSet):
   def _check_data(self): pass
 
   # region: gen_batches
+
+  # region: Multi-epoch sampling
+
+  def _sample_seqs_from_sg(self, sg, start_time, duration, with_stage=False):
+    """Sample a sequence from a signal group.
+
+    :param sg - signal group.
+    :param start_time - start time in seconds.
+    :param duration - in seconds.
+
+    :return (data, label) if with_stage. Otherwise, return data.
+            data.shape = [L, C]; label.shape = [E],
+            here E is epoch number, equals to L / fs / 30.
+    """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    # For now consider only 1 branch TODO
+    assert len(th.fusion_channels) == 1
+
+    # Only one tape (branch) is considered for now
+    # tape.shape = [L_tape, C]
+    tape, fs = sg.get_from_pocket(self.Keys.tapes)[0]
+
+    start_i, L = int(start_time * fs), int(duration * fs)
+    assert L < tape.shape[0]
+    assert start_i % 30 == 0   # TODO: this assertion is for sleep staging only
+
+    # Make sure start_i is legal
+    start_i = min(max(0, start_i), tape.shape[0] - L)
+    data = tape[start_i:start_i+L]
+
+    if with_stage:
+      stage_ids = self.get_sg_epoch_tables(sg)[1]
+      start_j, L = int(start_i / fs / 30), int(duration / 30)
+      labels = stage_ids[start_j:start_j+L]
+      return data, labels
+
+    return data
+
+  def _get_sequence_randomly(self, batch_size):
+    """Randomly samples a DataSet, whose features.shape = [B, L, C],
+       targets.shape = [B, E, 5], here L = E * ticks_per_epoch.
+       Note features.shape can be easily reshaped to [B, E, L/E, C].
+       Unlike single epoch sampling, class balance is more difficult to
+       achieve when sampling a sequence.
+    """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    features, targets = [], []
+
+    # epoch_table = [[(sg, start_t, duration), ...], ...]
+    for sid in np.random.randint(0, self.NUM_STAGES, batch_size):
+      table = self.epoch_table[sid]
+      sg, start_t, duration = table[np.random.randint(0, len(table))]
+
+      MAX_COUNT = 100
+      for count in range(MAX_COUNT):
+        data, labels = self._sample_seqs_from_sg(
+          sg, start_t, th.epoch_num * 30, with_stage=True)
+        if None not in labels: break
+      if None in labels: raise AssertionError(
+        f'!! Failed to sample valid data after {MAX_COUNT} attempts.')
+
+      features.append(data)
+      # TODO: ? class is not considered for now
+      t = convert_to_one_hot(labels, self.NUM_STAGES)
+      t = np.reshape(t, [th.epoch_num, self.NUM_STAGES])
+      targets.append(t)
+
+    features = np.stack(features, axis=0)
+    targets = np.stack(targets, axis=0)
+    return DataSet(features, targets, NUM_CLASSES=self.NUM_STAGES)
+
+  # endregion: Multi-epoch sampling
+
+  # region: Single-epoch sampling
 
   def _get_branches_randomly(self, batch_size: int):
     """Currently only 1 branch is supported"""
@@ -81,8 +165,10 @@ class SleepSet(SequenceSet):
     stage_ids = []
 
     # epoch_table = [[(sg, start_t, duration), ...], ...]
+    # For each record in this batch, first decide its corresponding stage.
     for sid in np.random.randint(0, self.NUM_STAGES, batch_size):
       table = self.epoch_table[sid]
+      # Then choose a random interval
       sg, start_t, duration = table[np.random.randint(0, len(table))]
 
       # Get tape and fs
@@ -102,8 +188,16 @@ class SleepSet(SequenceSet):
 
     return DataSet(features, targets, NUM_CLASSES=5)
 
+  # endregion: Single-epoch sampling
+
   def gen_batches(self, batch_size, shuffle=False, is_training=False):
-    """Generate FNN batches"""
+    """Generate FNN batches (xs, ys). Each xs[i] has a shape of [E, L, C].
+    Here C represents number of channels, E is the number of epochs,
+    and L = fs * 30, where fs is sampling rate and E. Each ys[i] has a shape of
+    [E, 5].
+    """
+    from tframe import hub as th
+
     # Validate training set
     if not is_training:
       for batch in self.validation_set.gen_batches(batch_size): yield batch
@@ -114,7 +208,11 @@ class SleepSet(SequenceSet):
 
     # Generate batches
     for i in range(round_len):
-      data_batch = self._get_branches_randomly(batch_size)
+      if th.epoch_num > 1:
+        data_batch = self._get_sequence_randomly(batch_size)
+      else:
+        data_batch = self._get_branches_randomly(batch_size)
+
       # Preprocess if necessary
       if self.batch_preprocessor is not None:
         data_batch = self.batch_preprocessor(data_batch, is_training)
@@ -139,10 +237,11 @@ class SleepSet(SequenceSet):
   def get_map_dict(cls, sg: SignalGroup):
     # TODO: currently only AASM standard is supported
     assert cls.NUM_STAGES == 5
-    anno: Annotation = sg.annotations[cls.ANNO_KEY]
+    anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
 
     def _init_map_dict(labels):
       map_dict = {}
+      console.show_status('Creating mapping ...')
       for i, label in enumerate(labels):
         if 'W' in label: j = 0
         elif '1' in label: j = 1
@@ -151,6 +250,7 @@ class SleepSet(SequenceSet):
         elif 'R' in label: j = 4
         else: j = None
         map_dict[i] = j
+        console.supplement(f'{label} maps to {j}', level=2)
       return map_dict
 
     return sg.get_from_pocket(
@@ -164,11 +264,11 @@ class SleepSet(SequenceSet):
     """
     def _init_sg_epoch_tables():
       # Get annotation
-      anno: Annotation = sg.annotations[cls.ANNO_KEY]
+      anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
       # Generate map_dict
       map_dict = cls.get_map_dict(sg)
       # 5 stages + 1 unknown label
-      table_per_class = [[] for i in range(cls.NUM_STAGES + 1)]
+      table_per_class = [[] for _ in range(cls.NUM_STAGES + 1)]
       table_id = []
 
       t0 = anno.intervals[0][0]
@@ -213,6 +313,8 @@ class SleepSet(SequenceSet):
     for i, sg in enumerate(self.signal_groups):
       console.print_progress(i, len(self.signal_groups))
 
+      if sg.in_pocket(self.Keys.tapes): continue
+
       tapes = []
       # fusion_channels = [['1', '2'], ['3']]
       for chn_lst in th.fusion_channels:
@@ -250,12 +352,12 @@ class SleepSet(SequenceSet):
         tape, sfreq = tape_tuple
         assert isinstance(tape, np.ndarray)
 
-        # tape.shape = [L, C]
-        ticks_per_epoch = int(self.EPOCH_DURATION * sfreq)
+        # tape.shape = [L, C], default epoch_num is 1
+        ticks_per_seq = int(self.EPOCH_DURATION * sfreq) * th.epoch_num
 
         # Truncate tape if necessary
-        L = tape.shape[0] // ticks_per_epoch * ticks_per_epoch
-        x = tape[:L].reshape([-1, ticks_per_epoch, tape.shape[-1]])
+        L = tape.shape[0] // ticks_per_seq * ticks_per_seq
+        x = tape[:L].reshape([-1, ticks_per_seq, tape.shape[-1]])
 
         branch.append(x)
       # Find stage_ids if necessary
@@ -266,18 +368,22 @@ class SleepSet(SequenceSet):
     features = np.concatenate(branches[0], axis=0)
 
     # TODO: here len(ids) may > len(branches[i]), e.g., in SleepEDFx data
+    data_dict = {}
     if include_targets:
       stage_ids = stage_ids[:len(features)]
-      nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
+      data_dict['mask'] = [(0 if si is None else 1) for si in stage_ids]
 
       # Removed invalid epochs
-      features = np.delete(features, nan_indices, axis=0)
-      targets = [v for v in stage_ids if v is not None]
+      #nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
+      # features = np.delete(features, nan_indices, axis=0)
+      # targets = [v for v in stage_ids if v is not None]
+
+      targets = [0 if si is None else si for si in stage_ids]
       targets = convert_to_one_hot(targets, self.NUM_STAGES)
     else: targets = None
 
     # NUM_CLASSES and CLASSES properties are for confusion matrix label
-    return DataSet(features, targets, name=f'{self.name}-val',
+    return DataSet(features, targets, data_dict, name=f'{self.name}-val',
                    NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
 
   # endregion: Public Methods

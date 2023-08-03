@@ -4,7 +4,7 @@ from tframe import context
 
 
 def get_initial_model():
-  from fnn_core import th
+  from s2s_core import th
 
   model = mu.Classifier(mark=th.mark)
   model.add(mu.Input(sample_shape=th.input_shape))
@@ -14,7 +14,7 @@ def get_initial_model():
 
 
 def finalize(model: mu.Classifier, flatten=False, use_gap=False):
-  from fnn_core import th
+  from s2s_core import th
 
   if use_gap:
     model.add(mu.GlobalAveragePooling1D())
