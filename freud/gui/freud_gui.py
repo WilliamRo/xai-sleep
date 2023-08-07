@@ -12,7 +12,7 @@ import numpy as np
 
 class Freud(Pictor, DialogUtilities):
 
-  def __init__(self, title='Freud', figure_size=(12, 8)):
+  def __init__(self, title='Freud', figure_size=(12, 7)):
     super(Freud, self).__init__(title, figure_size=figure_size)
 
     self.monitor = self.add_plotter(SleepMonitor(self))

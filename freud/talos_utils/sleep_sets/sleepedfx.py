@@ -132,7 +132,21 @@ class SleepEDFx(SleepSet):
 
       sg = _load_raw_sg()
 
-      # (i) trim wake if required
+      # (i) up-sampling if necessary
+      if upsamp is not None:
+        from scipy import signal
+
+        ds0: DigitalSignal = sg.digital_signals[0]
+        assert ds0.sfreq == 100
+        N = int(ds0.length // ds0.sfreq * upsamp)
+        data_new = np.stack([
+          signal.resample(ds0.data[:, i], num=N)
+          for i in range(ds0.num_channels)], axis=-1)
+
+        sg.digital_signals[0] = DigitalSignal(
+          data_new, 128, channel_names=ds0.channels_names, label=ds0.label)
+
+      # (ii) trim wake if required
       if trim is not None:
         trim = float(trim)
         anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
@@ -160,7 +174,7 @@ class SleepEDFx(SleepSet):
         for i in range(len(sg.digital_signals)):
           sg.digital_signals[i] = sg.digital_signals[i][T1:T2]
 
-      # (ii) normalize 1st DigitalSignal if required
+      # (iii) normalize 1st DigitalSignal if required
       if norm is not None:
         if norm[0] == 'iqr':
           iqr, mad = int(norm[1]), int(norm[2])
@@ -172,7 +186,6 @@ class SleepEDFx(SleepSet):
       # Save sg if necessary
       cls.save_sg_file_if_necessary(
         pid, sg_path, n_patients, i, sg, **kwargs)
-
 
     console.show_status(f'Successfully read {n_patients} files.')
     return signal_groups
@@ -188,8 +201,8 @@ if __name__ == '__main__':
   data_dir = r'../../../data/sleepedfx'
 
   tic = time.time()
-  preprocess = 'trim;iqr'
-  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0, preprocess=preprocess)
+  preprocess = 'trim;iqr;128'
+  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=1, preprocess=preprocess)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
