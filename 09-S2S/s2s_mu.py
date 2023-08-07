@@ -1,6 +1,8 @@
 from tframe import mu
 from tframe import context
 
+from tframe.layers.pooling import ReduceMean
+
 
 
 def get_initial_model():
@@ -17,7 +19,8 @@ def finalize(model: mu.Classifier, flatten=False, use_gap=False):
   from s2s_core import th
 
   if use_gap:
-    model.add(mu.GlobalAveragePooling1D())
+    model.add(ReduceMean(axis=1))
+    # model.add(mu.GlobalAveragePooling1D())
     # model.add(mu.Flatten())
     model.add(mu.Activation('softmax'))
   else:
