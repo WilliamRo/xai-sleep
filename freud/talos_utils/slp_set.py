@@ -133,9 +133,15 @@ class SleepSet(SequenceSet):
       for count in range(MAX_COUNT):
         data, labels = self._sample_seqs_from_sg(
           sg, start_t, th.epoch_num * 30, with_stage=True)
+
+        # TODO: prevent None issue
+        if 'none-as-wake' in th.developer_code:
+          labels = [0 if l is None else l for l in labels]
+
         if None not in labels: break
-      if None in labels: raise AssertionError(
-        f'!! Failed to sample valid data after {MAX_COUNT} attempts.')
+      if None in labels:
+        raise AssertionError(
+          f'!! Failed to sample valid data after {MAX_COUNT} attempts.')
 
       features.append(data)
       # TODO: ? class is not considered for now
@@ -144,8 +150,17 @@ class SleepSet(SequenceSet):
       targets.append(t)
 
     features = np.stack(features, axis=0)
-    targets = np.stack(targets, axis=0)
-    return DataSet(features, targets, NUM_CLASSES=self.NUM_STAGES)
+    # TODO: [gamma]
+    # targets = np.stack(targets, axis=0)
+    targets = np.concatenate(targets, axis=0)
+
+    from tframe.layers.common import BatchReshape
+    key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
+
+    # This block happens only in training. During validation,
+    # tensor_block_size should be specified manually.
+    return DataSet(features, targets, data_dict={key: th.epoch_num},
+                   NUM_CLASSES=self.NUM_STAGES, check_data=False)
 
   # endregion: Multi-epoch sampling
 
@@ -241,7 +256,8 @@ class SleepSet(SequenceSet):
 
     def _init_map_dict(labels):
       map_dict = {}
-      console.show_status('Creating mapping ...')
+      # TODO: this will be called for each sg, which is verbosing
+      # console.show_status('Creating mapping ...')
       for i, label in enumerate(labels):
         if 'W' in label: j = 0
         elif '1' in label: j = 1
@@ -250,7 +266,7 @@ class SleepSet(SequenceSet):
         elif 'R' in label: j = 4
         else: j = None
         map_dict[i] = j
-        console.supplement(f'{label} maps to {j}', level=2)
+        # console.supplement(f'{label} maps to {j}', level=2)
       return map_dict
 
     return sg.get_from_pocket(
@@ -346,6 +362,7 @@ class SleepSet(SequenceSet):
     # Generate FNN inputs
     branches = [[] for _ in th.fusion_channels]
     stage_ids = []
+    N = th.eval_epoch_num
     for sg in self.signal_groups:
       tapes = sg.get_from_pocket(self.Keys.tapes)
       for branch, tape_tuple in zip(branches, tapes):
@@ -353,7 +370,7 @@ class SleepSet(SequenceSet):
         assert isinstance(tape, np.ndarray)
 
         # tape.shape = [L, C], default epoch_num is 1
-        ticks_per_seq = int(self.EPOCH_DURATION * sfreq) * th.epoch_num
+        ticks_per_seq = int(self.EPOCH_DURATION * sfreq) * N
 
         # Truncate tape if necessary
         L = tape.shape[0] // ticks_per_seq * ticks_per_seq
@@ -361,7 +378,8 @@ class SleepSet(SequenceSet):
 
         branch.append(x)
       # Find stage_ids if necessary
-      if include_targets: stage_ids.extend(self.get_sg_epoch_tables(sg)[1])
+      if include_targets:
+        stage_ids.extend(self.get_sg_epoch_tables(sg)[1])
 
     # TODO currently only single branch is supported
     assert len(branches) == 1
@@ -370,8 +388,9 @@ class SleepSet(SequenceSet):
     # TODO: here len(ids) may > len(branches[i]), e.g., in SleepEDFx data
     data_dict = {}
     if include_targets:
-      stage_ids = stage_ids[:len(features)]
-      data_dict['mask'] = [(0 if si is None else 1) for si in stage_ids]
+      stage_ids = stage_ids[:len(features) * N]
+      mask = [(0 if si is None else 1) for si in stage_ids]
+      data_dict['mask'] = np.stack(mask, axis=-1)
 
       # Removed invalid epochs
       #nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
@@ -383,12 +402,27 @@ class SleepSet(SequenceSet):
     else: targets = None
 
     # NUM_CLASSES and CLASSES properties are for confusion matrix label
-    return DataSet(features, targets, data_dict, name=f'{self.name}-val',
-                   NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
+    from tframe.layers.common import BatchReshape
+    key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
+    # data_dict[key] = N
+
+    targets = targets.reshape([-1, N, targets.shape[-1]])
+    data_dict['mask'] = data_dict['mask'].reshape([-1, N, 1])
+
+    ds = DataSet(features, targets, data_dict, name=f'{self.name}-val',
+                 NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
+    def batch_preprocessor(ds: DataSet, _):
+      ds.data_dict[key] = N
+      ds.targets = np.reshape(ds.targets, [-1, ds.targets.shape[-1]])
+      ds.data_dict['mask'] = np.reshape(ds.data_dict['mask'], [-1, 1])
+      return ds
+
+    ds.batch_preprocessor = batch_preprocessor
+    return ds
 
   # endregion: Public Methods
 
-  # region: Abstract Methods
+  # region: Abstract Methods (for reading data)
 
   @classmethod
   def load_as_signal_groups(cls, data_dir, **kwargs) -> List[SignalGroup]:

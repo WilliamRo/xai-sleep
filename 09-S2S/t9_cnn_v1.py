@@ -12,6 +12,8 @@ from tframe import tf
 model_name = 'cnn_v1'
 id = 1
 def model():
+  from tframe.layers.common import BatchReshape
+
   th = core.th
   model = m.get_initial_model()
 
@@ -23,6 +25,8 @@ def model():
       c, th.kernel_size, stride, activation='relu',
       use_batchnorm=th.use_batchnorm))
 
+  model.add(BatchReshape())
+
   return m.finalize(model, flatten=True, use_gap=True)
 
 
@@ -30,7 +34,7 @@ def main(_):
   console.start('{} on S2S-SSC task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = 1
+  th.rehearse = 0
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
@@ -39,9 +43,12 @@ def main(_):
   # th.data_config += ' preprocess=iqr'
   th.data_config += ' sg_preprocess=trim;iqr;128'
 
-  # th.epoch_num = 5
-  th.input_shape = [3000 * th.epoch_num, len(th.fusion_channels[0])]
+  th.epoch_num = 5
+  th.eval_epoch_num = 10
+  # th.input_shape = [3000 * th.epoch_num, len(th.fusion_channels[0])]
+  th.input_shape = [None, len(th.fusion_channels[0])]
 
+  th.developer_code += 'none-as-wake'
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
   # ---------------------------------------------------------------------------

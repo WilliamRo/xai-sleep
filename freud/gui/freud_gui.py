@@ -19,7 +19,7 @@ class Freud(Pictor, DialogUtilities):
 
   # region: Commands
 
-  def open(self, edf_path: str = None, dtype=np.float, auto_refresh=True):
+  def open(self, edf_path: str = None, dtype=float, auto_refresh=True):
     """Open an EDF file. If `edf_path` is not provided, an `open_file` dialog
     will be popped up for manually selecting file."""
     if edf_path is None:

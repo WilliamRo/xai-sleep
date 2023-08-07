@@ -15,6 +15,8 @@ class SleepConfig(SmartTrainerHub):
   epoch_delta = Flag.float(
     0.0, 'Delta for generating batches, should be in [0, 1)', is_key=None)
   epoch_num = Flag.integer(1, 'Number of epochs in one batch', is_key=None)
+  eval_epoch_num = Flag.integer(1, 'Number of epochs during evaluation',
+                                is_key=None)
 
   # endregion: SleepSet.gen_batches setting
 
