@@ -17,6 +17,8 @@ class SleepConfig(SmartTrainerHub):
   epoch_num = Flag.integer(1, 'Number of epochs in one batch', is_key=None)
   eval_epoch_num = Flag.integer(1, 'Number of epochs during evaluation',
                                 is_key=None)
+  sg_buffer_size = Flag.integer(10, 'Number of signal-groups loaded per round',
+                                is_key=None)
 
   # endregion: SleepSet.gen_batches setting
 

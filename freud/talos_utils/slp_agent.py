@@ -1,6 +1,7 @@
 from typing import List
 from freud.talos_utils.slp_config import SleepConfig
 from freud.talos_utils.slp_set import SleepSet
+from freud.talos_utils.sleep_sets.sleepeason import SleepEason
 from freud.talos_utils.sleep_sets.sleepedfx import SleepEDFx
 from freud.talos_utils.sleep_sets.ucddb import UCDDB
 from freud.talos_utils.sleep_sets.rrshv1 import RRSHSCv1
@@ -23,7 +24,8 @@ class SleepAgent(DataAgent):
   `SleepAgent.register_dataset` method.
   """
 
-  roster = {'sleepedfx': SleepEDFx, 'ucddb': UCDDB, 'rrshv1': RRSHSCv1}
+  roster = {'sleepedfx': SleepEDFx, 'ucddb': UCDDB, 'rrshv1': RRSHSCv1,
+            'sleepeason': SleepEason}
 
 
   @classmethod

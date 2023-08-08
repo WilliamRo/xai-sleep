@@ -41,6 +41,10 @@ class SleepSet(SequenceSet):
   def signal_groups(self) -> List[SignalGroup]:
     return self.properties['signal_groups']
 
+  @signal_groups.setter
+  def signal_groups(self, val):
+    self.properties['signal_groups'] = val
+
   @SequenceSet.property()
   def validation_set(self) -> DataSet:
     from tframe import hub as th
@@ -388,30 +392,25 @@ class SleepSet(SequenceSet):
     # TODO: here len(ids) may > len(branches[i]), e.g., in SleepEDFx data
     data_dict = {}
     if include_targets:
+      # Set mask
       stage_ids = stage_ids[:len(features) * N]
       mask = [(0 if si is None else 1) for si in stage_ids]
-      data_dict['mask'] = np.stack(mask, axis=-1)
+      data_dict['mask'] = np.stack(mask, axis=-1).reshape([-1, N, 1])
 
-      # Removed invalid epochs
-      #nan_indices = [i for i, v in enumerate(stage_ids) if v is None]
-      # features = np.delete(features, nan_indices, axis=0)
-      # targets = [v for v in stage_ids if v is not None]
-
-      targets = [0 if si is None else si for si in stage_ids]
-      targets = convert_to_one_hot(targets, self.NUM_STAGES)
+      # Set targets and dense-labels
+      dense_labels = [0 if si is None else si for si in stage_ids]
+      targets = convert_to_one_hot(dense_labels, self.NUM_STAGES)
+      targets = targets.reshape([-1, N, targets.shape[-1]])
     else: targets = None
 
     # NUM_CLASSES and CLASSES properties are for confusion matrix label
-    from tframe.layers.common import BatchReshape
-    key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
-    # data_dict[key] = N
-
-    targets = targets.reshape([-1, N, targets.shape[-1]])
-    data_dict['mask'] = data_dict['mask'].reshape([-1, N, 1])
-
     ds = DataSet(features, targets, data_dict, name=f'{self.name}-val',
                  NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
     def batch_preprocessor(ds: DataSet, _):
+      """This is for batch-evaluation"""
+      from tframe.layers.common import BatchReshape
+      key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
+
       ds.data_dict[key] = N
       ds.targets = np.reshape(ds.targets, [-1, ds.targets.shape[-1]])
       ds.data_dict['mask'] = np.reshape(ds.data_dict['mask'], [-1, 1])
