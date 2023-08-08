@@ -12,7 +12,7 @@ import os
 
 
 
-class SleepSet(SequenceSet):
+class SleepSet(DataSet):
 
   class Keys:
     tapes = 'SleepSet::Keys::tapes'
@@ -44,6 +44,9 @@ class SleepSet(SequenceSet):
   @signal_groups.setter
   def signal_groups(self, val):
     self.properties['signal_groups'] = val
+
+  @property
+  def num_signal_groups(self) -> int: return len(self.signal_groups)
 
   @SequenceSet.property()
   def validation_set(self) -> DataSet:
@@ -221,6 +224,7 @@ class SleepSet(SequenceSet):
     if not is_training:
       for batch in self.validation_set.gen_batches(batch_size): yield batch
       return
+    elif callable(self.data_fetcher): self.data_fetcher(self)
 
     round_len = self.get_round_length(batch_size, training=is_training)
     assert batch_size != -1
@@ -329,6 +333,11 @@ class SleepSet(SequenceSet):
     self.properties['CLASSES'] = ['Wake', 'N1', 'N2', 'N3', 'REM']
 
     # (1) extract required channels as tapes according to channel selection
+    self.extract_sg_tapes()
+
+  def extract_sg_tapes(self):
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
     console.show_status('Extracting tapes ...')
     for i, sg in enumerate(self.signal_groups):
       console.print_progress(i, len(self.signal_groups))

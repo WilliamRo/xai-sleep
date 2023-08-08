@@ -79,10 +79,10 @@ def main(_):
   th.balance_classes = True
 
   th.train = True
-  th.patience = 20
+  th.patience = 5
   th.overwrite = True
 
-  th.validate_train_set = True
+  # th.validate_train_set = True
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
