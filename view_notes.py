@@ -29,8 +29,8 @@ default_inactive_flags = (
 )
 
 default_inactive_criteria = (
-  'Best Accuracy',
-  'Best F1',
+  # 'Best Accuracy',
+  # 'Best F1',
 )
 
 flags_to_ignore = (

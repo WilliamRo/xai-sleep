@@ -25,7 +25,7 @@ class SleepAgent(DataAgent):
   """
 
   roster = {'sleepedfx': SleepEDFx, 'ucddb': UCDDB, 'rrshv1': RRSHSCv1,
-            'sleepeason': SleepEason}
+            'sleepeason1': SleepEason}
 
 
   @classmethod
@@ -39,7 +39,7 @@ class SleepAgent(DataAgent):
     ds.configure()
 
     # Split data set
-    train_ids = list(range(len(ds.signal_groups)))
+    train_ids = list(range(ds.num_signal_groups))
     val_test_ids = [train_ids, train_ids]
 
     for i, key in enumerate(['val_ids', 'test_ids']):
