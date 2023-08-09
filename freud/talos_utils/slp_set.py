@@ -4,7 +4,8 @@ from pictor.objects.signals.signal_group import SignalGroup, Annotation
 from roma import io
 from tframe.data.sequences.seq_set import SequenceSet, DataSet
 from tframe.utils.misc import convert_to_one_hot
-from tframe import console
+from tframe.layers.common import BatchReshape
+from tframe import console, pedia
 from typing import List
 
 import numpy as np
@@ -129,44 +130,39 @@ class SleepSet(DataSet):
     from tframe import hub as th
     assert isinstance(th, SleepConfig)
 
-    features, targets = [], []
+    features, targets, masks = [], [], []
 
     # epoch_table = [[(sg, start_t, duration), ...], ...]
     for sid in np.random.randint(0, self.NUM_STAGES, batch_size):
       table = self.epoch_table[sid]
       sg, start_t, duration = table[np.random.randint(0, len(table))]
 
-      MAX_COUNT = 100
-      for count in range(MAX_COUNT):
-        data, labels = self._sample_seqs_from_sg(
-          sg, start_t, th.epoch_num * 30, with_stage=True)
+      # Randomly sample sequences from sg
+      data, labels = self._sample_seqs_from_sg(
+        sg, start_t, th.epoch_num * 30, with_stage=True)
 
-        # TODO: prevent None issue
-        if 'none-as-wake' in th.developer_code:
-          labels = [0 if l is None else l for l in labels]
-
-        if None not in labels: break
-      if None in labels:
-        raise AssertionError(
-          f'!! Failed to sample valid data after {MAX_COUNT} attempts.')
+      # Check invalid labels
+      if th.use_batch_mask:
+        labels = [0 if l is None else l for l in labels]
+        masks.extend([l is not None for l in labels])
+      elif None in labels: raise ValueError(
+        '!! Invalid labels found while not `use_batch_mask`')
 
       features.append(data)
-      # TODO: ? class is not considered for now
       t = convert_to_one_hot(labels, self.NUM_STAGES)
       t = np.reshape(t, [th.epoch_num, self.NUM_STAGES])
       targets.append(t)
 
+    # Assemble features and targets for DataSet
     features = np.stack(features, axis=0)
-    # TODO: [gamma]
-    # targets = np.stack(targets, axis=0)
     targets = np.concatenate(targets, axis=0)
 
-    from tframe.layers.common import BatchReshape
-    key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
-
+    data_dict = {}
+    if th.use_batch_mask: data_dict[pedia.batch_mask] = masks
+    data_dict[BatchReshape.DEFAULT_PLACEHOLDER_KEY] = th.epoch_num
     # This block happens only in training. During validation,
     # tensor_block_size should be specified manually.
-    return DataSet(features, targets, data_dict={key: th.epoch_num},
+    return DataSet(features, targets, data_dict=data_dict,
                    NUM_CLASSES=self.NUM_STAGES, check_data=False)
 
   # endregion: Multi-epoch sampling
@@ -403,8 +399,8 @@ class SleepSet(DataSet):
     if include_targets:
       # Set mask
       stage_ids = stage_ids[:len(features) * N]
-      mask = [(0 if si is None else 1) for si in stage_ids]
-      data_dict['mask'] = np.stack(mask, axis=-1).reshape([-1, N, 1])
+      mask = [si is not None for si in stage_ids]
+      data_dict[pedia.batch_mask] = np.stack(mask, axis=-1).reshape([-1, N, 1])
 
       # Set targets and dense-labels
       dense_labels = [0 if si is None else si for si in stage_ids]
@@ -413,7 +409,7 @@ class SleepSet(DataSet):
     else: targets = None
 
     # NUM_CLASSES and CLASSES properties are for confusion matrix label
-    ds = DataSet(features, targets, data_dict, name=f'{self.name}-val',
+    ds = DataSet(features, targets, data_dict, name=f'{self.name}-eva',
                  NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
     def batch_preprocessor(ds: DataSet, _):
       """This is for batch-evaluation"""
@@ -422,7 +418,8 @@ class SleepSet(DataSet):
 
       ds.data_dict[key] = N
       ds.targets = np.reshape(ds.targets, [-1, ds.targets.shape[-1]])
-      ds.data_dict['mask'] = np.reshape(ds.data_dict['mask'], [-1, 1])
+      ds.data_dict[pedia.batch_mask] = np.reshape(
+        ds.data_dict[pedia.batch_mask], [-1])
       return ds
 
     ds.batch_preprocessor = batch_preprocessor

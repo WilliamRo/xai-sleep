@@ -58,7 +58,7 @@ class SleepEason(SleepSet):
 
   @SleepSet.property()
   def validation_set(self) -> DataSet:
-    shadow = self.get_subset_by_patient_id(name_suffix='val')
+    shadow = self.get_subset_by_patient_id()
     shadow.buffer_size = None
     shadow._fetch_data()
     return shadow.extract_data_set(include_targets=True)
@@ -73,7 +73,7 @@ class SleepEason(SleepSet):
     else: files = np.random.choice(
       self.file_list, self.buffer_size, replace=False)
 
-    console.show_status('Fetching signal groups ...')
+    console.show_status(f'Fetching signal groups to {self.name} ...')
     self.signal_groups = []
     for p in files:
       sg = io.load_file(p)
@@ -83,7 +83,8 @@ class SleepEason(SleepSet):
     # Extract tapes for each sg
     self.extract_sg_tapes()
 
-  def _fetch_data(self): self.fetch_data(self)
+  def _fetch_data(self):
+    self.fetch_data(self)
 
   # endregion: Public Methods
 
@@ -98,10 +99,11 @@ class SleepEason(SleepSet):
     return SleepEason(
       data_dir, buffer_size=th.sg_buffer_size, name='SleepEason')
 
-  def get_subset_by_patient_id(self, indices=None, name_suffix='subset'):
+  def get_subset_by_patient_id(self, indices=None, name_suffix=''):
+    if name_suffix != '': name_suffix = '-' + name_suffix
     if indices is None: indices = list(range(self.num_signal_groups))
     return SleepEason(buffer_size=self.buffer_size,
-                      name=f'{self.name}-{name_suffix}',
+                      name=f'{self.name}{name_suffix}',
                       file_list=[self.file_list[i] for i in indices])
 
   # endregion: Overwriting
