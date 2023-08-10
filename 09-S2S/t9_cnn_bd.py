@@ -46,8 +46,8 @@ def main(_):
   th.sg_buffer_size = 10
   # th.input_shape = [3000 * th.epoch_num, len(th.fusion_channels[0])]
   th.input_shape = [None, len(th.fusion_channels[0])]
+  th.use_batch_mask = True
 
-  th.developer_code += 'none-as-wake'
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
   # ---------------------------------------------------------------------------
