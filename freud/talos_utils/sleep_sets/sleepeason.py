@@ -108,6 +108,53 @@ class SleepEason(SleepSet):
 
   # endregion: Overwriting
 
+  # region: Generator
+
+  @classmethod
+  def convert_to_eason_sg(cls, src_dir, tgt_dir, src_pattern=None, format='alpha'):
+    from roma.spqr.finder import walk
+
+    """Format details:
+
+    alpha
+    -----
+    1. EEG, EOG, EMG fs=128Hz;
+    """
+    assert format == 'alpha'
+    if src_pattern== None: src_pattern = '*(trim1800;iqr,1,20;128).sg'
+    sg_file_list = walk(src_dir, 'file', src_pattern,
+                        return_basename=True)
+    n_patients = len(sg_file_list)
+    origin_signalgroups = []
+
+    for i, sg_file in enumerate(sg_file_list):
+      pid = sg_file[:7]
+      sg_path = os.path.join(src_dir, sg_file)
+      cls.try_to_load_sg_directly(pid, sg_path, n_patients, i, origin_signalgroups)
+      sg = origin_signalgroups[i]
+
+      for ds in sg.digital_signals:
+        names = []
+        eeg_sign = ['EEG', 'F3-M2', 'C3', 'O1', 'F4', 'C4-M1', 'O2-M1', 'C3', 'C4']
+        eog_sign = ['EOG', 'eye', 'Eye', 'E1-', 'E2-']
+        emg_sign = ['Chin', 'EMG']
+        ecg_sign = ['ECG']
+        for name in ds.channels_names:
+          if any(sign in name for sign in eeg_sign): name = 'EEG:' + name
+          if any(sign in name for sign in eog_sign): name = 'EOG:' + name
+          if any(sign in name for sign in emg_sign): name = 'EMG:' + name
+          if any(sign in name for sign in ecg_sign): name = 'ECG:' + name
+
+          names.append(name)
+
+        ds.channels_names = names
+
+      sg_save_path = os.path.join(tgt_dir, sg_file)
+      cls.save_sg_file_if_necessary(
+        pid, sg_save_path, n_patients, i, sg, save_sg=True)
+
+  # endregion: Generator
+
 
 
 if __name__ == '__main__':
