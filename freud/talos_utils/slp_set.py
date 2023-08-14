@@ -423,6 +423,7 @@ class SleepSet(DataSet):
       return ds
 
     ds.batch_preprocessor = batch_preprocessor
+    ds.properties['signal_groups'] = self.signal_groups
     return ds
 
   # endregion: Public Methods
