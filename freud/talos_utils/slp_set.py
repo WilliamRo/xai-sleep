@@ -444,6 +444,10 @@ class SleepSet(DataSet):
     sg = cls.load_as_signal_groups(data_dir, **kwargs)
     return cls(name=cls.__name__, signal_groups=sg, NUM_CLASSES=cls.NUM_STAGES)
 
+  @classmethod
+  def load_as_raw_sg(cls, data_dir, pid, **kwargs):
+    raise NotImplementedError
+
   # endregion: Abstract Methods
 
   # region: Data Reading
@@ -498,6 +502,88 @@ class SleepSet(DataSet):
       console.print_progress(i, n_patients)
       io.save_file(sg, sg_path)
       console.show_status(f'Data saved to `{sg_path}`.')
+
+  @staticmethod
+  def parse_preprocess_configs(cfg_str: str):
+    configs, suffix_list = {}, []
+
+    for config in cfg_str.split(';'):
+      mass = config.split(',')
+      if 'trim' in mass[0]:
+        assert len(mass) in (1, 2)
+        trim = str(30 * 60) if len(mass) == 1 else mass[1]
+        configs['trim'] = trim
+        suffix_list.append(f'trim{trim}')
+      elif 'iqr' == mass[0]:
+        norm = ('iqr', '1' if len(mass) < 2 else mass[1],
+                '20' if len(mass) < 3 else mass[2])
+        configs['norm'] = norm
+        suffix_list.append(f"{','.join(norm)}")
+      elif '128' == mass[0]:
+        configs['sfreq'] = 128
+        suffix_list.append('128')
+      else: raise KeyError(f'!! Unknown config option `{mass[0]}`')
+
+    return configs, ';'.join(suffix_list)
+
+  @classmethod
+  def preprocess_sg(cls, sg: SignalGroup, configs: dict):
+    # (i) up-sampling if necessary
+    key = 'sfreq'
+    if key in configs:
+      from scipy import signal
+
+      ds0: DigitalSignal = sg.digital_signals[0]
+      assert ds0.sfreq == 100
+      N = int(ds0.length // ds0.sfreq * configs[key])
+      data_new = np.stack([
+        signal.resample(ds0.data[:, i], num=N)
+        for i in range(ds0.num_channels)], axis=-1)
+
+      sg.digital_signals[0] = DigitalSignal(
+        data_new, 128, channel_names=ds0.channels_names, label=ds0.label)
+
+    # (ii) trim wake if required
+    key = 'trim'
+    if key in configs:
+      trim = float(configs[key])
+      anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
+      ds0 = sg.digital_signals[0]
+      # For SleepEDFx data, last interval is usually invalid
+      if anno.intervals[-1][0] >= ds0.ticks[-1]:
+        anno.intervals.pop(-1)
+        anno.annotations = anno.annotations[:-1]
+
+      T1, T2 = 0, ds0.ticks[-1]
+      # trim start
+      if anno.annotations[0] == 0:
+        t1, t2 = anno.intervals[0]
+        if t2 - t1 > trim:
+          T1 = t2 - trim
+          anno.intervals[0] = (T1, t2)
+
+      # trim end
+      if anno.annotations[-1] == 0:
+        t1, t2 = anno.intervals[-1]
+        if t2 - t1 > trim:
+          T2 = t1 + trim
+          anno.intervals[-1] = (t1, T2)
+
+      for i in range(len(sg.digital_signals)):
+        sg.digital_signals[i] = sg.digital_signals[i][T1:T2]
+
+    # (iii) normalize 1st DigitalSignal if required
+    key = 'norm'
+    if key in configs:
+      norm = configs[key]
+      if norm[0] == 'iqr':
+        iqr, mad = int(norm[1]), int(norm[2])
+        for ds in sg.digital_signals: ds.data = DigitalSignal.preprocess_iqr(
+          ds.data, iqr=iqr, max_abs_deviation=mad)
+      else:
+        raise KeyError(f'!! unknown normalization method {norm[0]}')
+
+    return sg
 
   # endregion: Common Utilities
 

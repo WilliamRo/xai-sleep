@@ -36,6 +36,40 @@ class SleepEDFx(SleepSet):
   # region: Data Loading
 
   @classmethod
+  def load_as_raw_sg(cls, data_dir, pid, **kwargs):
+    n_patients = kwargs.pop('n_patients')
+    i = kwargs.pop('i')
+    hypno_fn = kwargs.pop('hypno_fn')
+
+    # If the corresponding .sg file exists, read it directly
+    raw_sg_path = os.path.join(data_dir, pid + '(raw)' + '.sg')
+
+    bucket = []
+    if cls.try_to_load_sg_directly(
+        pid, raw_sg_path, n_patients, i, bucket, **kwargs):
+      return bucket[0]
+
+    # Create sg from raw file
+    psg_fn = f'{pid}0-PSG.edf'
+
+    # (1) read psg data as digital signals
+    digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
+      os.path.join(data_dir, psg_fn), dtype=np.float16)
+
+    # (2) read annotation
+    annotation = cls.read_annotations_mne(
+      os.path.join(data_dir, hypno_fn), labels=cls.ANNO_LABELS)
+
+    # Wrap data into signal group
+    sg = SignalGroup(digital_signals, label=f'{pid}')
+    sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
+
+    # Save sg if necessary
+    cls.save_sg_file_if_necessary(
+      pid, raw_sg_path, n_patients, i, sg, **kwargs)
+    return sg
+
+  @classmethod
   def load_as_signal_groups(cls, data_dir, **kwargs) -> List[SignalGroup]:
     """Directory structure of SleepEDFx dataset is as follows:
 
@@ -66,63 +100,16 @@ class SleepEDFx(SleepSet):
       # Parse patient ID and get find PSG file name
       pid = hypno_fn.split('-')[0][:7]
 
+      # TODO
+      load_raw_sg = lambda: cls.load_as_raw_sg(
+        data_dir, pid, n_patients=n_patients, i=i, hypno_fn=hypno_fn, **kwargs)
+
       # Parse pre-process configs
-      pp_configs = kwargs.get('preprocess', '').split(';')
-      trim = None
-      norm = None
-      upsamp = None
-      for config in pp_configs:
-        mass = config.split(',')
-        if 'trim' in mass[0]:
-          assert len(mass) in (1, 2)
-          trim = str(30 * 60) if len(mass) == 1 else mass[1]
-        elif 'iqr' == mass[0]:
-          norm = ('iqr', '1' if len(mass) < 2 else mass[1],
-                  '20' if len(mass) < 3 else mass[2])
-        elif '128' == mass[0]:
-          upsamp = 128
-
-      # Generate suffix
-      suffix = ''
-      if trim is not None: suffix += f'trim{trim}'
-      if norm is not None:
-        if suffix: suffix += ';'
-        suffix += f"{','.join(norm)}"
-      if upsamp is not None:
-        if suffix: suffix += ';'
-        suffix += f'128'
-
-      def _load_raw_sg():
-        # If the corresponding .sg file exists, read it directly
-        raw_sg_path = os.path.join(data_dir, pid + '(raw)' + '.sg')
-
-        bucket = []
-        if cls.try_to_load_sg_directly(
-            pid, raw_sg_path, n_patients, i, bucket, **kwargs):
-          return bucket[0]
-
-        # Create sg from raw file
-        psg_fn = f'{pid}0-PSG.edf'
-
-        # (1) read psg data as digital signals
-        digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
-          os.path.join(data_dir, psg_fn), dtype=np.float16)
-
-        # (2) read annotation
-        annotation = cls.read_annotations_mne(
-          os.path.join(data_dir, hypno_fn), labels=cls.ANNO_LABELS)
-
-        # Wrap data into signal group
-        sg = SignalGroup(digital_signals, label=f'{pid}')
-        sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
-
-        # Save sg if necessary
-        cls.save_sg_file_if_necessary(
-          pid, raw_sg_path, n_patients, i, sg, **kwargs)
-        return sg
+      pp_configs, suffix = cls.parse_preprocess_configs(
+        kwargs.get('preprocess', ''))
 
       if suffix == '':
-        signal_groups.append(_load_raw_sg())
+        signal_groups.append(load_raw_sg())
         continue
 
       # If the corresponding .sg file exists, read it directly
@@ -130,59 +117,10 @@ class SleepEDFx(SleepSet):
       if cls.try_to_load_sg_directly(pid, sg_path, n_patients, i,
                                      signal_groups, **kwargs): continue
 
-      sg = _load_raw_sg()
-
-      # (i) up-sampling if necessary
-      if upsamp is not None:
-        from scipy import signal
-
-        ds0: DigitalSignal = sg.digital_signals[0]
-        assert ds0.sfreq == 100
-        N = int(ds0.length // ds0.sfreq * upsamp)
-        data_new = np.stack([
-          signal.resample(ds0.data[:, i], num=N)
-          for i in range(ds0.num_channels)], axis=-1)
-
-        sg.digital_signals[0] = DigitalSignal(
-          data_new, 128, channel_names=ds0.channels_names, label=ds0.label)
-
-      # (ii) trim wake if required
-      if trim is not None:
-        trim = float(trim)
-        anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
-        ds0 = sg.digital_signals[0]
-        # For SleepEDFx data, last interval is usually invalid
-        if anno.intervals[-1][0] >= ds0.ticks[-1]:
-          anno.intervals.pop(-1)
-          anno.annotations = anno.annotations[:-1]
-
-        T1, T2 = 0, ds0.ticks[-1]
-        # trim start
-        if anno.annotations[0] == 0:
-          t1, t2 = anno.intervals[0]
-          if t2 - t1 > trim:
-            T1 = t2 - trim
-            anno.intervals[0] = (T1, t2)
-
-        # trim end
-        if anno.annotations[-1] == 0:
-          t1, t2 = anno.intervals[-1]
-          if t2 - t1 > trim:
-            T2 = t1 + trim
-            anno.intervals[-1] = (t1, T2)
-
-        for i in range(len(sg.digital_signals)):
-          sg.digital_signals[i] = sg.digital_signals[i][T1:T2]
-
-      # (iii) normalize 1st DigitalSignal if required
-      if norm is not None:
-        if norm[0] == 'iqr':
-          iqr, mad = int(norm[1]), int(norm[2])
-          for ds in sg.digital_signals: ds.data = DigitalSignal.preprocess_iqr(
-            ds.data, iqr=iqr, max_abs_deviation=mad)
-        else: raise KeyError(f'!! unknown normalization method {norm[0]}')
-
+      # Load raw signal group and preprocess
+      sg = cls.preprocess_sg(load_raw_sg(), pp_configs)
       signal_groups.append(sg)
+
       # Save sg if necessary
       cls.save_sg_file_if_necessary(
         pid, sg_path, n_patients, i, sg, **kwargs)
@@ -202,7 +140,8 @@ if __name__ == '__main__':
 
   tic = time.time()
   preprocess = 'trim;iqr;128'
-  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=1, preprocess=preprocess)
+  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=1,
+                                   preprocess=preprocess)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
