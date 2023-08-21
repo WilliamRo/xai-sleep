@@ -38,13 +38,12 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeason1 EEGx2 alpha'
-  num_channels = 2
+  th.data_config = 'sleepeason1 EEGx1,EOGx1 alpha'
 
   th.epoch_num = 5
   th.eval_epoch_num = 10
   th.sg_buffer_size = 10
-  th.input_shape = [None, num_channels]
+  th.input_shape = [None, th.input_channels]
   th.use_batch_mask = True
 
   # ---------------------------------------------------------------------------

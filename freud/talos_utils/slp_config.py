@@ -55,6 +55,16 @@ class SleepConfig(SmartTrainerHub):
   def fusion_channels(self):
     return [s.split(',') for s in self.data_args[0].split(';')]
 
+  @property
+  def input_channels(self):
+    # Currently only 1 branch is supported
+    assert len(self.fusion_channels) == 1
+    # Case 1: fusion_channels = [['1', '2'], ['3']]
+    if 'x' not in self.fusion_channels[0][0]:
+      return len(self.fusion_channels[0])
+    # Case 2： fusion_channels = [['EEGx2', 'EOGx1'], ['EMGx1']]
+    return sum([int(chn_str[-1]) for chn_str in self.fusion_channels[0]])
+
   # endregion: Properties
 
   def smooth_out_conflicts(self):

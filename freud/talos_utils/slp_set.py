@@ -366,7 +366,7 @@ class SleepSet(DataSet):
           tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
           sfreq = sg.channel_signal_dict[self.CHANNELS[chn_lst[0]]].sfreq
         else:
-          # case 2： fusion_channels = [['EEGx2', 'EOGx1'], ['EMGx1']]
+          # Case 2： fusion_channels = [['EEGx2', 'EOGx1'], ['EMGx1']]
           tape_stack = []
           for chn_str in chn_lst:
             assert isinstance(chn_str, str)
