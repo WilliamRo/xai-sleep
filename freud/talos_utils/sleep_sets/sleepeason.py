@@ -70,7 +70,20 @@ class SleepEason(SleepSet):
       self.file_list, self.buffer_size, replace=False)
 
     console.show_status(f'Fetching signal groups to {self.name} ...')
+
+    # Release memory (TODO: CRUCIAL)
+    if 'signal_groups' in self.properties:
+      # TODO: without this line, model will be trained on same batch of file
+      self._cloud_pocket.pop('epoch_table')
+
+      for sg in self.signal_groups:
+        assert isinstance(sg, SignalGroup)
+        for ds in sg.digital_signals: ds.release()
+        sg.release()
+
     self.signal_groups = []
+
+    # Trigger garbage collection
     for p in files:
       sg = io.load_file(p)
       console.supplement(f'Loaded `{p}`', level=2)
@@ -227,9 +240,15 @@ class SleepEason(SleepSet):
     key = th.data_args[1]
     val_keys, test_keys = [self.BENCHMARK[key][k] for k in ('val', 'test')]
 
+    # Filter file_list if required
+    file_list = self.file_list
+    if 'pattern' in th.data_kwargs:
+      p = th.data_kwargs['pattern']
+      file_list = [s for s in file_list if re.match(p, s.lower()) is not None]
+
     train_file_list, val_file_list, test_file_list = [], [], []
     # Construct file_lists
-    for fn in self.file_list:
+    for fn in file_list:
       flag = False
       for k in val_keys:
         if k in fn:
@@ -251,7 +270,7 @@ class SleepEason(SleepSet):
     val_set = SleepEason(name='ValSet', file_list=val_file_list)
     test_set = SleepEason(name='TestSet', file_list=test_file_list)
 
-    assert train_set.size + val_set.size + test_set.size == self.size
+    assert train_set.size + val_set.size + test_set.size == len(file_list)
 
     return [train_set, val_set, test_set]
 
