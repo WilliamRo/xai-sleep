@@ -486,7 +486,8 @@ class SleepSet(DataSet):
   @classmethod
   def load_as_raw_sg(cls, data_dir, pid, n_patients, i, **kwargs):
     # If the corresponding .sg file exists, read it directly
-    raw_sg_path = os.path.join(data_dir, pid + '(raw)' + '.sg')
+    suffix = kwargs.get('suffix', '(raw)')
+    raw_sg_path = os.path.join(data_dir, pid + suffix + '.sg')
 
     bucket = []
     if cls.try_to_load_sg_directly(
@@ -566,8 +567,7 @@ class SleepSet(DataSet):
     for config in cfg_str.split(';'):
       mass = config.split(',')
       if 'trim' in mass[0]:
-        assert len(mass) in (1, 2)
-        trim = str(30 * 60) if len(mass) == 1 else mass[1]
+        trim = '' if len(mass) == 1 else mass[1]
         configs['trim'] = trim
         suffix_list.append(f'trim{trim}')
       elif 'iqr' == mass[0]:
@@ -578,72 +578,58 @@ class SleepSet(DataSet):
       elif '128' == mass[0]:
         configs['sfreq'] = 128
         suffix_list.append('128')
+      elif mass[0] == '': continue
       else: raise KeyError(f'!! Unknown config option `{mass[0]}`')
 
     return configs, ';'.join(suffix_list)
+
+  @staticmethod
+  def pp_resample(sg: SignalGroup, fs):
+    from scipy import signal
+
+    ds0: DigitalSignal = sg.digital_signals[0]
+
+    # TODO: 64 for ucddb EMG channels, 100 for sleepedfx EEG channels
+    #       for ucddb, ds0 happens to be the ds needed for resampling
+    assert ds0.sfreq in (64, 100)
+
+    N = int(ds0.length // ds0.sfreq * fs)
+    data_new = np.stack([
+      signal.resample(ds0.data[:, i], num=N)
+      for i in range(ds0.num_channels)], axis=-1)
+
+    sg.digital_signals[0] = DigitalSignal(
+      data_new, fs, channel_names=ds0.channels_names, label=ds0.label)
+
+  @classmethod
+  def pp_trim(cls, sg, config):
+    raise NotImplementedError
+
+  @staticmethod
+  def pp_normalize(sg: SignalGroup, config):
+    norm = config
+    if norm[0] == 'iqr':
+      # Rescale data so that median value is 0, put 25 and 75 percentile to
+      # [-0.5, 0.5], clip values out of max deviation
+      iqr, mad = int(norm[1]), int(norm[2])
+      for ds in sg.digital_signals: ds.data = DigitalSignal.preprocess_iqr(
+        ds.data, iqr=iqr, max_abs_deviation=mad, labels=ds.channels_names)
+    else:
+      raise KeyError(f'!! unknown normalization method {norm[0]}')
 
   @classmethod
   def preprocess_sg(cls, sg: SignalGroup, configs: dict):
     # (i) up-sampling if necessary
     key = 'sfreq'
-    if key in configs:
-      from scipy import signal
-
-      ds0: DigitalSignal = sg.digital_signals[0]
-
-      # TODO: 64 for ucddb EMG channels, 100 for sleepedfx EEG channels
-      #       for ucddb, ds0 happens to be the ds needed for resampling
-      assert ds0.sfreq in (64, 100)
-
-      N = int(ds0.length // ds0.sfreq * configs[key])
-      data_new = np.stack([
-        signal.resample(ds0.data[:, i], num=N)
-        for i in range(ds0.num_channels)], axis=-1)
-
-      sg.digital_signals[0] = DigitalSignal(
-        data_new, 128, channel_names=ds0.channels_names, label=ds0.label)
+    if key in configs: cls.pp_resample(sg, configs[key])
 
     # (ii) trim wake if required
     key = 'trim'
-    if key in configs:
-      trim = float(configs[key])
-      anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
-      ds0 = sg.digital_signals[0]
-      # For SleepEDFx data, last interval is usually invalid
-      if anno.intervals[-1][0] >= ds0.ticks[-1]:
-        anno.intervals.pop(-1)
-        anno.annotations = anno.annotations[:-1]
-
-      T1, T2 = 0, ds0.ticks[-1]
-      # trim start
-      if anno.annotations[0] == 0:
-        t1, t2 = anno.intervals[0]
-        if t2 - t1 > trim:
-          T1 = t2 - trim
-          anno.intervals[0] = (T1, t2)
-
-      # trim end
-      if anno.annotations[-1] == 0:
-        t1, t2 = anno.intervals[-1]
-        if t2 - t1 > trim:
-          T2 = t1 + trim
-          anno.intervals[-1] = (t1, T2)
-
-      for i in range(len(sg.digital_signals)):
-        sg.digital_signals[i] = sg.digital_signals[i][T1:T2]
+    if key in configs: cls.pp_trim(sg, configs[key])
 
     # (iii) normalize 1st DigitalSignal if required
     key = 'norm'
-    if key in configs:
-      norm = configs[key]
-      if norm[0] == 'iqr':
-        # Rescale data so that median value is 0, put 25 and 75 percentile to
-        # [-0.5, 0.5], clip values out of max deviation
-        iqr, mad = int(norm[1]), int(norm[2])
-        for ds in sg.digital_signals: ds.data = DigitalSignal.preprocess_iqr(
-          ds.data, iqr=iqr, max_abs_deviation=mad, labels=ds.channels_names)
-      else:
-        raise KeyError(f'!! unknown normalization method {norm[0]}')
+    if key in configs: cls.pp_normalize(sg, configs[key])
 
     return sg
 

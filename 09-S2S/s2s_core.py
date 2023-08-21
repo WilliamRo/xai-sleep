@@ -89,6 +89,8 @@ def activate():
   else:
     pass
 
+  # Evaluate best model
+  model.agent.load()
   for ds in (train_set.validation_set, val_set, test_set):
     model.evaluate_pro(ds, batch_size=128, verbose=True,
                        show_confusion_matrix=True,

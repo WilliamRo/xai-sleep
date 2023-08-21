@@ -24,6 +24,55 @@ class RRSHSCv1(SleepSet):
   # region: Data Loading
 
   @classmethod
+  def load_sg_from_raw_files(cls, data_dir, pid, **kwargs):
+    import xml.dom.minidom as minidom
+
+    edf_fn = kwargs.get('edf_fn')
+    max_sfreq = kwargs.get('max_sfreq', 128)
+
+    # (1) read psg data as digital signals
+    digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
+      os.path.join(data_dir, edf_fn), dtype=np.float16, max_sfreq=max_sfreq)
+
+    # Wrap data into signal group
+    sg = SignalGroup(digital_signals, label=f'{pid}')
+
+    # (2) read annotations
+    xml_fp = os.path.join(data_dir, f'{pid}.xml')
+    xml_root = minidom.parse(xml_fp).documentElement
+
+    # (2.1) set stage annotations
+    stage_elements = xml_root.getElementsByTagName('SleepStage')
+    stages = np.array([int(se.firstChild.data) for se in stage_elements])
+    stages[stages == 5] = 4
+    stages[stages == 9] = 5
+    sg.set_annotation(cls.ANNO_KEY_GT_STAGE, 30, stages, cls.ANNO_LABELS)
+
+    # (2.2) set events annotations
+    events = xml_root.getElementsByTagName('ScoredEvent')
+    # event_keys = ['Limb Movement (Left)', 'Limb Movement (Right)']
+
+    anno_dict = {}
+    for eve in events:
+      nodes = eve.childNodes
+      tagNames = [n.tagName for n in nodes]
+      if tagNames != ['Name', 'Start', 'Duration', 'Input']: continue
+
+      key = nodes[0].childNodes[0].data
+      key = 'event ' + key.replace(' ', '-')
+      input_channel = nodes[3].childNodes[0].data
+      if key not in anno_dict: anno_dict[key] = Annotation(
+        [], labels=input_channel)
+
+      # Append interval
+      start, duration = [float(nodes[i].childNodes[0].data) for i in (1, 2)]
+      anno_dict[key].intervals.append((start, start + duration))
+
+    sg.annotations.update(anno_dict)
+
+    return sg
+
+  @classmethod
   def load_as_signal_groups(cls, data_dir, **kwargs) -> List[SignalGroup]:
     """Directory structure of RRSHSCv1 dataset is as follows:
 
@@ -37,10 +86,6 @@ class RRSHSCv1(SleepSet):
     :param data_dir: a directory contains pairs of *.edf and *.xml.XML files
     :param max_sfreq: maximum sampling frequency
     """
-    import xml.dom.minidom as minidom
-
-    max_sfreq = kwargs.get('max_sfreq', 128)
-
     signal_groups: List[SignalGroup] = []
 
     # Traverse all .edf files
@@ -52,57 +97,36 @@ class RRSHSCv1(SleepSet):
       # Parse patient ID and get find PSG file name
       pid = edf_fn.split('.')[0]
 
+      load_raw_sg = lambda: cls.load_as_raw_sg(
+        data_dir, pid, n_patients=n_patients, i=i, edf_fn=edf_fn,
+        suffix='(max_sf_128)', **kwargs)
+
+      # Parse pre-process configs
+      pp_configs, suffix = cls.parse_preprocess_configs(
+        kwargs.get('preprocess', ''))
+
+      if suffix == '':
+        signal_groups.append(load_raw_sg())
+        continue
+
       # If the corresponding .sg file exists, read it directly
-      sg_path = os.path.join(data_dir, pid + f'(max_sf_{max_sfreq}).sg')
+      sg_path = os.path.join(data_dir, pid + f'({suffix})' + '.sg')
       if cls.try_to_load_sg_directly(pid, sg_path, n_patients, i,
                                      signal_groups, **kwargs): continue
 
-      # (1) read psg data as digital signals
-      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
-        os.path.join(data_dir, edf_fn), dtype=np.float16, max_sfreq=max_sfreq)
-
-      # Wrap data into signal group
-      sg = SignalGroup(digital_signals, label=f'{pid}')
+      # Load raw signal group and preprocess
+      sg = cls.preprocess_sg(load_raw_sg(), pp_configs)
       signal_groups.append(sg)
-
-      # (2) read annotations
-      xml_fp = os.path.join(data_dir, f'{pid}.xml')
-      xml_root = minidom.parse(xml_fp).documentElement
-
-      # (2.1) set stage annotations
-      stage_elements = xml_root.getElementsByTagName('SleepStage')
-      stages = np.array([int(se.firstChild.data) for se in stage_elements])
-      stages[stages == 5] = 4
-      stages[stages == 9] = 5
-      sg.set_annotation(cls.ANNO_KEY_GT_STAGE, 30, stages, cls.ANNO_LABELS)
-
-      # (2.2) set events annotations
-      events = xml_root.getElementsByTagName('ScoredEvent')
-      # event_keys = ['Limb Movement (Left)', 'Limb Movement (Right)']
-
-      anno_dict = {}
-      for eve in events:
-        nodes = eve.childNodes
-        tagNames = [n.tagName for n in nodes]
-        if tagNames != ['Name', 'Start', 'Duration', 'Input']: continue
-
-        key = nodes[0].childNodes[0].data
-        key = 'event ' + key.replace(' ', '-')
-        input_channel = nodes[3].childNodes[0].data
-        if key not in anno_dict: anno_dict[key] = Annotation(
-          [], labels=input_channel)
-
-        # Append interval
-        start, duration = [float(nodes[i].childNodes[0].data) for i in (1, 2)]
-        anno_dict[key].intervals.append((start, start + duration))
-
-      sg.annotations.update(anno_dict)
 
       # Save sg if necessary
       cls.save_sg_file_if_necessary(pid, sg_path, n_patients, i, sg, **kwargs)
 
     console.show_status(f'Successfully read {n_patients} files.')
     return signal_groups
+
+  @classmethod
+  def pp_trim(cls, sg, **kwargs):
+    raise NotImplementedError
 
   # endregion: Data Loading
 
@@ -112,7 +136,8 @@ if __name__ == '__main__':
   import time
 
   console.suppress_logging()
-  data_dir = r'../../../data/rrsh'
+  data_dir = r'../../../data/rrsh-night'
+  # data_dir = r'../../../data/rrsh-band'
 
   tic = time.time()
   ds = RRSHSCv1.load_as_sleep_set(data_dir, overwrite=0)
@@ -120,4 +145,4 @@ if __name__ == '__main__':
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
 
-  ds.show()
+  ds.show(default_win_duration=100000)

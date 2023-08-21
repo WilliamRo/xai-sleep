@@ -114,6 +114,36 @@ class SleepEDFx(SleepSet):
     console.show_status(f'Successfully read {n_patients} files.')
     return signal_groups
 
+  @classmethod
+  def pp_trim(cls, sg, config):
+    """Recommended trim setting: `trim,1800`"""
+    trim = 1800 if config == '' else float(config)
+
+    anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
+    ds0 = sg.digital_signals[0]
+    # For SleepEDFx data, last interval is usually invalid
+    if anno.intervals[-1][0] >= ds0.ticks[-1]:
+      anno.intervals.pop(-1)
+      anno.annotations = anno.annotations[:-1]
+
+    T1, T2 = 0, ds0.ticks[-1]
+    # trim start
+    if anno.annotations[0] == 0:
+      t1, t2 = anno.intervals[0]
+      if t2 - t1 > trim:
+        T1 = t2 - trim
+        anno.intervals[0] = (T1, t2)
+
+    # trim end
+    if anno.annotations[-1] == 0:
+      t1, t2 = anno.intervals[-1]
+      if t2 - t1 > trim:
+        T2 = t1 + trim
+        anno.intervals[-1] = (t1, T2)
+
+    for i in range(len(sg.digital_signals)):
+      sg.digital_signals[i] = sg.digital_signals[i][T1:T2]
+
   # endregion: Data Loading
 
 
@@ -125,8 +155,8 @@ if __name__ == '__main__':
   data_dir = r'../../../data/sleepedfx'
 
   tic = time.time()
-  preprocess = 'trim;iqr;128'
-  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=1,
+  preprocess = 'trim,1800;iqr;128'
+  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0,
                                    preprocess=preprocess)
 
   elapsed = time.time() - tic

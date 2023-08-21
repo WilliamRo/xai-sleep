@@ -39,6 +39,7 @@ def main(_):
   # 0. date set setup
   # ---------------------------------------------------------------------------
   th.data_config = 'sleepeason1 EEGx1,EOGx1 alpha'
+  # th.data_config += ' pattern=.*(sleepedfx)'
 
   th.epoch_num = 5
   th.eval_epoch_num = 10
@@ -63,7 +64,8 @@ def main(_):
   th.activation = 'relu'
   th.use_batchnorm = True
 
-  th.archi_string = '16-s16-32-s32-64-5'
+  # th.archi_string = '16-s16-32-s32-64-5'
+  th.archi_string = '32-s64-64-s128-128-64-32-5'
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
@@ -72,7 +74,7 @@ def main(_):
   th.batch_size = 64
 
   th.optimizer = 'adam'
-  th.learning_rate = 0.0001
+  th.learning_rate = 0.0003
   th.balance_classes = True
 
   th.train = True
