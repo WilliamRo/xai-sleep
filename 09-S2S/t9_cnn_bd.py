@@ -38,14 +38,13 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeason1 1,2'
-  th.data_config += ' val_ids=16,17 test_ids=18,19'
+  th.data_config = 'sleepeason1 EEGx2 alpha'
+  num_channels = 2
 
   th.epoch_num = 5
   th.eval_epoch_num = 10
   th.sg_buffer_size = 10
-  # th.input_shape = [3000 * th.epoch_num, len(th.fusion_channels[0])]
-  th.input_shape = [None, len(th.fusion_channels[0])]
+  th.input_shape = [None, num_channels]
   th.use_batch_mask = True
 
   # ---------------------------------------------------------------------------
@@ -78,7 +77,7 @@ def main(_):
   th.balance_classes = True
 
   th.train = True
-  th.patience = 5
+  th.patience = 10
   th.overwrite = True
 
   th.updates_per_round = 50

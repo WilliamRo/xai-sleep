@@ -108,8 +108,14 @@ class SleepSet(DataSet):
     assert L < tape.shape[0]
     assert start_i % 30 == 0   # TODO: this assertion is for sleep staging only
 
-    # Make sure start_i is legal
-    start_i = min(max(0, start_i), tape.shape[0] - L)
+    # Make sure start_i is legal, in SleepEDFx, valid stage length may be
+    # shorter than valid tape length
+    valid_tape_L = tape.shape[0]
+    if with_stage:
+      valid_stage_L = int(len(self.get_sg_epoch_tables(sg)[1]) * fs
+                          * self.EPOCH_DURATION)
+      valid_tape_L = min(valid_tape_L, valid_stage_L)
+    start_i = min(max(0, start_i), valid_tape_L - L)
     data = tape[start_i:start_i+L]
 
     if with_stage:
@@ -278,9 +284,14 @@ class SleepSet(DataSet):
 
   @classmethod
   def get_sg_epoch_tables(cls, sg: SignalGroup):
-    """[Rule] 0: Wake, 1: N1, 2: N2, 3: N3, 4: REM, None: Unknown
+    """`epoch_tables` will be used in
+       (i) SleepSet.epoch_table, where `table_per_class` will be gathered, and
+       (ii) SleepSet._sample_seqs_from_sg and extract_data_set,
+            where `stage_ids` will be extracted from `table_ids`
+
+    [Rule] 0: Wake, 1: N1, 2: N2, 3: N3, 4: REM, None: Unknown
        (1) table_per_class = [[(sg, start_i, duration), ...], ...]
-       (2) table_id = [0, 1, 2, ...]
+       (2) table_id = [0, 1, 2, ...], contains stage_id for each epoch in order
     """
     def _init_sg_epoch_tables():
       # Get annotation
@@ -332,22 +343,49 @@ class SleepSet(DataSet):
     self.extract_sg_tapes()
 
   def extract_sg_tapes(self):
+    """Extract signal tapes from each sg and put them into its pocket.
+    Tapes are for efficiently sampling sub-sequences for training and
+    evaluation.
+    """
     from tframe import hub as th
+
     assert isinstance(th, SleepConfig)
     console.show_status('Extracting tapes ...')
+
     for i, sg in enumerate(self.signal_groups):
       console.print_progress(i, len(self.signal_groups))
 
       if sg.in_pocket(self.Keys.tapes): continue
 
       tapes = []
-      # fusion_channels = [['1', '2'], ['3']]
+
       for chn_lst in th.fusion_channels:
-        # tape.shape = [L, C], TODO: fusion channels should have the same sfreq
-        tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
+        if 'x' not in chn_lst[0]:
+          # Case 1: fusion_channels = [['1', '2'], ['3']]
+          # tape.shape = [L, C], TODO: fusion channels should have the same sfreq
+          tape = np.stack([sg[self.CHANNELS[key]] for key in chn_lst], axis=-1)
+          sfreq = sg.channel_signal_dict[self.CHANNELS[chn_lst[0]]].sfreq
+        else:
+          # case 2： fusion_channels = [['EEGx2', 'EOGx1'], ['EMGx1']]
+          tape_stack = []
+          for chn_str in chn_lst:
+            assert isinstance(chn_str, str)
+            chn_str_parts = chn_str.split('x')
+            key, num = chn_str_parts[0], int(chn_str_parts[1])
+
+            candidates = [d for n, (_, d) in sg.name_tick_data_dict.items()
+                          if n.startswith(key)]
+            if len(candidates) < num: raise AssertionError(
+              f'!! Not enough `{key}` channels to extract')
+
+            # Currently, only first `num` channels will be extracted
+            for i in range(num): tape_stack.append(candidates[i])
+
+          tape = np.stack(tape_stack, axis=-1)
+          # In case 2, all DigitalSignals in sg has a same sfreq
+          sfreq = sg.digital_signals[0].sfreq
 
         # Get corresponding sfreq
-        sfreq = sg.channel_signal_dict[self.CHANNELS[chn_lst[0]]].sfreq
         tapes.append((tape, sfreq))
 
       sg.put_into_pocket(self.Keys.tapes, tapes)
@@ -411,6 +449,7 @@ class SleepSet(DataSet):
     # NUM_CLASSES and CLASSES properties are for confusion matrix label
     ds = DataSet(features, targets, data_dict, name=f'{self.name}-eva',
                  NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
+
     def batch_preprocessor(ds: DataSet, _):
       """This is for batch-evaluation"""
       from tframe.layers.common import BatchReshape
@@ -445,7 +484,24 @@ class SleepSet(DataSet):
     return cls(name=cls.__name__, signal_groups=sg, NUM_CLASSES=cls.NUM_STAGES)
 
   @classmethod
-  def load_as_raw_sg(cls, data_dir, pid, **kwargs):
+  def load_as_raw_sg(cls, data_dir, pid, n_patients, i, **kwargs):
+    # If the corresponding .sg file exists, read it directly
+    raw_sg_path = os.path.join(data_dir, pid + '(raw)' + '.sg')
+
+    bucket = []
+    if cls.try_to_load_sg_directly(
+        pid, raw_sg_path, n_patients, i, bucket, **kwargs):
+      return bucket[0]
+
+    sg = cls.load_sg_from_raw_files(data_dir, pid, **kwargs)
+
+    # Save sg if necessary
+    cls.save_sg_file_if_necessary(
+      pid, raw_sg_path, n_patients, i, sg, **kwargs)
+    return sg
+
+  @classmethod
+  def load_sg_from_raw_files(cls, data_dir, pid, **kwargs):
     raise NotImplementedError
 
   # endregion: Abstract Methods
@@ -534,7 +590,11 @@ class SleepSet(DataSet):
       from scipy import signal
 
       ds0: DigitalSignal = sg.digital_signals[0]
-      assert ds0.sfreq == 100
+
+      # TODO: 64 for ucddb EMG channels, 100 for sleepedfx EEG channels
+      #       for ucddb, ds0 happens to be the ds needed for resampling
+      assert ds0.sfreq in (64, 100)
+
       N = int(ds0.length // ds0.sfreq * configs[key])
       data_new = np.stack([
         signal.resample(ds0.data[:, i], num=N)
@@ -577,9 +637,11 @@ class SleepSet(DataSet):
     if key in configs:
       norm = configs[key]
       if norm[0] == 'iqr':
+        # Rescale data so that median value is 0, put 25 and 75 percentile to
+        # [-0.5, 0.5], clip values out of max deviation
         iqr, mad = int(norm[1]), int(norm[2])
         for ds in sg.digital_signals: ds.data = DigitalSignal.preprocess_iqr(
-          ds.data, iqr=iqr, max_abs_deviation=mad)
+          ds.data, iqr=iqr, max_abs_deviation=mad, labels=ds.channels_names)
       else:
         raise KeyError(f'!! unknown normalization method {norm[0]}')
 

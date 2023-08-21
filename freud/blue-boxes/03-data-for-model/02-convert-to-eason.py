@@ -2,10 +2,28 @@ from freud.talos_utils.sleep_sets.sleepeason import SleepEason
 
 
 
-# src_dir = r'../../../data/sleepedfx'
-# src_dir = r'../../../data/ucddb'
-src_dir = r'../../../data/rrsh'
-# src_dir = r'../../../data/sleepedfx'
-tgt_dir = r'../../../data/sleepeason'
+# Set directories
+data_dir = r'../../../data/'
 
-SleepEason.convert_to_eason_sg(src_dir, tgt_dir, src_pattern='*.sg')
+src_folder = ['sleepedfx', 'ucddb'][0]
+# src_folder = 'ucddb'
+# src_folder = 'rrsh'
+
+src_dir = data_dir + src_folder
+tgt_dir = data_dir + 'sleepeason1'
+
+# Set src_pattern
+src_pattern = '*.sg'
+
+file_prefix = src_folder + '-'
+if 'sleepedfx' in src_folder:
+  src_pattern = '*(trim1800;iqr,1,20;128).sg'
+elif 'ucddb' in src_folder:
+  src_pattern = '*(iqr,1,20;128).sg'
+  file_prefix = ''
+elif 'rrsh' in src_folder:
+  pass
+
+# Convert to signal groups
+SleepEason.convert_to_eason_sg(src_dir, tgt_dir, src_pattern=src_pattern,
+                               file_prefix=file_prefix)

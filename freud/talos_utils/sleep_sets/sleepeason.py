@@ -1,3 +1,4 @@
+from fnmatch import fnmatch
 from freud.talos_utils.slp_config import SleepConfig
 from freud.talos_utils.slp_set import SleepSet, DataSet
 from pictor.objects.signals.signal_group import SignalGroup, DigitalSignal
@@ -7,23 +8,15 @@ from roma import io
 from tframe import console
 from typing import List
 
-import os
 import numpy as np
+import os
+import re
 
 
 
 class SleepEason(SleepSet):
 
   FILE_LIST_KEY = 'file_list'
-
-  # TODO: this is necessary for extracting tapes, needed to be refactored
-  CHANNELS = {'1': 'EEG Fpz-Cz',
-              '2': 'EEG Pz-Oz',
-              '3': 'EOG horizontal',
-              '4': 'Resp oro-nasal',
-              '5': 'EMG submental',
-              '6': 'Temp rectal',
-              '7': 'Event marker'}
 
   def __init__(self, data_dir=None, buffer_size=None, file_list=None,
                name='no-name'):
@@ -49,6 +42,9 @@ class SleepEason(SleepSet):
     self.is_rnn_input = False
 
   # region: Properties
+
+  @property
+  def size(self): return len(self.file_list)
 
   @property
   def file_list(self): return self.properties[self.FILE_LIST_KEY]
@@ -111,49 +107,155 @@ class SleepEason(SleepSet):
   # region: Generator
 
   @classmethod
-  def convert_to_eason_sg(cls, src_dir, tgt_dir, src_pattern=None, format='alpha'):
-    from roma.spqr.finder import walk
+  def find_signals_by_name(cls, ds: DigitalSignal, rule='alpha',
+                           lower_match_dict=None):
+    assert rule == 'alpha'
 
+    if lower_match_dict is None: lower_match_dict = {
+      'EEG': ['eeg*', 'c3a2', 'c4a1'],
+      'EOG': ['eog*', 'lefteye', 'righteye'],
+      'EMG': ['emg*'],
+      'ECG': ['ecg*']
+    }
+
+    # Fill-in prefixes and pattern according to lower_match_dict
+    prefixes, patterns = [], []
+    for key, pats in lower_match_dict.items():
+      for p in pats:
+        prefixes.append(key)
+        patterns.append(p)
+
+    channel_names, data_list, offset = [], [], None
+    for src_name in ds.channels_names:
+      matched_keys = [k for k, p in zip(prefixes, patterns)
+                      if fnmatch(src_name.lower(), p)]
+      if len(matched_keys) == 0: continue
+
+      # Append data
+      data_list.append(ds[src_name])
+
+      # Append channel name
+      prefix = matched_keys[0]
+      tgt_name = src_name
+      if not tgt_name.startswith(prefix): tgt_name = f'{prefix} {tgt_name}'
+      channel_names.append(tgt_name)
+
+      # Set offset
+      offset = ds.off_set
+
+    return channel_names, data_list, offset
+
+  @classmethod
+  def convert_to_eason_sg(cls, src_dir, tgt_dir, src_pattern='*.sg',
+                          format='alpha',  file_prefix=''):
     """Format details:
 
     alpha
     -----
-    1. EEG, EOG, EMG fs=128Hz;
+    1. Contains EEG, EOG, EMG, ECG channels, fs=128Hz;
+    2. preprocess=IQR
     """
     assert format == 'alpha'
-    if src_pattern== None: src_pattern = '*(trim1800;iqr,1,20;128).sg'
-    sg_file_list = walk(src_dir, 'file', src_pattern,
-                        return_basename=True)
-    n_patients = len(sg_file_list)
-    origin_signalgroups = []
+    sfreq = 128
 
-    for i, sg_file in enumerate(sg_file_list):
-      pid = sg_file[:7]
-      sg_path = os.path.join(src_dir, sg_file)
-      cls.try_to_load_sg_directly(pid, sg_path, n_patients, i, origin_signalgroups)
-      sg = origin_signalgroups[i]
+    # Read sg files from src_dir
+    sg_file_list = walk(src_dir, 'file', src_pattern, return_basename=True)
 
-      for ds in sg.digital_signals:
-        names = []
-        eeg_sign = ['EEG', 'F3-M2', 'C3', 'O1', 'F4', 'C4-M1', 'O2-M1', 'C3', 'C4']
-        eog_sign = ['EOG', 'eye', 'Eye', 'E1-', 'E2-']
-        emg_sign = ['Chin', 'EMG']
-        ecg_sign = ['ECG']
-        for name in ds.channels_names:
-          if any(sign in name for sign in eeg_sign): name = 'EEG:' + name
-          if any(sign in name for sign in eog_sign): name = 'EOG:' + name
-          if any(sign in name for sign in emg_sign): name = 'EMG:' + name
-          if any(sign in name for sign in ecg_sign): name = 'ECG:' + name
+    # Process and save each sg file to tgt_dir
+    N = len(sg_file_list)
+    for i, sg_fn in enumerate(sg_file_list):
+      sg_path = os.path.join(src_dir, sg_fn)
 
-          names.append(name)
+      # Show status
+      console_symbol = f'[{i + 1}/{N}]'
+      console.show_status(
+        f'Loaded `{sg_fn}` data from `{src_dir}`.', symbol=console_symbol)
 
-        ds.channels_names = names
+      src_sg: SignalGroup = io.load_file(sg_path)
 
-      sg_save_path = os.path.join(tgt_dir, sg_file)
-      cls.save_sg_file_if_necessary(
-        pid, sg_save_path, n_patients, i, sg, save_sg=True)
+      # Extract digital signal
+      data_list, channel_names, offset = [], [], None
+      for src_ds in src_sg.digital_signals:
+        if src_ds.sfreq != sfreq: continue
+
+        # Find channels
+        names, data, offset = cls.find_signals_by_name(src_ds)
+        channel_names.extend(names)
+        data_list.extend(data)
+
+      # Continue if found no valid signal
+      if len(data_list) == 0:
+        console.show_status(f'!! failed to find valid signal in `{sg_fn}`')
+        continue
+
+      data = np.stack(data_list, axis=-1)
+      ds = DigitalSignal(data, sfreq=sfreq, channel_names=channel_names,
+                         off_set=offset, label=','.join(channel_names))
+      tgt_sg = SignalGroup(ds, label=src_sg.label, **src_sg.properties)
+      tgt_sg.label = file_prefix + tgt_sg.label
+      tgt_sg.annotations = src_sg.annotations
+
+      # Save sg file to target_dir
+      tgt_sg_fn = file_prefix + re.sub('\([\d\w;,-]*\)', '', sg_fn)
+      io.save_file(tgt_sg, os.path.join(tgt_dir, tgt_sg_fn))
+      console.show_status(
+        f'`{tgt_sg_fn}` data extracted and saved to `{tgt_dir}`.',
+        symbol=console_symbol)
+
+      # Print progress
+      console.print_progress(i, N)
+
+    console.show_status(f'Successfully converted {N} files.')
 
   # endregion: Generator
+
+  # region: Benchmark SG indices
+
+  BENCHMARK = {
+    'alpha': {'val': ['SC4312', 'SC4422', 'ucddb025', 'ucddb026'],
+              'test': ['SC4482', 'SC4651', 'ucddb027', 'ucddb028']},
+  }
+
+  def split(self):
+    """Split self to train/val/test datasets.
+    Example th.data_config syntax: `sleepeason1 EEGx2,EOGx1 alpha`
+    """
+    from tframe import hub as th
+    from freud.talos_utils.slp_config import SleepConfig
+
+    assert isinstance(th, SleepConfig)
+    key = th.data_args[1]
+    val_keys, test_keys = [self.BENCHMARK[key][k] for k in ('val', 'test')]
+
+    train_file_list, val_file_list, test_file_list = [], [], []
+    # Construct file_lists
+    for fn in self.file_list:
+      flag = False
+      for k in val_keys:
+        if k in fn:
+          val_file_list.append(fn)
+          flag = True
+          break
+      if flag: continue
+      for k in test_keys:
+        if k in fn:
+          test_file_list.append(fn)
+          flag = True
+          break
+      if flag: continue
+      train_file_list.append(fn)
+
+    # Create datasets
+    train_set = SleepEason(name='TrainSet', file_list=train_file_list,
+                           buffer_size=th.sg_buffer_size)
+    val_set = SleepEason(name='ValSet', file_list=val_file_list)
+    test_set = SleepEason(name='TestSet', file_list=test_file_list)
+
+    assert train_set.size + val_set.size + test_set.size == self.size
+
+    return [train_set, val_set, test_set]
+
+  # endregion: Benchmark SG indices
 
 
 

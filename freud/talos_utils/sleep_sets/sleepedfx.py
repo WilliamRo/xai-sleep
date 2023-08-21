@@ -36,18 +36,8 @@ class SleepEDFx(SleepSet):
   # region: Data Loading
 
   @classmethod
-  def load_as_raw_sg(cls, data_dir, pid, **kwargs):
-    n_patients = kwargs.pop('n_patients')
-    i = kwargs.pop('i')
+  def load_sg_from_raw_files(cls, data_dir, pid, **kwargs):
     hypno_fn = kwargs.pop('hypno_fn')
-
-    # If the corresponding .sg file exists, read it directly
-    raw_sg_path = os.path.join(data_dir, pid + '(raw)' + '.sg')
-
-    bucket = []
-    if cls.try_to_load_sg_directly(
-        pid, raw_sg_path, n_patients, i, bucket, **kwargs):
-      return bucket[0]
 
     # Create sg from raw file
     psg_fn = f'{pid}0-PSG.edf'
@@ -64,9 +54,6 @@ class SleepEDFx(SleepSet):
     sg = SignalGroup(digital_signals, label=f'{pid}')
     sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
 
-    # Save sg if necessary
-    cls.save_sg_file_if_necessary(
-      pid, raw_sg_path, n_patients, i, sg, **kwargs)
     return sg
 
   @classmethod
@@ -100,7 +87,6 @@ class SleepEDFx(SleepSet):
       # Parse patient ID and get find PSG file name
       pid = hypno_fn.split('-')[0][:7]
 
-      # TODO
       load_raw_sg = lambda: cls.load_as_raw_sg(
         data_dir, pid, n_patients=n_patients, i=i, hypno_fn=hypno_fn, **kwargs)
 

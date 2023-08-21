@@ -39,6 +39,8 @@ class SleepAgent(DataAgent):
     ds.configure()
 
     # Split data set
+    if isinstance(ds, SleepEason): return ds.split()
+
     train_ids = list(range(ds.num_signal_groups))
     val_test_ids = [train_ids, train_ids]
 
