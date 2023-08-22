@@ -72,6 +72,7 @@ class RRSHSCv1(SleepSet):
 
     return sg
 
+
   @classmethod
   def load_as_signal_groups(cls, data_dir, **kwargs) -> List[SignalGroup]:
     """Directory structure of RRSHSCv1 dataset is as follows:
@@ -124,9 +125,37 @@ class RRSHSCv1(SleepSet):
     console.show_status(f'Successfully read {n_patients} files.')
     return signal_groups
 
+
   @classmethod
-  def pp_trim(cls, sg, **kwargs):
-    raise NotImplementedError
+  def pp_trim(cls, sg: SignalGroup, config):
+    assert config == ''
+
+    anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
+
+    # Find T1 and T2 based on annotation curve
+    ticks, labels = anno.curve
+
+    UNLABELED = 5
+    MAX_IDLE_EPOCHS = 5
+    i, T1, T2 = 0, None, None
+    while i < len(ticks):
+      t1, t2, lb = ticks[i], ticks[i+1], labels[i]
+
+      # If long unlabeled period is detected
+      if lb == UNLABELED and t2 - t1 > MAX_IDLE_EPOCHS * 30:
+        if T1 is None: T1 = t2
+        else:
+          T2 = t1
+          break
+
+      # Move cursor forward
+      i += 2
+
+    assert T1 is not None
+    if T2 is None: T2 = ticks[-1]
+
+    # Trim digital-signals in sg
+    sg.truncate(start_time=T1, end_time=T2)
 
   # endregion: Data Loading
 
@@ -140,7 +169,10 @@ if __name__ == '__main__':
   # data_dir = r'../../../data/rrsh-band'
 
   tic = time.time()
-  ds = RRSHSCv1.load_as_sleep_set(data_dir, overwrite=0)
+  preprocess = 'trim;iqr'
+  # preprocess = ''
+  ds = RRSHSCv1.load_as_sleep_set(data_dir, overwrite=0,
+                                  preprocess=preprocess)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')

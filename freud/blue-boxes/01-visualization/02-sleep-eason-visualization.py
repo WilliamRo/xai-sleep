@@ -11,7 +11,7 @@ from roma import io
 data_dir = r'../../../data/'
 data_dir += 'sleepeason1'
 
-prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][2]
+prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][3]
 pattern = f'{prefix}*.sg'
 
 # Select .sg files

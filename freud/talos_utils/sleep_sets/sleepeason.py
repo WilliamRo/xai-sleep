@@ -125,10 +125,10 @@ class SleepEason(SleepSet):
     assert rule == 'alpha'
 
     if lower_match_dict is None: lower_match_dict = {
-      'EEG': ['eeg*', 'c3a2', 'c4a1'],
-      'EOG': ['eog*', 'lefteye', 'righteye'],
-      'EMG': ['emg*'],
-      'ECG': ['ecg*']
+      'EEG': ['eeg*', 'c3a2', 'c4a1', '[fco]?-m[12]'],
+      'EOG': ['eog*', 'lefteye', 'righteye', 'e?-m2'],
+      'EMG': ['emg*', 'chin 1-chin 2'],
+      'ECG': ['*ecg*']
     }
 
     # Fill-in prefixes and pattern according to lower_match_dict
@@ -225,8 +225,10 @@ class SleepEason(SleepSet):
   # region: Benchmark SG indices
 
   BENCHMARK = {
-    'alpha': {'val': ['SC4312', 'SC4422', 'ucddb025', 'ucddb026'],
-              'test': ['SC4482', 'SC4651', 'ucddb027', 'ucddb028']},
+    'alpha': {'val': ['SC4312', 'SC4422', 'ucddb025', 'ucddb026',
+                      'rrsh-ZJK', 'rrsh-ZGC'],
+              'test': ['SC4482', 'SC4651', 'ucddb027', 'ucddb028',
+                       'rrsh-ZYJ', 'rrsh-ZSQ']},
   }
 
   def split(self):
