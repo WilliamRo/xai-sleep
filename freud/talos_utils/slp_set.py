@@ -116,7 +116,11 @@ class SleepSet(DataSet):
                           * self.EPOCH_DURATION)
       valid_tape_L = min(valid_tape_L, valid_stage_L)
     start_i = min(max(0, start_i), valid_tape_L - L)
-    data = tape[start_i:start_i+L]
+
+    # Apply shift window augmentation
+    shift = int((np.random.rand() * 2 - 1) * fs * 30 * th.epoch_delta)
+    i1 = min(max(0, start_i + shift), valid_tape_L - L)
+    data = tape[i1:i1+L]
 
     if with_stage:
       stage_ids = self.get_sg_epoch_tables(sg)[1]
@@ -233,7 +237,7 @@ class SleepSet(DataSet):
 
     # Generate batches
     for i in range(round_len):
-      if th.epoch_num > 1:
+      if th.epoch_num >= 1:
         data_batch = self._get_sequence_randomly(batch_size)
       else:
         data_batch = self._get_branches_randomly(batch_size)
@@ -418,6 +422,12 @@ class SleepSet(DataSet):
 
         # tape.shape = [L, C], default epoch_num is 1
         ticks_per_seq = int(self.EPOCH_DURATION * sfreq) * N
+
+        # Make sure all epochs in tape has annotation if `include_targets`
+        if include_targets:
+          anno_len = len(self.get_sg_epoch_tables(sg)[1])
+          valid_L = int(anno_len * sfreq * self.EPOCH_DURATION)
+          if tape.shape[0] > valid_L: tape = tape[:valid_L]
 
         # Truncate tape if necessary
         L = tape.shape[0] // ticks_per_seq * ticks_per_seq

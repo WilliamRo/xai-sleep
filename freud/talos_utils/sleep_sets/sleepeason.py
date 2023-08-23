@@ -266,6 +266,15 @@ class SleepEason(SleepSet):
       if flag: continue
       train_file_list.append(fn)
 
+    # Filter file_lists further
+    file_lists = [train_file_list, val_file_list, test_file_list]
+    for i, key in enumerate(['train_pattern', 'val_pattern', 'test_pattern']):
+      if not key in th.data_kwargs: continue
+      p = th.data_kwargs[key]
+      file_lists[i] = [s for s in file_lists[i]
+                       if re.match(p, s.lower()) is not None]
+    train_file_list, val_file_list, test_file_list = file_lists
+
     # Create datasets
     train_set = SleepEason(name='TrainSet', file_list=train_file_list,
                            buffer_size=th.sg_buffer_size)

@@ -9,25 +9,19 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'cnn_bd'
-id = 2
+model_name = 'dsn_lite'
+id = 3
 def model():
   from tframe.layers.common import BatchReshape
 
   th = core.th
   model = m.get_initial_model()
 
-  for layer in th.archi_string.split('-'):
-    if layer[0] == 's': stride, c = 2, int(layer[1:])
-    else: stride, c = 1, int(layer)
+  m.add_deep_sleep_net_lite(model, th.filters)
 
-    model.add(m.mu.HyperConv1D(
-      c, th.kernel_size, stride, activation='relu',
-      use_batchnorm=th.use_batchnorm))
+  # model.add(BatchReshape())
 
-  model.add(BatchReshape())
-
-  return m.finalize(model, flatten=True, use_gap=True)
+  return m.finalize(model, flatten=True, use_gap=False)
 
 
 def main(_):
@@ -38,15 +32,18 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeason1 EEGx1,EOGx1 alpha'
+  th.data_config = 'sleepeason1 EEGx2,EOGx1 alpha'
   th.data_config += ' pattern=.*(sleepedfx)'
+  # th.data_config += ' pattern=.*(ucddb)'
+  # th.data_config += ' pattern=.*(rrsh)'
 
   th.epoch_num = 1
   th.eval_epoch_num = 1
-  th.sg_buffer_size = 15
+  th.sg_buffer_size = 10
 
-  th.input_shape = [None, th.input_channels]
-  th.use_batch_mask = True
+  # th.input_shape = [None, th.input_channels]
+  th.input_shape = [128 * 30 * th.epoch_num, th.input_channels]
+  th.use_batch_mask = False
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
   # ---------------------------------------------------------------------------
@@ -60,12 +57,11 @@ def main(_):
   # ---------------------------------------------------------------------------
   th.model = model
 
-  th.kernel_size = 5
   th.activation = 'relu'
-  th.use_batchnorm = False
 
-  # th.archi_string = '16-s16-32-s32-64-5'
-  th.archi_string = '32-s64-64-s128-128-64-32-5'
+  th.filters = 64
+  th.dropout = 0.5
+  th.use_batchnorm = True
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
@@ -76,16 +72,19 @@ def main(_):
   th.optimizer = 'adam'
   th.learning_rate = 0.0003
   th.balance_classes = True
+  th.epoch_delta = 0.1
+
+  th.global_l2_penalty = 0.001
 
   th.train = True
-  th.patience = 10
+  th.patience = 20
   th.overwrite = True
 
   th.updates_per_round = 50
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
-  th.mark = '{}({})'.format(model_name, th.archi_string)
+  th.mark = '{}({})'.format(model_name, th.filters)
   th.gather_summ_name = th.prefix + summ_name + '.sum'
   core.activate()
 

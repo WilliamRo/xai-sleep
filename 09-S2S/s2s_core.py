@@ -40,7 +40,7 @@ th.data_dir = os.path.join(ROOT, 'data')
 # Device configuration
 # -----------------------------------------------------------------------------
 th.allow_growth = False
-th.gpu_memory_fraction = 0.5
+th.gpu_memory_fraction = 0.4
 
 # -----------------------------------------------------------------------------
 # Data configuration
@@ -90,7 +90,7 @@ def activate():
     pass
 
   # Evaluate best model
-  model.agent.load()
+  if model.launched: model.agent.load()
   for ds in (train_set.validation_set, val_set, test_set):
     model.evaluate_pro(ds, batch_size=128, verbose=True,
                        show_confusion_matrix=True,
