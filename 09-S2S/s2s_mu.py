@@ -52,3 +52,53 @@ def add_deep_sleep_net_lite(model: mu.Classifier, N: int):
   fm = mu.ForkMergeDAG(vertices, edges='1;10;011')
 
   model.add(fm)
+
+
+
+def add_densely_connected_temporal_pyramids(model: mu.Classifier):
+  from s2s_core import th
+
+  # Encoder args
+  en_filter, en_ks = th.dtp_en_filters, th.dtp_en_ks
+  en_strides = en_ks // 2
+
+  # Add encoder
+  model.add(mu.HyperConv1D(en_filter, en_ks, strides=en_strides))
+
+  # Construct TPs using fmDAG
+  M, R, DC, DKS = th.dtpM, th.dtpR, th.filters, th.kernel_size
+  BC = DC // 2
+  bottle_neck = lambda c=BC: mu.HyperConv1D(c, 1, use_batchnorm=True,
+                                            activation=th.activation)
+  concat = lambda: mu.Merge.Concat()
+
+  vertices, edges = [], '1'
+  for r in range(R):
+    for m in range(M):
+      index = r * M + m
+
+      tpb = []
+      if index > 1: tpb.extend([concat(), bottle_neck()])
+      tpb.extend([mu.HyperConv1D(DC, DKS, dilations=2**m,
+                                 activation=th.activation),
+                  bottle_neck()])
+      vertices.append(tpb)
+      edges += ';0' + '1' * (index + 1)
+
+  # Add final merge layer
+  vertices.append([concat(), bottle_neck(5)])
+
+  model.add(mu.ForkMergeDAG(vertices, edges, name='DTP'))
+
+
+
+
+
+
+
+
+
+
+
+
+

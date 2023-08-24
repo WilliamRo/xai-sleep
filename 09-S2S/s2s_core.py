@@ -65,6 +65,9 @@ th.export_tensors_upon_validation = True
 th.val_batch_size = 64
 th.val_progress_bar = True
 
+# th.evaluate_val_set = True
+# th.evaluate_test_set = True
+
 
 
 def activate():
@@ -85,17 +88,13 @@ def activate():
   # Train or evaluate
   if th.train:
     model.train(train_set, validation_set=val_set,
-                test_set=test_set, trainer_hub=th)
+                test_set=test_set, trainer_hub=th, evaluate=du.evaluate)
   else:
-    pass
-
-  # Evaluate best model
-  if model.launched: model.agent.load()
-  for ds in (train_set.validation_set, val_set, test_set):
-    model.evaluate_pro(ds, batch_size=128, verbose=True,
-                       show_confusion_matrix=True,
-                       plot_confusion_matrix=False,
-                       show_class_detail=True)
+    for ds in (train_set.validation_set, val_set, test_set):
+      model.evaluate_pro(ds, batch_size=128, verbose=True,
+                         show_confusion_matrix=True,
+                         plot_confusion_matrix=False,
+                         show_class_detail=True)
 
   # End
   model.shutdown()

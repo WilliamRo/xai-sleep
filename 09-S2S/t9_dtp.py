@@ -9,19 +9,14 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'dsn_lite'
-id = 3
+model_name = 'dtp'
+id = 4
 def model():
-  from tframe.layers.common import BatchReshape
-
-  th = core.th
   model = m.get_initial_model()
 
-  m.add_deep_sleep_net_lite(model, th.filters)
+  m.add_densely_connected_temporal_pyramids(model)
 
-  # model.add(BatchReshape())
-
-  return m.finalize(model, flatten=True, use_gap=False)
+  return m.finalize(model, use_gap=True)
 
 
 def main(_):
@@ -40,7 +35,7 @@ def main(_):
   th.epoch_num = 1
   th.eval_epoch_num = 1
   th.sg_buffer_size = 10
-  th.epoch_pad = 1
+  th.epoch_pad = 0
 
   # th.input_shape = [None, th.input_channels]
   if th.epoch_pad > 0:
@@ -62,18 +57,22 @@ def main(_):
   # ---------------------------------------------------------------------------
   th.model = model
 
-  th.activation = 'relu'
+  th.activation = 'lrelu'
 
-  th.filters = 64
-  th.dropout = 0.5
-  th.use_batchnorm = True
+  th.dtp_en_filters = 64
+  th.dtp_en_ks = 128 // 2
+  th.filters = 128
+  th.kernel_size = 9
+
+  th.dtpM = 3
+  th.dtpR = 2
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
   th.epoch = 10000
 
   th.early_stop = True
-  th.batch_size = 256
+  th.batch_size = 64
 
   th.optimizer = 'adam'
   th.learning_rate = 0.001

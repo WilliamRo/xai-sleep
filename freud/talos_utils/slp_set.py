@@ -118,10 +118,26 @@ class SleepSet(DataSet):
     start_i = min(max(0, start_i), valid_tape_L - L)
 
     # Apply shift window augmentation
-    shift = int((np.random.rand() * 2 - 1) * fs * 30 * th.epoch_delta)
+    shift = int((np.random.rand() * 2 - 1)
+                * fs * self.EPOCH_DURATION * th.epoch_delta)
     i1 = min(max(0, start_i + shift), valid_tape_L - L)
-    data = tape[i1:i1+L]
+    data = tape[i1 : i1+L]
 
+    # Padding data if required
+    if th.epoch_pad > 0:
+      assert th.epoch_num == th.eval_epoch_num == 1
+      data_list, P = [data], int(th.epoch_pad * fs * self.EPOCH_DURATION)
+      # Pad left
+      data_list.insert(0, tape[max(i1 - P, 0):i1])
+      if i1 - P < 0:
+        data_list.insert(0, np.zeros_like(tape[:P - i1], dtype=float))
+      # Pad right
+      data_list.append(tape[i1 + L:i1 + L + P])
+      if i1 + L + P > tape.shape[0]:
+        data_list.append(np.zeros_like(tape[:i1 + L + P - tape.shape[0]]))
+      data = np.concatenate(data_list, axis=0)
+
+    # Return
     if with_stage:
       stage_ids = self.get_sg_epoch_tables(sg)[1]
       start_j, L = int(start_i / fs / 30), int(duration / 30)
@@ -432,6 +448,15 @@ class SleepSet(DataSet):
         # Truncate tape if necessary
         L = tape.shape[0] // ticks_per_seq * ticks_per_seq
         x = tape[:L].reshape([-1, ticks_per_seq, tape.shape[-1]])
+
+        # Pad x if required
+        if th.epoch_pad > 0:
+          assert th.epoch_num == th.eval_epoch_num == 1
+          T = ticks_per_seq
+          for _ in range(th.epoch_pad):
+            x_left = np.pad(x[:-1, :T], ((1, 0), (0, 0), (0, 0)), 'constant')
+            x_right = np.pad(x[1:, -T:], ((0, 1), (0, 0), (0, 0)), 'constant')
+            x = np.concatenate([x_left, x, x_right], axis=1)
 
         branch.append(x)
       # Find stage_ids if necessary

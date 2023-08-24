@@ -29,20 +29,29 @@ s.register('train', True)
 s.register('epoch', 100000)
 s.register('patience', 50)
 
+# (1) Data space
 channels = ['EEGx2,EOGx1']
 data_configs = [f'sleepeason1 {c} alpha pattern=.*(sleepedfx)'
                 for c in channels]
 s.register('data_config', data_configs)
 s.register('epoch_pad', 0, 1)
 
-s.register('use_batchnorm', s.true)
-s.register('dropout', 0.5)
+# (2) Model space
+s.register('activation', 'lrelu', 'relu')
+s.register('dtp_en_filters', 32, 64, 128)
+s.register('dtp_en_ks', 16, 32, 64)
+
+s.register('filters', 64, 128)
+s.register('kernel_size', 3, 7, 11)
+s.register('dtpM', 2, 3, 4)
+s.register('dtpR', 2, 3)
+
+# (3) Optimization space
 s.register('global_l2_penalty', 0.001, 0.01)
 
 # s.register('optimizer', 'adam', 'sgd')
 s.register('lr', 0.0005, 0.003)
-
-s.register('batch_size', 256, 512)
+s.register('batch_size', 64, 256)
 
 
 s.configure_engine(strategy='skopt', criterion='Best F1')
