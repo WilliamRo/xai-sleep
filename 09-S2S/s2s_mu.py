@@ -68,8 +68,8 @@ def add_densely_connected_temporal_pyramids(model: mu.Classifier):
   # Construct TPs using fmDAG
   M, R, DC, DKS = th.dtpM, th.dtpR, th.filters, th.kernel_size
   BC = DC // 2
-  bottle_neck = lambda c=BC: mu.HyperConv1D(c, 1, use_batchnorm=True,
-                                            activation=th.activation)
+  bottle_neck = lambda c=BC: mu.HyperConv1D(
+    c, 1, use_batchnorm=th.use_batchnorm, activation=th.activation)
   concat = lambda: mu.Merge.Concat()
 
   vertices, edges = [], '1'

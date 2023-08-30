@@ -58,6 +58,7 @@ def main(_):
   th.model = model
 
   th.activation = 'lrelu'
+  th.use_batchnorm = False
 
   th.dtp_en_filters = 64
   th.dtp_en_ks = 128 // 2
@@ -82,7 +83,7 @@ def main(_):
   th.global_l2_penalty = 0.003
 
   th.train = True
-  th.patience = 20
+  th.patience = 40
   th.overwrite = True
 
   th.updates_per_round = 50

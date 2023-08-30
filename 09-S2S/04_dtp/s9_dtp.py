@@ -38,13 +38,15 @@ s.register('epoch_pad', 0, 1)
 
 # (2) Model space
 s.register('activation', 'lrelu', 'relu')
+s.register('use_batchnorm', s.true_and_false)
+
 s.register('dtp_en_filters', 32, 64, 128)
 s.register('dtp_en_ks', 16, 32, 64)
 
 s.register('filters', 64, 128)
 s.register('kernel_size', 3, 7, 11)
-s.register('dtpM', 2, 3, 4)
-s.register('dtpR', 2, 3)
+s.register('dtpM', 2, 3)
+s.register('dtpR', 1, 2)
 
 # (3) Optimization space
 s.register('global_l2_penalty', 0.001, 0.01)
