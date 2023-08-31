@@ -90,7 +90,9 @@ def activate():
     model.train(train_set, validation_set=val_set,
                 test_set=test_set, trainer_hub=th, evaluate=du.evaluate)
   else:
-    for ds in (train_set.validation_set, val_set, test_set):
+    datasets = [val_set, test_set]
+    if th.evaluate_train_set: datasets.insert(0, train_set.validation_set)
+    for ds in datasets:
       model.evaluate_pro(ds, batch_size=128, verbose=True,
                          show_confusion_matrix=True,
                          plot_confusion_matrix=False,

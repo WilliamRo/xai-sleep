@@ -30,22 +30,21 @@ def evaluate(trainer: Trainer):
     ds, batch_size=th.val_batch_size, show_confusion_matrix=True,
     show_class_detail=True)
 
-  train_set, val_set, test_set = (
-    trainer.training_set, trainer.validation_set, trainer.test_set)
-  train_set = train_set.validation_set
+  datasets = [trainer.validation_set, trainer.test_set]
+  if th.evaluate_train_set:
+    datasets.insert(0, trainer.training_set.validation_set)
 
-  train_cm: ConfusionMatrix = evaluate_pro(train_set)
-  val_cm: ConfusionMatrix = evaluate_pro(val_set)
-  test_cm: ConfusionMatrix = evaluate_pro(test_set)
+  cms = [evaluate_pro(ds) for ds in datasets]
 
   # Take down results to note
-  agent.put_down_criterion('Train Accuracy', train_cm.accuracy)
-  agent.put_down_criterion('Train F1', train_cm.macro_F1)
-  agent.put_down_criterion('Test Accuracy', test_cm.accuracy)
-  agent.put_down_criterion('Test F1', test_cm.macro_F1)
+  if th.evaluate_train_set:
+    agent.put_down_criterion('Train Accuracy', cms[0].accuracy)
+    agent.put_down_criterion('Train F1', cms[0].macro_F1)
 
-  for ds, cm in zip((train_set, val_set, test_set),
-                    (train_cm, val_cm, test_cm)):
+  agent.put_down_criterion('Test Accuracy', cms[-1].accuracy)
+  agent.put_down_criterion('Test F1', cms[-1].macro_F1)
+
+  for ds, cm in zip(datasets, cms):
     agent.take_notes(f'Results of `{ds.name}` dataset:')
     agent.take_notes(str(cm.matrix_table()), prompt='')
     agent.take_notes(str(cm.make_table(decimal=4, class_details=True)),
