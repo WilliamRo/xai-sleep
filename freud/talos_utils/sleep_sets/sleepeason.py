@@ -223,11 +223,27 @@ class SleepEason(SleepSet):
   # endregion: Generator
 
   # region: Benchmark SG indices
+  # val subjects
+  # 9 age25 sex1
+  # 10 age26 sex2
+  # 67 age87 sex1
+  # 70 age89 sex2
 
+  # test subjects
+  # 8 age25 sex1
+  # 11 age26 sex2
+  # 20 age51 sex1
+  # 30 age50 sex2
+  # 66 age88 sex1
+  # 71 age88 sex2
   BENCHMARK = {
-    'alpha': {'val': ['SC4312', 'SC4422', 'ucddb025', 'ucddb026',
+    'alpha': {'val': ['SC4091', 'SC4092', 'SC4101', 'SC4102',
+                      'SC4671', 'SC4672', 'SC4701', 'SC4702',
+                      'ucddb025', 'ucddb026',
                       'rrsh-ZJK', 'rrsh-ZGC'],
-              'test': ['SC4482', 'SC4651', 'ucddb027', 'ucddb028',
+              'test': ['SC4081', 'SC4082', 'SC4111', 'SC4112', 'SC4201', 'SC4202',
+                       'SC4301', 'SC4302', 'SC4661', 'SC4662', 'SC4711', 'SC4712',
+                       'ucddb027', 'ucddb028',
                        'rrsh-ZYJ', 'rrsh-ZSQ']},
   }
 

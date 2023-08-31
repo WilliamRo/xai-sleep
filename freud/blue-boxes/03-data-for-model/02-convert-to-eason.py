@@ -5,7 +5,7 @@ from freud.talos_utils.sleep_sets.sleepeason import SleepEason
 # Set directories
 data_dir = r'../../../data/'
 
-src_folder = ['sleepedfx', 'ucddb', 'rrsh-night'][2]
+src_folder = ['sleepedfx', 'ucddb', 'rrsh-night'][0]
 
 src_dir = data_dir + src_folder
 tgt_dir = data_dir + 'sleepeason1'

@@ -33,7 +33,7 @@ channels = ['EEGx2,EOGx1']
 data_configs = [f'sleepeason1 {c} alpha pattern=.*(sleepedfx)'
                 for c in channels]
 s.register('data_config', data_configs)
-s.register('epoch_pad', 0, 1)
+s.register('epoch_pad', 0, 1, 2)
 
 s.register('use_batchnorm', s.true)
 s.register('dropout', 0.5)

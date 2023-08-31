@@ -32,14 +32,14 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeason1 EEGx1,EOGx1 alpha'
+  th.data_config = 'sleepeason1 EEGx2,EOGx1 alpha'
   th.data_config += ' pattern=.*(sleepedfx)'
   # th.data_config += ' pattern=.*(ucddb)'
   # th.data_config += ' pattern=.*(rrsh)'
 
   th.epoch_num = 1
   th.eval_epoch_num = 1
-  th.sg_buffer_size = 10
+  th.sg_buffer_size = 25
   th.epoch_pad = 1
 
   # th.input_shape = [None, th.input_channels]
@@ -48,7 +48,7 @@ def main(_):
     L = 128 * 30 * (1 + 2 * th.epoch_pad)
   else: L = 128 * 30 * th.epoch_num
   th.input_shape = [L, th.input_channels]
-  th.use_batch_mask = False
+  th.use_batch_mask = True
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
   # ---------------------------------------------------------------------------
