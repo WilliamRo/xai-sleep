@@ -237,7 +237,13 @@ class SleepEason(SleepSet):
   # 66 age88 sex1
   # 71 age88 sex2
   BENCHMARK = {
-    'alpha': {'val': ['SC4091', 'SC4092', 'SC4101', 'SC4102',
+    'alpha': {'val': ['SC4001', 'SC4102',
+                      'ucddb025', 'ucddb026',
+                      'rrsh-ZJK', 'rrsh-ZGC'],
+              'test': ['SC4281', 'SC4312',
+                       'ucddb027', 'ucddb028',
+                       'rrsh-ZYJ', 'rrsh-ZSQ']},
+    'beta': {'val': ['SC4091', 'SC4092', 'SC4101', 'SC4102',
                       'SC4671', 'SC4672', 'SC4701', 'SC4702',
                       'ucddb025', 'ucddb026',
                       'rrsh-ZJK', 'rrsh-ZGC'],
@@ -246,6 +252,7 @@ class SleepEason(SleepSet):
                        'ucddb027', 'ucddb028',
                        'rrsh-ZYJ', 'rrsh-ZSQ']},
   }
+
 
   def split(self):
     """Split self to train/val/test datasets.
