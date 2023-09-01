@@ -128,14 +128,20 @@ class SleepEDFx(SleepSet):
     anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
     ds0 = sg.digital_signals[0]
 
-    # For SleepEDFx data, last interval is usually invalid.
-    # `7` represents `Sleep stage ?`
-    if any([anno.intervals[-1][0] >= ds0.ticks[-1],
-            anno.annotations[-1] == 7]):
+    def pop_last():
       anno.intervals.pop(-1)
       anno.annotations = anno.annotations[:-1]
 
+    # For SleepEDFx data, last interval is usually invalid.
+    if anno.intervals[-1][0] >= ds0.ticks[-1]: pop_last()
+
     T1, T2 = 0, ds0.ticks[-1]
+
+    # `7` represents `Sleep stage ?`
+    while anno.annotations[-1] == 7:
+      pop_last()
+      T2 = anno.intervals[-1][-1]
+
     # trim start
     if anno.annotations[0] == 0:
       t1, t2 = anno.intervals[0]
@@ -168,9 +174,9 @@ if __name__ == '__main__':
   preprocess = 'trim,1800;iqr;128'
 
   fn_pattern = '*SC4[01]*'
-  # fn_pattern = '*SC4661*'
+  fn_pattern = '*SC4661*'
   ds = SleepEDFx.load_as_sleep_set(
-    data_dir, overwrite=0, fn_pattern=fn_pattern, preprocess=preprocess)
+    data_dir, overwrite=1, fn_pattern=fn_pattern, preprocess=preprocess)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
