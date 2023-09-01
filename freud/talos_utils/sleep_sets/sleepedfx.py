@@ -1,4 +1,5 @@
 from freud.talos_utils.slp_set import SleepSet
+from fnmatch import fnmatch
 from pictor.objects.signals.signal_group import Annotation
 from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
 from roma.spqr.finder import walk
@@ -82,6 +83,11 @@ class SleepEDFx(SleepSet):
     # Traverse all hypnogram files
     hypno_file_names: List[str] = walk(data_dir, 'file', '*Hypnogram*',
                                        return_basename=True)
+
+    if 'fn_pattern' in kwargs:
+      pat = kwargs['fn_pattern']
+      hypno_file_names = [fn for fn in hypno_file_names if fnmatch(fn, pat)]
+
     n_patients = len(hypno_file_names)
     for i, hypno_fn in enumerate(hypno_file_names):
       # Parse patient ID and get find PSG file name
@@ -153,15 +159,18 @@ if __name__ == '__main__':
 
   console.suppress_logging()
   data_dir = r'../../../data/sleepedfx'
+  data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette'
 
   tic = time.time()
   preprocess = 'trim,1800;iqr;128'
-  ds = SleepEDFx.load_as_sleep_set(data_dir, overwrite=0,
-                                   preprocess=preprocess)
+
+  fn_pattern = '*SC4[01]*'
+  ds = SleepEDFx.load_as_sleep_set(
+    data_dir, overwrite=0, fn_pattern=fn_pattern, preprocess=preprocess)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
 
-  ds.show()
+  # ds.show()
 
 
