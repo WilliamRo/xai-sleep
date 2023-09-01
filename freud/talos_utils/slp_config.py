@@ -21,16 +21,16 @@ class SleepConfig(SmartTrainerHub):
                                 is_key=None)
   epoch_pad = Flag.integer(0, 'Padding num when epoch_num is 1.', is_key=None)
 
-  dtp_en_filters = Flag.integer(64, 'Filters in DTP encoder', is_key=None)
-  dtp_en_ks = Flag.integer(16, 'Kernel size in DTP encoder', is_key=None)
-  dtpM = Flag.integer(3, 'M in DTP', is_key=None)
-  dtpR = Flag.integer(2, 'R in DTP', is_key=None)
-
   # endregion: SleepSet.gen_batches setting
 
   # region: Model Setting
 
   zoom_in_factor = Flag.integer(1, 'Zoom in factor', is_key=None)
+
+  dtp_en_filters = Flag.integer(64, 'Filters in DTP encoder', is_key=None)
+  dtp_en_ks = Flag.integer(16, 'Kernel size in DTP encoder', is_key=None)
+  dtpM = Flag.integer(3, 'M in DTP', is_key=None)
+  dtpR = Flag.integer(2, 'R in DTP', is_key=None)
 
   # endregion: Model Setting
 

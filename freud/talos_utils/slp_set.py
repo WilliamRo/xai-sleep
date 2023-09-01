@@ -395,6 +395,20 @@ class SleepSet(DataSet):
 
             candidates = [d for n, (_, d) in sg.name_tick_data_dict.items()
                           if n.startswith(key)]
+
+            # TODO (beta) Append wake calibration if required
+            if 'wake' in key.lower():
+              assert len(candidates) == 0
+              eeg = [d for n, (_, d) in sg.name_tick_data_dict.items()
+                     if n.startswith('EEG')][0]
+              T = 30 * 128
+              for i in range(num):
+                wake_let = eeg[i * T : (i + 1) * T]
+                L = eeg.shape[0]
+                N = int(np.ceil(L / T))
+                wake = np.concatenate([wake_let] * N)[:L]
+                candidates.append(wake)
+
             if len(candidates) < num: raise AssertionError(
               f'!! Not enough `{key}` channels to extract')
 
