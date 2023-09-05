@@ -25,7 +25,7 @@ class SleepAgent(DataAgent):
   """
 
   roster = {'sleepedfx': SleepEDFx, 'ucddb': UCDDB, 'rrshv1': RRSHSCv1,
-            'sleepeason1': SleepEason}
+            'sleepeason1': SleepEason, 'sleepeasonx': SleepEason}
 
 
   @classmethod
