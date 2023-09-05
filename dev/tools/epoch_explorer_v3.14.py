@@ -220,6 +220,10 @@ class RhythmPlotter(Plotter):
 
     self.new_settable_attr('dev_arg', '32', str, 'Developer mode argument')
 
+    self.new_settable_attr('filter', False, bool, 'Whether to filter signal')
+    self.new_settable_attr('filter_arg', '0.3,35', str,
+                           'Arguments for filtering signals')
+
     # Set configs
     self.configs = kwargs
 
@@ -249,6 +253,8 @@ class RhythmPlotter(Plotter):
     if self.configs.get('layer', 1) == 2:
       x = self._low_freq_signal(s)
       s = s - x
+    elif self.get('filter'):
+      s = self._butter_filt(s)
 
     # Compute the Short Time Fourier Transform (STFT)
     fs = self.explorer.selected_signal_group.digital_signals[0].sfreq
@@ -286,10 +292,24 @@ class RhythmPlotter(Plotter):
     return ''
 
   def _low_freq_signal(self, s: np.ndarray):
-    s: np.ndarray = self.explorer.selected_signal
     ks = int(self.get('dev_arg'))
     x = np.convolve(s, [1/ks] * ks, 'same')
     return x
+
+  def _butter_filt(self, s: np.ndarray):
+    # Filter signal if required
+    from scipy.signal import sosfilt
+    from scipy.signal import butter
+
+    filter_args: str = self.get('filter_arg').split(',')
+    assert len(filter_args) == 2
+    low, high = [float(s) for s in filter_args]
+
+    sos = butter(10, [low, high], 'bandpass', fs=128, output='sos')
+    s = sosfilt(sos, s)
+
+    return s
+
 
   def _plot_signal(self, ax: plt.Axes):
     s: np.ndarray = self.explorer.selected_signal
@@ -299,6 +319,8 @@ class RhythmPlotter(Plotter):
       x = self._low_freq_signal(s)
       ax.plot(t, s - x)
     else:
+      if self.get('filter'): s = self._butter_filt(s)
+
       # Plot signal
       ax.plot(t, s)
 
@@ -332,6 +354,10 @@ class RhythmPlotter(Plotter):
     self.set('dev_arg', v)
   da = set_developer_arg
 
+  def set_filter_arg(self, low='0.3', high='35'):
+    self.set('filter_arg', f'{low},{high}')
+  fa = set_filter_arg
+
   def register_shortcuts(self):
     self.register_a_shortcut('space', lambda: self.flip('plot_wave'),
                              'Toggle `plot_wave`')
@@ -346,6 +372,9 @@ class RhythmPlotter(Plotter):
 
     self.register_a_shortcut('d', lambda: self.flip('dev_mode'),
                              'Toggle `dev_mode`')
+
+    self.register_a_shortcut('f', lambda: self.flip('filter'),
+                             'Toggle `filter`')
 
   def zoom(self, multiplier):
     assert multiplier in (0.5, 2)
