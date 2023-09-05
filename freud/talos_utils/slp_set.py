@@ -185,11 +185,13 @@ class SleepSet(DataSet):
 
     data_dict = {}
     if th.use_batch_mask: data_dict[pedia.batch_mask] = masks
-    data_dict[BatchReshape.DEFAULT_PLACEHOLDER_KEY] = th.epoch_num
+    properties = {}
+    properties[BatchReshape.DEFAULT_PLACEHOLDER_KEY] = th.epoch_num
     # This block happens only in training. During validation,
     # tensor_block_size should be specified manually.
     return DataSet(features, targets, data_dict=data_dict,
-                   NUM_CLASSES=self.NUM_STAGES, check_data=False)
+                   NUM_CLASSES=self.NUM_STAGES, check_data=False,
+                   **properties)
 
   # endregion: Multi-epoch sampling
 
@@ -502,9 +504,11 @@ class SleepSet(DataSet):
     def batch_preprocessor(ds: DataSet, _):
       """This is for batch-evaluation"""
       from tframe.layers.common import BatchReshape
-      key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
 
-      ds.data_dict[key] = N
+      # Set tensor_block_size for potential reshape
+      key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
+      ds.properties[key] = N
+
       ds.targets = np.reshape(ds.targets, [-1, ds.targets.shape[-1]])
       ds.data_dict[pedia.batch_mask] = np.reshape(
         ds.data_dict[pedia.batch_mask], [-1])
