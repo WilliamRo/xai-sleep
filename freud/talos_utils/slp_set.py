@@ -651,6 +651,8 @@ class SleepSet(DataSet):
       signal.resample(ds0.data[:, i], num=N)
       for i in range(ds0.num_channels)], axis=-1)
 
+    data_new = data_new.astype(ds0.data.dtype)
+
     sg.digital_signals[0] = DigitalSignal(
       data_new, fs, channel_names=ds0.channels_names, label=ds0.label)
 
@@ -665,8 +667,11 @@ class SleepSet(DataSet):
       # Rescale data so that median value is 0, put 25 and 75 percentile to
       # [-0.5, 0.5], clip values out of max deviation
       iqr, mad = int(norm[1]), int(norm[2])
-      for ds in sg.digital_signals: ds.data = DigitalSignal.preprocess_iqr(
-        ds.data, iqr=iqr, max_abs_deviation=mad, labels=ds.channels_names)
+      for ds in sg.digital_signals:
+        dtype = ds.data.dtype
+        ds.data = DigitalSignal.preprocess_iqr(
+          ds.data, iqr=iqr, max_abs_deviation=mad, labels=ds.channels_names)
+        ds.data = ds.data.astype(dtype)
     else:
       raise KeyError(f'!! unknown normalization method {norm[0]}')
 

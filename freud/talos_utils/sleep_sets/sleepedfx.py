@@ -106,8 +106,10 @@ class SleepEDFx(SleepSet):
 
       # If the corresponding .sg file exists, read it directly
       sg_path = os.path.join(data_dir, pid + f'({suffix})' + '.sg')
+      pp_kwargs = kwargs.copy()
+      if kwargs.get('overwrite_pp', False): pp_kwargs['overwrite'] = True
       if cls.try_to_load_sg_directly(pid, sg_path, n_patients, i,
-                                     signal_groups, **kwargs): continue
+                                     signal_groups, **pp_kwargs): continue
 
       # Load raw signal group and preprocess
       sg = cls.preprocess_sg(load_raw_sg(), pp_configs)
@@ -171,12 +173,14 @@ if __name__ == '__main__':
   data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette'
 
   tic = time.time()
+  preprocess = ''
   preprocess = 'trim,1800;iqr;128'
 
-  fn_pattern = '*SC4[01]*'
-  fn_pattern = '*SC4661*'
+  fn_pattern = '*SC*'
+  fn_pattern = '*SC4[9]*'
   ds = SleepEDFx.load_as_sleep_set(
-    data_dir, overwrite=1, fn_pattern=fn_pattern, preprocess=preprocess)
+    data_dir, overwrite=0, fn_pattern=fn_pattern, preprocess=preprocess,
+    overwrite_pp=1)
 
   elapsed = time.time() - tic
   console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
