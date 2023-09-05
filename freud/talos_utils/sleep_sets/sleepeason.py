@@ -223,36 +223,72 @@ class SleepEason(SleepSet):
   # endregion: Generator
 
   # region: Benchmark SG indices
-  # val subjects
-  # 9 age25 sex1
-  # 10 age26 sex2
-  # 67 age87 sex1
-  # 70 age89 sex2
 
-  # test subjects
-  # 8 age25 sex1
-  # 11 age26 sex2
-  # 20 age51 sex1
-  # 30 age50 sex2
-  # 66 age88 sex1
-  # 71 age88 sex2
+  @classmethod
+  def reporter(cls, src_dir, src_pattern='*.sg'):
+    """This method is for reporting label distribution.
+
+    BENCHMARK.beta - data distribution
+    ----------------------------------
+    all subject
+    stage distribution : [66104, 21522, 69132, 13039, 25835]
+    percents: (0.38 0.11 0.35 0.06 0.13)
+
+    val subjects
+    stage distribution : [4387, 4528, 6260, 935, 1781]
+    percents : (0.29 0.10 0.42 0.06 0.12)
+    No. Age Sex
+    9   25   1
+    10  26   2
+    28  55   1
+    35  57   2
+    67  87   1
+    70  89   2
+
+    test subjects
+    stage distribution : [4559, 1576, 5269, 1060, 1954]
+    percents : (0.30 0.10 0.35 0.07 0.13)
+    No. Age Sex
+    8   25   1
+    11  26   2
+    20  51   1
+    30  50   2
+    66  88   1
+    71  88   2
+    """
+    stage_distribution = []
+    RK2AASM= {0: 0, 1: 1, 2: 2, 3: 3, 4: 3, 5: 4}
+
+    # Read sg files from src_dir
+    sg_file_list = walk(src_dir, 'file', src_pattern, return_basename=True)
+    N = len(sg_file_list)
+    for i, sg_fn in enumerate(sg_file_list):
+      sg_path = os.path.join(src_dir, sg_fn)
+
+      # Show status
+      console_symbol = f'[{i + 1}/{N}]'
+      console.show_status(
+        f'Loaded `{sg_fn}` data from `{src_dir}`.', symbol=console_symbol)
+
+      src_sg: SignalGroup = io.load_file(sg_path)
+      annotations = src_sg.annotations['stage Ground-Truth']
+      labels_sets = np.zeros(5)
+      for anno, interval in zip(annotations.annotations, annotations.intervals):
+        if anno <= 5:
+          labels_sets[RK2AASM[anno]] += int((interval[1] - interval[0]) / 30)
+
+      stage_distribution.append(labels_sets)
+
+    return stage_distribution
+
   BENCHMARK = {
-    'alpha': {'val': ['SC4001', 'SC4102',
-                      'ucddb025', 'ucddb026',
-                      'rrsh-ZJK', 'rrsh-ZGC'],
-              'test': ['SC4281', 'SC4312',
-                       'ucddb027', 'ucddb028',
-                       'rrsh-ZYJ', 'rrsh-ZSQ']},
-    'beta': {'val': ['SC4091', 'SC4092', 'SC4101', 'SC4102',
-                      'SC4671', 'SC4672', 'SC4701', 'SC4702',
-                      'ucddb025', 'ucddb026',
-                      'rrsh-ZJK', 'rrsh-ZGC'],
-              'test': ['SC4081', 'SC4082', 'SC4111', 'SC4112', 'SC4201', 'SC4202',
-                       'SC4301', 'SC4302', 'SC4661', 'SC4662', 'SC4711', 'SC4712',
-                       'ucddb027', 'ucddb028',
-                       'rrsh-ZYJ', 'rrsh-ZSQ']},
+    'alpha': {'val': ['SC4001', 'SC4102', 'ucddb025', 'ucddb026', 'rrsh-ZJK', 'rrsh-ZGC'],
+              'test': ['SC4281', 'SC4312', 'ucddb027', 'ucddb028', 'rrsh-ZYJ', 'rrsh-ZSQ']},
+    'beta': {'val': ['SC4091', 'SC4092', 'SC4101', 'SC4102', 'SC4281', 'SC4282',
+                      'SC4351', 'SC4352', 'SC4671', 'SC4672', 'SC4701', 'SC4702'],
+             'test': ['SC4081', 'SC4082', 'SC4111', 'SC4112', 'SC4201', 'SC4202',
+                      'SC4301', 'SC4302', 'SC4661', 'SC4662', 'SC4711', 'SC4712']},
   }
-
 
   def split(self):
     """Split self to train/val/test datasets.
