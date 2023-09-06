@@ -415,7 +415,10 @@ class SleepSet(DataSet):
               f'!! Not enough `{key}` channels to extract')
 
             # Currently, only first `num` channels will be extracted
-            for i in range(num): tape_stack.append(candidates[i])
+            for i in range(num):
+              tp = self.pre_process_tapes(key, candidates[i])
+              assert isinstance(tp, list)
+              tape_stack.extend(tp)
 
           tape = np.stack(tape_stack, axis=-1)
           # In case 2, all DigitalSignals in sg has a same sfreq
@@ -425,6 +428,28 @@ class SleepSet(DataSet):
         tapes.append((tape, sfreq))
 
       sg.put_into_pocket(self.Keys.tapes, tapes)
+
+  @staticmethod
+  def pre_process_tapes(key, x: np.ndarray):
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+    assert len(x.shape) == 1
+
+    if 'eeg' not in key.lower() or not th.pp_config: return [x]
+    configs = th.pp_config.split(':')
+    assert len(configs) == 2
+    assert configs[0].startswith('alpha') and configs[0][-1] in ('1', '2')
+
+    tape_list = []
+    ks = int(configs[1])
+    red_line = np.convolve(x, [1/ks] * ks, 'same')
+
+    include_red = configs[0][-1] == '2'
+    if include_red: tape_list.append(red_line)
+    tape_list.append(x - red_line)
+
+    return tape_list
+
 
   # endregion: Methods for configuration
 

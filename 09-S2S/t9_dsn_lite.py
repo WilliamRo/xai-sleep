@@ -32,14 +32,16 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeason1 EEGx2,EOGx1 alpha'
+  th.data_config = 'sleepeasonx EEGx2,EOGx1 beta'
   th.data_config += ' pattern=.*(sleepedfx)'
   # th.data_config += ' pattern=.*(ucddb)'
   # th.data_config += ' pattern=.*(rrsh)'
 
+  th.pp_config = 'alpha-1:8'
+
   th.epoch_num = 1
   th.eval_epoch_num = 1
-  th.sg_buffer_size = 25
+  th.sg_buffer_size = 20
   th.epoch_pad = 1
 
   # th.input_shape = [None, th.input_channels]
@@ -49,6 +51,8 @@ def main(_):
   else: L = 128 * 30 * th.epoch_num
   th.input_shape = [L, th.input_channels]
   th.use_batch_mask = True
+
+  # th.dtype = tf.float16
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
   # ---------------------------------------------------------------------------
@@ -57,6 +61,7 @@ def main(_):
   summ_name = model_name
 
   th.visible_gpu_id = 0
+  th.suffix = '_1'
   # ---------------------------------------------------------------------------
   # 2. model setup
   # ---------------------------------------------------------------------------
@@ -75,15 +80,18 @@ def main(_):
   th.early_stop = True
   th.batch_size = 256
 
+  # th.batchlet_size = 128
+  # th.gradlet_in_device = 1
+
   th.optimizer = 'adam'
-  th.learning_rate = 0.001
+  th.learning_rate = 0.0006
   th.balance_classes = True
   th.epoch_delta = 0.1
 
-  th.global_l2_penalty = 0.003
+  th.global_l2_penalty = 0.002
 
   th.train = True
-  th.patience = 20
+  th.patience = 50
   th.overwrite = True
 
   th.updates_per_round = 50

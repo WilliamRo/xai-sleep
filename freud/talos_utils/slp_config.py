@@ -23,6 +23,12 @@ class SleepConfig(SmartTrainerHub):
 
   # endregion: SleepSet.gen_batches setting
 
+  # region: Data Setting
+
+  pp_config = Flag.string(None, 'Preprocess arguments', is_key=None)
+
+  # endregion: Data Setting
+
   # region: Model Setting
 
   zoom_in_factor = Flag.integer(1, 'Zoom in factor', is_key=None)
