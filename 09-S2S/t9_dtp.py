@@ -27,7 +27,7 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeason1 EEGx1,EOGx1 alpha'
+  th.data_config = 'sleepeasonx EEGx1,EOGx1 beta'
   th.data_config += ' pattern=.*(sleepedfx)'
   # th.data_config += ' pattern=.*(ucddb)'
   # th.data_config += ' pattern=.*(rrsh)'
