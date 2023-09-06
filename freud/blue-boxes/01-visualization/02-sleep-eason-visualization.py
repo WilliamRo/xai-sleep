@@ -9,10 +9,11 @@ from roma import io
 
 # Set directories
 data_dir = r'../../../data/'
-data_dir += 'sleepeason1'
+data_dir += 'sleepeasonx'
 
-prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][3]
+prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][1]
 pattern = f'{prefix}*.sg'
+pattern = f'*SC4*'
 
 # Select .sg files
 sg_file_list = finder.walk(data_dir, pattern=pattern)
@@ -23,7 +24,8 @@ for path in sg_file_list:
   signal_groups.append(sg)
 
 # Visualize signal groups
-Freud.visualize_signal_groups(signal_groups, figure_size=(11, 6))
+Freud.visualize_signal_groups(signal_groups, figure_size=(11, 6),
+                              default_win_duration=999999)
 
 
 
