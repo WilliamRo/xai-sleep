@@ -1,12 +1,16 @@
 import sys
 sys.path.append('../')
 sys.path.append('../../')
+sys.path.append('../../xai-kit')
+sys.path.append('../../xai-kit/pictor')
+sys.path.append('../../xai-kit/roma')
 
+from freud.talos_utils.slp_config import SleepConfig
 from tframe.utils.script_helper import Helper
+
+Helper.register_flags(SleepConfig)
 s = Helper()
 
-from s2s_core import th
-s.register_flags(type(th))
 # -----------------------------------------------------------------------------
 # Configure data set here
 # -----------------------------------------------------------------------------

@@ -43,7 +43,7 @@ def main(_):
     L = 128 * 30 * (1 + 2 * th.epoch_pad)
   else: L = 128 * 30 * th.epoch_num
   th.input_shape = [L, th.input_channels]
-  th.use_batch_mask = False
+  th.use_batch_mask = True
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
   # ---------------------------------------------------------------------------
