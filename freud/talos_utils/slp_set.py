@@ -534,9 +534,10 @@ class SleepSet(DataSet):
       key = BatchReshape.DEFAULT_PLACEHOLDER_KEY
       ds.properties[key] = N
 
-      ds.targets = np.reshape(ds.targets, [-1, ds.targets.shape[-1]])
-      ds.data_dict[pedia.batch_mask] = np.reshape(
-        ds.data_dict[pedia.batch_mask], [-1])
+      if ds.targets is not None:
+        ds.targets = np.reshape(ds.targets, [-1, ds.targets.shape[-1]])
+        ds.data_dict[pedia.batch_mask] = np.reshape(
+          ds.data_dict[pedia.batch_mask], [-1])
       return ds
 
     ds.batch_preprocessor = batch_preprocessor
