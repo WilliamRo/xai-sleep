@@ -30,7 +30,7 @@ class Pad_Merge(Merge):
   HIGHWAY = 'highway'
 
   def __init__(self, merge_method, **kwargs):
-    super(Pad_Merge).__init__(merge_method)
+    # super(self,Pad_Merge).__init__(merge_method)
     self.full_name, self.abbreviation = merge_method, merge_method
     self.merge_method = merge_method
     self._axis = kwargs.get('axis', -1)
