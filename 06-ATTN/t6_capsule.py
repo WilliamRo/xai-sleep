@@ -9,8 +9,8 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-# model_name = 'attn'
-model_name = 'attn_pad2'
+# model_name = 'capsule'
+model_name = 'capsule_pad2'
 id = 6
 def model():
   # from tframe.layers.common import BatchReshape
