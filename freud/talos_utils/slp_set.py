@@ -54,8 +54,7 @@ class SleepSet(DataSet):
     from tframe import hub as th
     assert isinstance(th, SleepConfig)
 
-    if th.use_rnn: raise NotImplementedError(
-      '!! RNN inputs are not supported currently')
+    if th.use_rnn: return self.extract_seq_set(include_targets=True)
 
     return self.extract_data_set(include_targets=True)
 
@@ -87,15 +86,16 @@ class SleepSet(DataSet):
     """Sample a sequence from a signal group.
 
     :param sg - signal group.
-    :param start_time - start time in seconds.
-    :param duration - in seconds.
+    :param start_time - start time in seconds. Will be randomized if a negative
+                        number is provided
+    :param duration - signal duration in seconds.
 
     :return (data, label) if with_stage. Otherwise, return data.
             data.shape = [L, C]; label.shape = [E],
             here E is epoch number, equals to L / fs / 30.
     """
     from tframe import hub as th
-    assert isinstance(th, SleepConfig)
+    assert isinstance(th, SleepConfig) and isinstance(sg, SignalGroup)
 
     # For now consider only 1 branch TODO
     assert len(th.fusion_channels) == 1
@@ -104,6 +104,14 @@ class SleepSet(DataSet):
     # tape.shape = [L_tape, C]
     tape, fs = sg.get_from_pocket(self.Keys.tapes)[0]
 
+    # Randomize `start_time` if required
+    if start_time < 0:
+      high = (sg.total_duration - duration) // 30
+      if high < 0: raise ValueError('!! `duration` is greater than sg length')
+      relative_start_time = np.random.randint(0, high) * 30
+      start_time = relative_start_time + sg.dominate_signal.ticks[0]
+
+    # Convert unit to ticks
     start_i, L = int(start_time * fs), int(duration * fs)
     assert L < tape.shape[0]
     assert start_i % 30 == 0   # TODO: this assertion is for sleep staging only
@@ -112,8 +120,8 @@ class SleepSet(DataSet):
     # shorter than valid tape length
     valid_tape_L = tape.shape[0]
     if with_stage:
-      valid_stage_L = int(len(self.get_sg_epoch_tables(sg)[1]) * fs
-                          * self.EPOCH_DURATION)
+      stage_ids = self.get_sg_epoch_tables(sg)[1]
+      valid_stage_L = int(len(stage_ids) * fs * self.EPOCH_DURATION)
       valid_tape_L = min(valid_tape_L, valid_stage_L)
     start_i = min(max(0, start_i), valid_tape_L - L)
 
@@ -139,14 +147,58 @@ class SleepSet(DataSet):
 
     # Return
     if with_stage:
-      stage_ids = self.get_sg_epoch_tables(sg)[1]
       start_j, L = int(start_i / fs / 30), int(duration / 30)
       labels = stage_ids[start_j:start_j+L]
+      if th.epoch_pad == 0: assert data.shape[0] // 30 // fs == len(labels)
       return data, labels
 
     return data
 
-  def _get_sequence_randomly(self, batch_size):
+  def _get_sequence_randomly_rnn(self, batch_size):
+    """This method had been revised to fit `gen_rnn_batches`
+    """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    features, targets, masks = [], [], []
+
+    # Randomly choose <bs> sg to sample, but this is not fair for long sgs
+    for sg in np.random.choice(self.signal_groups, size=batch_size):
+      # Randomly sample sequences from sg
+      data, labels = self._sample_seqs_from_sg(sg, -1, th.epoch_num * 30, True)
+      # data.shape = [L_d, C]
+      data = np.reshape(data, [th.epoch_num, -1, data.shape[-1]])
+      # data.shape = [E, fs*30, C]
+
+      # Check invalid labels
+      if th.use_batch_mask:
+        labels = [0 if l is None else l for l in labels]
+        masks.append([l is not None for l in labels])
+      elif None in labels: raise ValueError(
+        '!! Invalid labels found while not `use_batch_mask`')
+
+      features.append(data)
+      t = convert_to_one_hot(labels, self.NUM_STAGES)
+      t = np.reshape(t, [th.epoch_num, self.NUM_STAGES])
+      targets.append(t)  # t.shape = [E, 5]
+
+    # Assemble features and targets for DataSet
+    features = np.stack(features, axis=0)  # [bs, E, fs*30, C]
+    targets = np.stack(targets, axis=0)    # [bs, E, 5]
+
+    data_dict = {}
+    if th.use_batch_mask:
+      masks = np.stack(masks, axis=0)  # [bs, E]
+      data_dict[pedia.batch_mask] = masks
+    properties = {}
+    properties[BatchReshape.DEFAULT_PLACEHOLDER_KEY] = th.epoch_num
+    # This block happens only in training. During validation,
+    # tensor_block_size should be specified manually.
+    return DataSet(features, targets, data_dict=data_dict,
+                   NUM_CLASSES=self.NUM_STAGES, check_data=False,
+                   **properties)
+
+  def _get_sequence_randomly_fnn(self, batch_size):
     """Randomly samples a DataSet, whose features.shape = [B, L, C],
        targets.shape = [B, E, 5], here L = E * ticks_per_epoch.
        Note features.shape can be easily reshaped to [B, E, L/E, C].
@@ -256,7 +308,7 @@ class SleepSet(DataSet):
     # Generate batches
     for i in range(round_len):
       if th.epoch_num >= 1:
-        data_batch = self._get_sequence_randomly(batch_size)
+        data_batch = self._get_sequence_randomly_fnn(batch_size)
       else:
         data_batch = self._get_branches_randomly(batch_size)
 
@@ -269,6 +321,37 @@ class SleepSet(DataSet):
       yield data_batch
 
     # Clear dynamic_round_len
+    self._clear_dynamic_round_len()
+
+
+  def gen_rnn_batches(self, batch_size=1, num_steps=-1, shuffle=False,
+                      is_training=False, act_lens=None):
+    """Yields data of shape [batch_size, num_steps, ...].
+    """
+    from tframe import hub as th
+
+    if not is_training:
+      raise NotImplementedError
+    elif callable(self.data_fetcher): self.data_fetcher(self)
+
+    round_len = th.epoch_num // th.num_steps
+    if is_training: self._set_dynamic_round_len(round_len)
+
+    # Sample <th.batch_size> sequences of length <th.epoch_num>
+    ds = self._get_sequence_randomly_rnn(batch_size)
+    ds.is_rnn_input = True
+
+    for batch in ds.gen_rnn_batches(
+        batch_size, num_steps, is_training=is_training):
+      # TODO: temp workaround for mask issue
+      mask_key = 'batch_mask'
+      if mask_key in batch.data_dict:
+        mask = batch.data_dict[mask_key]
+        batch.data_dict[mask_key] = np.ravel(mask)
+
+      yield batch
+
+    # `_clear_dynamic_round_len` will be called in gen_rnn_batches
     self._clear_dynamic_round_len()
 
   # endregion: gen_batches
@@ -543,6 +626,52 @@ class SleepSet(DataSet):
     ds.batch_preprocessor = batch_preprocessor
     ds.properties['signal_groups'] = self.signal_groups
     return ds
+
+  def extract_seq_set(self, include_targets=False):
+    """Extract talos.SequenceSet from self.signal_groups based on th.
+       Note that self.configure method should be called beforehand. """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
+    sequences, stage_ids, masks = [], [], []
+    for sg in self.signal_groups:
+      # (1) prepare tape
+      tape, fs = sg.get_from_pocket(self.Keys.tapes)[0]
+      L, C = tape.shape
+      ticks_per_epoch = int(self.EPOCH_DURATION * fs)
+      E = L // ticks_per_epoch
+
+      # (2) append targets and masks
+      if include_targets:
+        stages = self.get_sg_epoch_tables(sg)[1]
+        E = min(len(stages), E)
+
+        # Truncate stages
+        stages = stages[:E]
+
+        mask = [si is not None for si in stages]
+        masks.append(mask)
+
+        stages = [0 if si is None else si for si in stages]
+        stages = convert_to_one_hot(stages, self.NUM_STAGES)
+        stage_ids.append(stages)
+
+      # (*) append truncated features
+      L = E * ticks_per_epoch
+      tape = np.reshape(tape[:L], [E, ticks_per_epoch, C])
+      sequences.append(tape)
+
+    # Put data into a SequenceSet
+    data_dict = {}
+    data_dict[pedia.features] = sequences
+    if include_targets:
+      data_dict[pedia.targets] = [np.array(ids) for ids in stage_ids]
+      data_dict[pedia.batch_mask] = [np.array(m) for m in masks]
+    ss = SequenceSet(data_dict=data_dict, name=f'{self.name}-eva',
+                     NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
+
+    ss.properties['signal_groups'] = self.signal_groups
+    return ss
 
   # endregion: Public Methods
 

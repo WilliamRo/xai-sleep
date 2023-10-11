@@ -1,4 +1,6 @@
 from fnmatch import fnmatch
+
+import tframe as tfr
 from freud.talos_utils.slp_config import SleepConfig
 from freud.talos_utils.slp_set import SleepSet, DataSet
 from pictor.objects.signals.signal_group import SignalGroup, DigitalSignal
@@ -57,6 +59,7 @@ class SleepEason(SleepSet):
     shadow = self.get_subset_by_patient_id()
     shadow.buffer_size = None
     shadow._fetch_data()
+    if tfr.hub.use_rnn: return shadow.extract_seq_set(include_targets=True)
     return shadow.extract_data_set(include_targets=True)
 
   # endregion: Properties
@@ -74,7 +77,8 @@ class SleepEason(SleepSet):
     # Release memory (TODO: CRUCIAL)
     if 'signal_groups' in self.properties:
       # TODO: without this line, model will be trained on same batch of file
-      self._cloud_pocket.pop('epoch_table')
+      et_key = 'epoch_table'
+      if et_key in self._cloud_pocket: self._cloud_pocket.pop(et_key)
 
       for sg in self.signal_groups:
         assert isinstance(sg, SignalGroup)

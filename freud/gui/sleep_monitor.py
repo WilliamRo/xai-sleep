@@ -11,7 +11,7 @@ class SleepMonitor(Monitor):
     self.register_a_shortcut('O', self.pictor.open,
                              description='Open a .edf file')
 
-  # region: Auto Staging
+  # region: Auto Sttaging
 
   def stage(self,
             channels: str,

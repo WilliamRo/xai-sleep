@@ -58,6 +58,16 @@ class Freud(Pictor, DialogUtilities):
     if auto_refresh: self.refresh()
   ssa = standardize_stage_annotation
 
+  def show_stage_num_histogram(self):
+    data = [sg.total_duration // 30  for sg in self.objects]
+
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
+    plt.hist(data, bins=50)
+    plt.title(f'{min(data)}-{max(data)}')
+    fig.show()
+  ssnh = show_stage_num_histogram
+
   # endregion: Commands
 
   # region: APIs
