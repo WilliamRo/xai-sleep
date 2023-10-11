@@ -17,6 +17,7 @@ def model():
 
   # Add dsn backbone
   m.add_deep_sleep_net_lite(model, th.filters)
+
   # Add bottleneck
   model.add(m.mu.HyperConv1D(filters=4, kernel_size=1))
 
@@ -81,14 +82,15 @@ def main(_):
 
   th.train = True
   th.patience = 20
-  th.overwrite = 0
+  th.overwrite = 1
 
   vpr = 5
   if th.use_rnn:
     th.validate_cycle = epoch_num // th.num_steps * vpr
   else:
     th.updates_per_round = epoch_num // th.num_steps
-    th.validation_per_round = vpr
+    th.validation_per_round = 1 / vpr
+    th.val_batch_size = 256
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
