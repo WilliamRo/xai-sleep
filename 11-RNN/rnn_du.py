@@ -2,6 +2,8 @@ from freud.talos_utils.slp_agent import SleepAgent
 from freud.talos_utils.slp_set import SleepSet
 from freud.talos_utils.slp_set import DataSet
 
+from tframe.trainers.trainer import Trainer
+
 
 
 def load_data():
@@ -14,6 +16,40 @@ def load_data():
   for j in js: data_sets[j] = data_sets[j].validation_set
 
   return data_sets
+
+
+
+def evaluate(trainer: Trainer):
+  from rnn_core import th
+  from tframe import Classifier
+
+  model: Classifier = trainer.model
+  agent = model.agent
+
+  # Evaluate val_set and test_set
+  evaluate_pro = lambda ds: model.evaluate_pro(
+    ds, batch_size=th.eval_batch_size, show_confusion_matrix=True,
+    show_class_detail=True)
+
+  datasets = [trainer.validation_set, trainer.test_set]
+  if th.evaluate_train_set:
+    datasets.insert(0, trainer.training_set.validation_set)
+
+  cms = [evaluate_pro(ds) for ds in datasets]
+
+  # Take down results to note
+  if th.evaluate_train_set:
+    agent.put_down_criterion('Train Accuracy', cms[0].accuracy)
+    agent.put_down_criterion('Train F1', cms[0].macro_F1)
+
+  agent.put_down_criterion('Test Accuracy', cms[-1].accuracy)
+  agent.put_down_criterion('Test F1', cms[-1].macro_F1)
+
+  for ds, cm in zip(datasets, cms):
+    agent.take_notes(f'Results of `{ds.name}` dataset:')
+    agent.take_notes(str(cm.matrix_table()), prompt='')
+    agent.take_notes(str(cm.make_table(decimal=4, class_details=True)),
+                     prompt='')
 
 
 

@@ -83,17 +83,15 @@ def activate():
   # Train or evaluate
   if th.train:
     model.train(train_set, validation_set=val_set,
-                test_set=test_set, trainer_hub=th)
+                test_set=test_set, trainer_hub=th, evaluate=du.evaluate)
   else:
-    pass
-
-  for ds in (val_set, test_set):
-    # Note that batch_mask should not be used during model.evaluate,
-    # should be used in evaluate_pro after classification
-    model.evaluate_pro(ds, batch_size=1, verbose=True,
-                       show_confusion_matrix=True,
-                       plot_confusion_matrix=False,
-                       show_class_detail=True)
+    for ds in (val_set, test_set):
+      # Note that batch_mask should not be used during model.evaluate,
+      # should be used in evaluate_pro after classification
+      model.evaluate_pro(ds, batch_size=th.eval_batch_size, verbose=True,
+                         show_confusion_matrix=True,
+                         plot_confusion_matrix=False,
+                         show_class_detail=True)
 
   # End
   model.shutdown()

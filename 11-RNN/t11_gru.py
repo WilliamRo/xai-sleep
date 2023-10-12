@@ -87,10 +87,14 @@ def main(_):
   vpr = 5
   if th.use_rnn:
     th.validate_cycle = epoch_num // th.num_steps * vpr
+    th.val_batch_size = 1
+    th.eval_batch_size = 1
   else:
     th.updates_per_round = epoch_num // th.num_steps
     th.validation_per_round = 1 / vpr
     th.val_batch_size = 256
+    th.eval_batch_size = 256
+    th.batch_size = th.batch_size * th.num_steps
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
