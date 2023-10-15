@@ -46,6 +46,8 @@ def main(_):
   th.val_num_steps = 20
   th.eval_num_steps = 20
   th.val_batch_size = 1
+
+  th.sg_buffer_size = 20
   # ---------------------------------------------------------------------------
   # 1. folder/file names and device
   # ---------------------------------------------------------------------------
@@ -68,6 +70,10 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
+  th.class_weights = [1.0] * 5
+  th.loss_string = 'wce'
+  # th.loss_string = 'cross_entropy'
+
   th.epoch = 10000
   th.early_stop = True
   th.batch_size = 32
@@ -80,7 +86,7 @@ def main(_):
   th.optimizer = 'adam'
   th.learning_rate = 0.0001
 
-  th.train = True
+  th.train = 1
   th.patience = 20
   th.overwrite = 1
 
@@ -88,7 +94,7 @@ def main(_):
   if th.use_rnn:
     th.validate_cycle = epoch_num // th.num_steps * vpr
     th.val_batch_size = 1
-    th.eval_batch_size = 1
+    th.eval_batch_size = -1
   else:
     th.updates_per_round = epoch_num // th.num_steps
     th.validation_per_round = 1 / vpr

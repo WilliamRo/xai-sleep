@@ -23,7 +23,8 @@ def finalize(model: mu.Classifier):
   model.add(mu.Dense(num_neurons=th.output_dim))
   model.add(mu.Activation('softmax'))
 
-  model.build(metric=['f1', 'accuracy'], batch_metric='accuracy')
+  model.build(metric=['f1', 'accuracy'], batch_metric='accuracy',
+              loss=th.loss_string)
 
   return model
 
