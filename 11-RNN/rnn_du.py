@@ -29,7 +29,7 @@ def evaluate(trainer: Trainer):
   # Evaluate val_set and test_set
   evaluate_pro = lambda ds: model.evaluate_pro(
     ds, batch_size=th.eval_batch_size, show_confusion_matrix=True,
-    show_class_detail=True)
+    verbose=True, show_class_detail=True)
 
   datasets = [trainer.validation_set, trainer.test_set]
   if th.evaluate_train_set:
