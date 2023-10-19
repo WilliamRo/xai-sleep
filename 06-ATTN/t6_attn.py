@@ -9,33 +9,20 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-# model_name = 'capsule'
-model_name = 'capsule'
-id = 6
+model_name = 'attn'
+id = 1
 def model():
-  # from tframe.layers.common import BatchReshape
-  from attn_layers.capsule import PrimaryCaps, DigitsCaps, Caps_finalize
 
   th = core.th
   model = m.get_initial_model()
 
   m.add_deep_sleep_net_lite(model, th.filters)
-  # m.add_AFR(model)
-  primary_caps = PrimaryCaps(32, 8, batch_size=th.batch_size)
-  digit_caps = DigitsCaps(num_outputs=5, vec_len=16, batch_size=th.batch_size)
-  final = Caps_finalize()
+  m.add_AFR(model)
+  m.add_EncodeLayer(model)
+  m.add_EncodeLayer(model)
 
 
-  # m.add_EncodeLayer(model)
-  # m.add_EncodeLayer(model)
-  model.add(primary_caps)
-  model.add(digit_caps)
-  model.add(final)
-  # model.add(BatchReshape())
-  model.build(metric=['f1', 'accuracy'], batch_metric='accuracy')
-  return model
-  # return m.finalize(model, flatten=True, use_gap=False)
-
+  return m.finalize(model, flatten=True, use_gap=False)
 
 def main(_):
   console.start('{} on Attn_Sleep task'.format(model_name.upper()))
@@ -45,25 +32,44 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeasonx EEGx2,EOGx1 beta'
+  from freud.talos_utils.slp_agent import SleepAgent, SleepEason
+
+  # sleepeasony data have not been normalize
+  SleepAgent.register_dataset('sleepeasony', SleepEason)
+
+  # sleepeasonattn data process like attn lr:0.002
+  SleepAgent.register_dataset("sleepeasonattn", SleepEason)
+
+  # sleepeasoneasy data * 1e5 lr:
+  SleepAgent.register_dataset("sleepeasoneasy", SleepEason)
+
+  # sleepeasonnpz data come from attnsleep
+  SleepAgent.register_dataset("sleepeasonnpz", SleepEason)
+
+  th.data_config = 'sleepeasonnpz EEGx2 beta'
+  # th.data_config = 'sleepeasonnpz EEGx2,EOGx1 beta'
   th.data_config += ' pattern=.*(sleepedfx)'
   # th.data_config += ' pattern=.*(ucddb)'
   # th.data_config += ' pattern=.*(rrsh)'
 
   # th.pp_config = 'alpha-2:8'
+  th.loss_string = 'wce'
+  # th.loss_string = 'cross_entropy'
+  th.class_weights = [0.3, 0.52, 0.3, 0.22, 0.3]
 
   th.epoch_num = 1
   th.eval_epoch_num = 1
-  th.sg_buffer_size = 10
+  th.sg_buffer_size = None
   th.epoch_pad = 0
 
-  th.class_weights = [1, 2, 3, 4, 5]
+  th.lr_decay_method = 'cosine'
+
 
   # th.input_shape = [None, th.input_channels]
   if th.epoch_pad > 0:
     assert th.epoch_num == th.eval_epoch_num == 1
-    L = 128 * 30 * (1 + 2 * th.epoch_pad)
-  else: L = 128 * 30 * th.epoch_num
+    L = 100 * 30 * (1 + 2 * th.epoch_pad)
+  else: L = 100 * 30 * th.epoch_num
   th.input_shape = [L * th.epoch_num, th.input_channels]
   th.use_batch_mask = True
 
@@ -76,7 +82,7 @@ def main(_):
   summ_name = model_name
 
   th.visible_gpu_id = 0
-  th.suffix = '_2'
+  th.suffix = '_1'
   # ---------------------------------------------------------------------------
   # 2. model setup
   # ---------------------------------------------------------------------------
@@ -90,16 +96,16 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
-  th.epoch = 10000
+  th.epoch = 100
 
   th.early_stop = True
-  th.batch_size = 256
+  th.batch_size = 128
 
   # th.batchlet_size = 128
   # th.gradlet_in_device = 1
 
   th.optimizer = 'adam'
-  th.learning_rate = 0.0006
+  th.learning_rate = 0.001
   th.balance_classes = True
   th.epoch_delta = 0
 

@@ -33,8 +33,8 @@ channels = ['EEGx2,EOGx1']
 data_configs = [f'sleepeasonx {c} beta pattern=.*(sleepedfx)'
                 for c in channels]
 s.register('data_config', data_configs)
-s.register("sg_buffer_size", 8)
-s.register('epoch_pad', 0, 1, 2)
+s.register("sg_buffer_size", 120)
+s.register('epoch_pad', 0, 1, 2, 3, 4, 5)
 
 s.register('use_batchnorm', s.true)
 s.register('dropout', 0.5)

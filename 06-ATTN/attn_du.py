@@ -15,6 +15,9 @@ def load_data():
   # if th.epoch_delta == 0: js.append(0)
   for j in js: data_sets[j] = data_sets[j].validation_set
 
+  data_sets[0].fetch_data(data_sets[0])
+  data_sets[0].data_fetcher = None
+
   return data_sets
 
 

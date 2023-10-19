@@ -26,8 +26,12 @@ class SelfAttention(Layer, AttentionBase):
   # @init_with_graph
   def __init__(self, **kwargs):
     AttentionBase.__init__(self, **kwargs)
+    self.num_heads = kwargs.get('num_heads', )
 
-
+  def _split_heads(self, x, length, num_heads, depth):
+    x = tf.reshape(x, (-1, num_heads, length // num_heads, depth))
+    x = tf.transpose(x, perm=[0, 3, 2, 1])
+    return x
 
   def _mha(self, q, k, v, num_heads=1, QK_dim=None, V_dim=None,
            output_dim=None, mask=None):
@@ -39,12 +43,11 @@ class SelfAttention(Layer, AttentionBase):
     if QK_dim is None: QK_dim = min_qk_dim
 
     # Calculate Q, K, V, where Q, K must be transformed by q and k
-    Q = self.dense(num_heads * QK_dim, q, scope='query')
-    K = self.dense(num_heads * QK_dim, k, scope='key')
+    Q = q
+    K = self.conv1d(k, QK_dim, filter_size=7, scope='kconv1')
+    V = self.conv1d(v, V_dim, filter_size=7, scope='vconv1')
+
     # V is allowed to be v
-    if V_dim is not None: V = self.dense(num_heads * V_dim, v, scope='value')
-    elif num_heads == 1: V = v
-    else: V = tf.stack([v] * num_heads, axis=-3)
     # TODO: if V_dim is not specified, simply stack v may not be appropriate.
     #       since the output attention may be grown large
 
@@ -52,17 +55,19 @@ class SelfAttention(Layer, AttentionBase):
     if num_heads > 1:
       Q = self._split_heads(Q, q_len, num_heads, QK_dim)
       K = self._split_heads(K, k_len, num_heads, QK_dim)
-      if V_dim is not None: V = self._split_heads(V, v_len, num_heads, V_dim)
+      V = self._split_heads(V, v_len, num_heads, V_dim)
+
 
     # Apply attention, out shape = (bs[, num_heads], q_len, [Vv]_dim)
-    attention = self.scaled_dot_prod_attention(Q, K, V, mask)
+    attention, p_attn = self.scaled_dot_prod_attention(Q, K, V, mask, return_a=True)
 
     # Reshape back if necessary
     if num_heads > 1:
-      attention = tf.transpose(attention, perm=[0, 2, 1, 3]) # type: tf.Tensor
-      last_dim = num_heads * attention.shape.as_list()[-1]
+      attention = tf.transpose(attention, perm=[0, 3, 2, 1]) # type: tf.Tensor
+      last_dim = attention.shape.as_list()[-1]
       attention = tf.reshape(attention, (-1, q_len, last_dim))
 
+    # output = self.dense()
     # Calculate output and return
     output = (attention if output_dim is None
               else self.dense(output_dim, attention, scope='output'))
@@ -73,7 +78,11 @@ class SelfAttention(Layer, AttentionBase):
   def _link(self, x, **kwargs):
     # x.shape = [?, L, C], e.g., [?, 45, 30]
     afr_reduce_cnn_size = 30
-    y = self._mha(x, x, x, num_heads=5, output_dim=afr_reduce_cnn_size)
+    y = self._mha(x, x, x, num_heads=self.num_heads, V_dim=30, output_dim=afr_reduce_cnn_size)
+    # y = tf.transpose(y, [0, 2, 1])d
+
+    # y = self.dense(78, y, scope='attndense')
+    # y = tf.transpose(y, [0, 2, 1])
     # output = tf.layers.average_pooling1d(
     #   input_, pool_size=shape[1], strides=1, data_format=self._data_format)
     # output = tf.reshape(output, shape=[-1, output.shape.as_list()[-1]])

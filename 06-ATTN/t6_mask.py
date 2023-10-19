@@ -10,7 +10,7 @@ from tframe import tf
 # Define model here
 # -----------------------------------------------------------------------------
 # model_name = 'attn'
-model_name = 'attn_pad2'
+model_name = 'attn_k_fold'
 id = 6
 def model():
   # from tframe.layers.common import BatchReshape
@@ -32,7 +32,7 @@ def main(_):
   console.start('{} on Attn_Sleep task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = 0
+  th.rehearse = 1
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
@@ -45,14 +45,16 @@ def main(_):
 
   th.epoch_num = 1
   th.eval_epoch_num = 1
-  th.sg_buffer_size = 10
-  th.epoch_pad = 2
+  th.sg_buffer_size = 120
+  th.epoch_pad = 0
+  th.loss_string = 'wce'
+  th.class_weights = [1] * 5
 
   # th.input_shape = [None, th.input_channels]
   if th.epoch_pad > 0:
     assert th.epoch_num == th.eval_epoch_num == 1
-    L = 128 * 30 * (1 + 2 * th.epoch_pad)
-  else: L = 128 * 30 * th.epoch_num
+    L = 100 * 30 * (1 + 2 * th.epoch_pad)
+  else: L = 100 * 30 * th.epoch_num
   th.input_shape = [L * th.epoch_num, th.input_channels]
   th.use_batch_mask = True
 

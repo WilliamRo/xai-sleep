@@ -20,17 +20,16 @@ class SE_layer(Layer, NeuroBase):
     # shape = x.shape.as_list()
     NeuroBase.__init__(self, **kwargs)
     self._data_format = 'channels_last'
-    # self.dense()
+
     assert isinstance(x, tf.Tensor)
     shape = x.shape.as_list()
     assert len(shape) == 3
     y = tf.layers.average_pooling1d(
       x, pool_size=shape[1], strides=1, data_format=self._data_format)
     y = tf.reshape(y, shape=[-1, y.shape.as_list()[-1]])
-    y = self.dense(1, y, scope='se_f1')
-    y = self.dense(30, y, scope='se_f2')
+    y = self.dense(1, y, scope='se_f1', activation='relu')
+    y = self.dense(30, y, scope='se_f2', activation='sigmoid')
     y = tf.reshape(y, shape=(-1, 1, shape[2]))
-    y = tf.multiply(x, y)
-    # y = tf.broadcast_to(y, x.shape)
+
     return tf.multiply(x, y)
 

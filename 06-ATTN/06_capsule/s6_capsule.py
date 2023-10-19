@@ -27,28 +27,29 @@ s.register('allow_growth', False)
 # -----------------------------------------------------------------------------
 s.register('train', True)
 s.register('epoch', 100000)
-s.register('patience', 50)
+s.register('patience', 80)
 
-# channels = ['EEGx2,EOGx1', 'EEGx1,EOGx1','EEGx1', 'EOGx1']
-
-k_folds = [i for i in range(1, 11)]
-data_configs = [f'sleepeasonx EEGx2,EOGx1 gamma{i} pattern=.*(sleepedfx)'
-                for i in k_folds]
+channels = ['EEGx2,EOGx1']
+data_configs = [f'sleepeasonx {c} beta pattern=.*(sleepedfx)'
+                for c in channels]
 s.register('data_config', data_configs)
-s.register("sg_buffer_size", 15)
-s.register('epoch_pad', 3)
+s.register("sg_buffer_size", 50)
+
+s.register('filters', 16, 256)
 
 s.register('use_batchnorm', s.true)
 s.register('dropout', 0.5)
-# s.register('global_l2_penalty', 0.001, 0.01)
+# s.register('global_l2_penalty', 0.001)
 
 # s.register('optimizer', 'adam', 'sgd')
-# s.register('lr', 0.0005, 0.003)
+s.register('lr', 0.0001, 0.003)
 
-s.register('batch_size', 256)
+s.register('batch_size', 32, 256)
 
+s.register('epoch_pad', 0, 1)
 
-# s.configure_engine(strategy='skopt', criterion='Best F1')
-s.configure_engine(times=3)
+s.configure_engine(strategy='skopt', criterion='Best F1')
+# s.configure_engine(times=5)
 s.run(rehearsal=0)
+
 
