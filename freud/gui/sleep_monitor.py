@@ -1,3 +1,5 @@
+import numpy as np
+
 from pictor.plotters import Monitor
 from roma import console
 
@@ -43,6 +45,7 @@ class SleepMonitor(Monitor):
 
     # Execute main to load basic module settings
     mod.main(None)
+    th.use_batch_mask = False
 
     # (1) Prepare data set
     # Get displayed signal_group
@@ -53,14 +56,21 @@ class SleepMonitor(Monitor):
     ds.CHANNELS = {f'{i}': k for i, k in enumerate(self.channel_list)}
     th.data_config = f'whatever {channels}'
     ds.configure()
-    ds = ds.extract_data_set(include_targets=False)
+
+    if th.use_rnn: ds = ds.extract_seq_set(include_targets=False)
+    else: ds = ds.extract_data_set(include_targets=False)
 
     # (2) Prepare model
-    from tframe import Classifier
+    from tframe import Classifier, context
+
+    # Do some cleaning
+    context.logits_tensor_dict = {}
 
     if model_name is None: model_name = mod.model_name
     model: Classifier = th.model()
-    preds = model.classify(ds, batch_size=128, verbose=True)
+    batch_size = 1 if th.use_rnn else 128
+    preds = model.classify(ds, batch_size=batch_size, verbose=True)
+    if th.use_rnn: preds = np.concatenate(preds)
     model.shutdown()
 
     # (3) Set preds to annotations
@@ -77,7 +87,7 @@ class SleepMonitor(Monitor):
     print() # this is for creating a new line
     console.show_status(f'`{model_name}` set to sg.Annotation')
 
-    self.toggle_annotation('stage', model_name)
+    self.toggle_annotation('stage', model_name, force_on=True)
 
   # endregion: Auto Staging
 
