@@ -9,36 +9,27 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-# model_name = 'capsule'
-model_name = 'capsule'
-id = 6
+# model_name = 'attn'
+model_name = 'dsn'
+id = 9
 def model():
   # from tframe.layers.common import BatchReshape
-  from attn_layers.capsule import PrimaryCaps, DigitsCaps, Caps_finalize
 
   th = core.th
   model = m.get_initial_model()
 
-  m.add_deep_sleep_net_lite(model, th.filters)
+  m.add_deep_sleep_net_lite(model, 64)
   # m.add_AFR(model)
-  primary_caps = PrimaryCaps(32, 8, batch_size=th.batch_size)
-  digit_caps = DigitsCaps(num_outputs=5, vec_len=16, batch_size=th.batch_size)
-  final = Caps_finalize()
-
-
   # m.add_EncodeLayer(model)
   # m.add_EncodeLayer(model)
-  model.add(primary_caps)
-  model.add(digit_caps)
-  model.add(final)
+
   # model.add(BatchReshape())
-  model.build(metric=['f1', 'accuracy'], batch_metric='accuracy')
-  return model
-  # return m.finalize(model, flatten=True, use_gap=False)
+
+  return m.finalize(model, flatten=True, use_gap=False)
 
 
 def main(_):
-  console.start('{} on Attn_Sleep task'.format(model_name.upper()))
+  console.start('{} on Dsn_lite_Sleep task'.format(model_name.upper()))
 
   th = core.th
   th.rehearse = 0
@@ -54,10 +45,8 @@ def main(_):
 
   th.epoch_num = 1
   th.eval_epoch_num = 1
-  th.sg_buffer_size = 10
-  th.epoch_pad = 0
-
-  th.class_weights = [1, 2, 3, 4, 5]
+  th.sg_buffer_size = 120
+  th.epoch_pad = 1
 
   # th.input_shape = [None, th.input_channels]
   if th.epoch_pad > 0:
@@ -76,7 +65,7 @@ def main(_):
   summ_name = model_name
 
   th.visible_gpu_id = 0
-  th.suffix = '_2'
+  th.suffix = '_1'
   # ---------------------------------------------------------------------------
   # 2. model setup
   # ---------------------------------------------------------------------------

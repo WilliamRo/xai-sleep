@@ -10,8 +10,8 @@ from tframe import tf
 # Define model here
 # -----------------------------------------------------------------------------
 # model_name = 'capsule'
-model_name = 'capsule'
-id = 6
+model_name = 'peiyan'
+id = 2
 def model():
   # from tframe.layers.common import BatchReshape
   from attn_layers.capsule import PrimaryCaps, DigitsCaps, Caps_finalize
@@ -19,22 +19,12 @@ def model():
   th = core.th
   model = m.get_initial_model()
 
-  m.add_deep_sleep_net_lite(model, th.filters)
-  # m.add_AFR(model)
-  primary_caps = PrimaryCaps(32, 8, batch_size=th.batch_size)
-  digit_caps = DigitsCaps(num_outputs=5, vec_len=16, batch_size=th.batch_size)
-  final = Caps_finalize()
+  m.add_deep_sleep_net_lite(model, 64)
+  m.add_AFR(model)
+  m.add_EncodeLayer(model)
+  m.add_EncodeLayer(model)
 
-
-  # m.add_EncodeLayer(model)
-  # m.add_EncodeLayer(model)
-  model.add(primary_caps)
-  model.add(digit_caps)
-  model.add(final)
-  # model.add(BatchReshape())
-  model.build(metric=['f1', 'accuracy'], batch_metric='accuracy')
-  return model
-  # return m.finalize(model, flatten=True, use_gap=False)
+  return m.finalize(model, flatten=True, use_gap=False)
 
 
 def main(_):
@@ -45,8 +35,12 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
-  th.data_config = 'sleepeasonx EEGx2,EOGx1 beta'
-  th.data_config += ' pattern=.*(sleepedfx)'
+  from freud.talos_utils.slp_agent import SleepAgent, SleepEason
+
+  # sleepeasony data have not been normalize
+  SleepAgent.register_dataset('sleepeasonpeiyan', SleepEason)
+  th.data_config = 'sleepeasonpeiyan EEGx1 beta'
+  th.data_config += ' pattern=.*(sleepedf)'
   # th.data_config += ' pattern=.*(ucddb)'
   # th.data_config += ' pattern=.*(rrsh)'
 
@@ -54,16 +48,16 @@ def main(_):
 
   th.epoch_num = 1
   th.eval_epoch_num = 1
-  th.sg_buffer_size = 10
+  th.sg_buffer_size = None
   th.epoch_pad = 0
 
-  th.class_weights = [1, 2, 3, 4, 5]
-
+  th.class_weights = [1, 1.29, 1, 1.4, 0.84]
+  th.loss_string = 'wce'
   # th.input_shape = [None, th.input_channels]
   if th.epoch_pad > 0:
     assert th.epoch_num == th.eval_epoch_num == 1
-    L = 128 * 30 * (1 + 2 * th.epoch_pad)
-  else: L = 128 * 30 * th.epoch_num
+    L = 100 * 30 * (1 + 2 * th.epoch_pad)
+  else: L = 100 * 30 * th.epoch_num
   th.input_shape = [L * th.epoch_num, th.input_channels]
   th.use_batch_mask = True
 

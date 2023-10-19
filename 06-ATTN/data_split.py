@@ -8,8 +8,10 @@ import numpy as np
 
 
 # data_path
-data_path = r'.\data_split_eval.mat'
-data_dir = r'..\data\sleepeasonx'
+# data_path = r'.\data_split_eval.mat'
+# data_dir = r'..\data\sleepeasonx'
+data_path = r'D:\eason\refer\xai-sleep\06-ATTN\data_split_eval.mat'
+data_dir = r'D:\eason\refer\xai-sleep\data\sleepeasonx'
 def split_xsleep(path, file_lists):
   mat_data = scipy.io.loadmat(path)
   train_key = mat_data['train_sub']
@@ -39,6 +41,7 @@ def split_xsleep(path, file_lists):
   return k_fold_key, map_dict
 
 file_lists = walk(data_dir, pattern='*sg')
+file_lists = [file for file in file_lists if 'sleepedf' in file]
 fold_sets, map = split_xsleep(data_path, file_lists)
 
 BENCHMARK = {}
