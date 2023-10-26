@@ -24,12 +24,16 @@ class SleepEason(SleepSet):
                name='no-name'):
     """buffer_size decides how many files to fetch per round
     """
+    from tframe import hub as th
+    assert isinstance(th, SleepConfig)
+
     self.buffer_size = buffer_size
     self.name = name
     self.data_dict = {}
 
     # Initialize properties
-    self.properties = {'CLASSES': ['Wake', 'N1', 'N2', 'N3', 'REM']}
+    # self.properties = {'CLASSES': ['Wake', 'N1', 'N2', 'N3', 'REM']}
+    self.properties = {'CLASSES': [tp[0] for tp in th.tgt_tuples]}
 
     # Set file list
     assert (data_dir is None and file_list is not None or

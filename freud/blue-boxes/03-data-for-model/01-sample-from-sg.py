@@ -26,7 +26,7 @@ sg = ds.signal_groups[0]
 console.show_info('Overall stage distribution:')
 Ns = [len(ds.epoch_table[sid]) for sid in range(5)]
 M = sum(Ns)
-for sid in range(5): console.supplement(f'[{sid}] {Ns[sid]/M*100:.1f}%]')
+for sid in range(5): console.supplement(f'[{sid}] {Ns[sid]/M*100:.1f}%')
 
 # Report stage distribution with different epoch_num
 for epoch_num in (1, 5, 10, 20):

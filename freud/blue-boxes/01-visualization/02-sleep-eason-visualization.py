@@ -13,7 +13,8 @@ data_dir += 'sleepeasonx'
 
 prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][1]
 pattern = f'{prefix}*.sg'
-pattern = f'*SC4*'
+# pattern = f'*SC4081*'
+# pattern = f'*SC4712*'
 
 # Select .sg files
 sg_file_list = finder.walk(data_dir, pattern=pattern)

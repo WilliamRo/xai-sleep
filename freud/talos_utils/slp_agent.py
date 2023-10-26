@@ -38,6 +38,9 @@ class SleepAgent(DataAgent):
     # Put tapes into each group
     ds.configure()
 
+    #
+    ds.NUM_STAGES = th.num_classes
+
     # Split data set
     if isinstance(ds, SleepEason): return ds.split()
 

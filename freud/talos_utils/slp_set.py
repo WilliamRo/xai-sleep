@@ -66,6 +66,7 @@ class SleepSet(DataSet):
     i.e., table[<STAGE_ID>] = [(sg, start_t, duration), ...]. For example,
     table[0] contains all wake stage information from all signal groups.
     """
+    # Generate table
     table = [[] for _ in range(self.NUM_STAGES + 1)]
     for sg in self.signal_groups:
       for i in range(self.NUM_STAGES + 1):
@@ -284,7 +285,7 @@ class SleepSet(DataSet):
     features = np.stack(branches[0], axis=0)
     targets = convert_to_one_hot(stage_ids, self.NUM_STAGES)
 
-    return DataSet(features, targets, NUM_CLASSES=5)
+    return DataSet(features, targets, NUM_CLASSES=self.NUM_STAGES)
 
   # endregion: Single-epoch sampling
 
@@ -399,23 +400,32 @@ class SleepSet(DataSet):
        (2) table_id = [0, 1, 2, ...], contains stage_id for each epoch in order
     """
     def _init_sg_epoch_tables():
+      from tframe import hub as th
+
       # Get annotation
       anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
-      # Generate map_dict
+      # Generate map_dict (maps raw stage ID to AASM stage ID)
       map_dict = cls.get_map_dict(sg)
+      # Generate tgt_map_dict (maps AASM 5 stages to grouped stages)
+      tgt_map_dict = th.tgt_map_dict
+      tgt_map_dict[None] = None
       # 5 stages + 1 unknown label
       table_per_class = [[] for _ in range(cls.NUM_STAGES + 1)]
       table_id = []
 
       t0 = anno.intervals[0][0]
       for interval, anno_id in zip(anno.intervals, anno.annotations):
+        # RAW anno to AASM(W:0, N1:1, N2:2, N3:3, REM:4, others:None)
         sid = map_dict[anno_id]
+        # AASM to grouped (th.tgt_config)
+        sid = tgt_map_dict[sid]
         N = (interval[-1] - interval[0]) / cls.EPOCH_DURATION
         # Check N
         assert N == int(N)
 
         # The 1st element in tuple is for future concatenating
-        table_per_class[sid if sid is not None else 5].extend([
+        NUM_STAGES = th.num_classes
+        table_per_class[sid if sid is not None else NUM_STAGES].extend([
           (sg, interval[0] + i * cls.EPOCH_DURATION - t0, cls.EPOCH_DURATION)
           for i in range(int(N))])
         table_id.extend([sid] * int(N))
@@ -442,7 +452,8 @@ class SleepSet(DataSet):
         f'!! `{key}` is not a valid data-kwargs')
 
     # (0) Set class names for ConfusionMatrix
-    self.properties['CLASSES'] = ['Wake', 'N1', 'N2', 'N3', 'REM']
+    # self.properties['CLASSES'] = ['Wake', 'N1', 'N2', 'N3', 'REM']
+    self.properties['CLASSES'] = [tp[0] for tp in th.tgt_tuples]
 
     # (1) extract required channels as tapes according to channel selection
     self.extract_sg_tapes()

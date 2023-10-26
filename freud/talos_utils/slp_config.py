@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from roma import Arguments
 from tframe.trainers import SmartTrainerHub
 from tframe.configs.config_base import Flag
@@ -26,6 +27,8 @@ class SleepConfig(SmartTrainerHub):
   # region: Data Setting
 
   pp_config = Flag.string(None, 'Preprocess arguments', is_key=None)
+  tgt_config = Flag.string('Wake:0;N1:1;N2:2;N3:3;REM:4',
+                           'Target configs', is_key=None)
 
   # endregion: Data Setting
 
@@ -77,6 +80,19 @@ class SleepConfig(SmartTrainerHub):
     # Case 2： fusion_channels = [['EEGx2', 'EOGx1'], ['EMGx1']]
     return sum([int(chn_str[-1]) for chn_str in self.fusion_channels[0]])
 
+  @property
+  def tgt_tuples(self):
+    """Wake:0,N1:1,N2:2,N3:3,REM:4"""
+    kvs = [s.split(':') for s in self.tgt_config.split(';')]
+    return [(k, [int(i) for i in v.split(',')]) for k, v in kvs]
+
+  @property
+  def tgt_map_dict(self):
+    od = OrderedDict()
+    for i, (_, js) in enumerate(self.tgt_tuples):
+      for j in js: od[j] = i
+    return od
+
   # endregion: Properties
 
   def smooth_out_conflicts(self):
@@ -86,6 +102,7 @@ class SleepConfig(SmartTrainerHub):
       msg_tail = ' if th.epoch_num > 1.'
       if self.epoch_delta != 0:
         raise AssertionError(f'!! th.epoch_delta should be 0' + msg_tail)
+
 
 # New hub class inherited from SmartTrainerHub must be registered
 SleepConfig.register()
