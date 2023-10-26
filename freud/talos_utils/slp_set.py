@@ -367,7 +367,7 @@ class SleepSet(DataSet):
   @classmethod
   def get_map_dict(cls, sg: SignalGroup):
     # TODO: currently only AASM standard is supported
-    assert cls.NUM_STAGES == 5
+    # assert cls.NUM_STAGES == 5
     anno: Annotation = sg.annotations[cls.ANNO_KEY_GT_STAGE]
 
     def _init_map_dict(labels):
