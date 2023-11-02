@@ -596,7 +596,8 @@ class SleepSet(DataSet):
         branch.append(x)
       # Find stage_ids if necessary
       if include_targets:
-        stage_ids.extend(self.get_sg_epoch_tables(sg)[1])
+        sids = self.get_sg_epoch_tables(sg)[1][:x.shape[0]*N]
+        stage_ids.extend(sids)
 
     # TODO currently only single branch is supported
     assert len(branches) == 1
@@ -606,7 +607,7 @@ class SleepSet(DataSet):
     data_dict = {}
     if include_targets:
       # Set mask
-      stage_ids = stage_ids[:len(features) * N]
+      assert len(stage_ids) == len(features) * N
       mask = [si is not None for si in stage_ids]
       data_dict[pedia.batch_mask] = np.stack(mask, axis=-1).reshape([-1, N, 1])
 
@@ -617,6 +618,8 @@ class SleepSet(DataSet):
     else: targets = None
 
     # NUM_CLASSES and CLASSES properties are for confusion matrix label
+    # features.shape = [S, N * Ls, C]
+    # targets.shape = [S, N, NUM_STAGES]
     ds = DataSet(features, targets, data_dict, name=f'{self.name}-eva',
                  NUM_CLASSES=self.NUM_STAGES, CLASSES=self['CLASSES'])
 
