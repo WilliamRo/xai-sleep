@@ -4,12 +4,11 @@ from tframe.layers.pooling import ReduceMean
 # from tframe.layers.pooling import GlobalAveragePooling1D as gap
 # from attn_layers.pool import AveragePooling1D
 # from attn_layers.pool import GlobalAveragePooling1D as gap
-from attn_layers.attention import SelfAttention
+from attn_layers.attention import EncoderLayer
 from attn_layers.SE_layer import SE_layer
 from attn_layers.merge import Pad_Merge
 from attn_layers.layers import Gelu
-from attn_layers.layers import  STFT
-
+from attn_layers.layers import  STFT, Transpose_layer
 
 # region: Initial and Finalize Model
 
@@ -33,9 +32,10 @@ def finalize(model: mu.Classifier, flatten=False, use_gap=False):
     if flatten: model.add(mu.Flatten())
 
     model.add(mu.Dense(num_neurons=th.output_dim))
+    # model.add(mu.Activation('relu'))
     model.add(mu.Activation('softmax'))
 
-  model.build(metric=['loss', 'f1', 'accuracy'], batch_metric='accuracy', loss=th.loss_string)
+  model.build(metric=['f1', 'accuracy'], batch_metric='accuracy', loss=th.loss_string)
 
   return model
 
@@ -92,10 +92,10 @@ def add_deep_sleep_net_lite(model: mu.Classifier, N: int):
 def add_AFR(model: mu.Classifier):
   vertices = [[mu.Conv1D(30, 1, activation='Relu', use_batchnorm=True),
                mu.Conv1D(30, 1, use_batchnorm=True),
-               SE_layer()
+               # SE_layer()
                ],
-              [mu.Conv1D(30, 1, use_batchnorm=True)],
-              [mu.Merge(mu.Merge.SUM)]]
+              [mu.Conv1D(30, 1, use_batchnorm=True, use_bias=False)],
+              [mu.Merge(mu.Merge.SUM), mu.Activation('relu')]]
   afr = mu.ForkMergeDAG(vertices, edges='1;10;011')
   model.add(afr)
 
@@ -103,19 +103,22 @@ def add_AFR(model: mu.Classifier):
 # endregion: MSCNN
 
 # region: MHA
-def add_EncodeLayer(model):
-  vertices = [[mu.LayerNormalization(),
-               SelfAttention(num_heads=3),
-               mu.Dropout()],
+def add_TCE(model):
+  vertices = [[EncoderLayer(num_heads=5)],
+              [mu.LayerNormalization(), Transpose_layer(), mu.Dense(120),
+               mu.Activation('relu'),
+               mu.Dropout(0.9), mu.Dense(100), Transpose_layer()],
               [mu.Merge(mu.Merge.SUM)],
-              [mu.LayerNormalization(), mu.Dense(120), mu.Activation('relu'),
-               mu.Dense(30), mu.Dropout()],
-              [mu.Merge(mu.Merge.SUM)]
-              ]
-  encoder = mu.ForkMergeDAG(vertices, edges='1;11;001;0011')
-  model.add(encoder)
 
-  model.add(mu.LayerNormalization())
+              [EncoderLayer(num_heads=5)],
+              [mu.LayerNormalization(), Transpose_layer(), mu.Dense(120),
+               mu.Activation('relu'),
+               mu.Dropout(0.9), mu.Dense(100), Transpose_layer()],
+              [mu.Merge(mu.Merge.SUM), mu.LayerNormalization()]
+
+              ]
+  encoder = mu.ForkMergeDAG(vertices, edges='1;01;011;0001;00001;000011')
+  model.add(encoder)
 
 # endregion: MHA
 

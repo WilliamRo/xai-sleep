@@ -36,7 +36,7 @@ class Pad_Merge(Merge):
     self._axis = kwargs.get('axis', -1)
     self.pad = kwargs.get('pad', 0) *2 + 1
 
-  def _link(self, *input_list, **kwargs):
+  def _link(self, input_list, **kwargs):
     # Check input_list
     assert len(input_list) > 0
     if len(input_list) == 1: input_list = input_list[0]
@@ -51,6 +51,9 @@ class Pad_Merge(Merge):
     if self.merge_method == 'pad_concat' and self.pad:
       input1 = input_list[0]
       input2 = input_list[1]
+
+
+
       input_shape = input1.get_shape().as_list()
       input_shape2 = input2.get_shape().as_list()
 
@@ -66,7 +69,9 @@ class Pad_Merge(Merge):
 
       output =  tf.concat([input1, input2], axis=self._axis+1)
       output_shape = output.get_shape().as_list()
-      return tf.reshape(output, (-1,output_shape[1]*output_shape[2],input_shape[-1]))
+      output = tf.reshape(output, (-1, output_shape[1]*output_shape[2],
+                                 input_shape[-1]))
+      return output
 
     else: raise KeyError('!! Unknown merge method {}'.format(self.merge_method))
 
