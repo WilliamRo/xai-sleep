@@ -18,9 +18,7 @@ def model():
 
   m.add_deep_sleep_net_lite(model, th.filters)
   m.add_AFR(model)
-  m.add_EncodeLayer(model)
-  m.add_EncodeLayer(model)
-
+  m.add_TCE(model)
 
   return m.finalize(model, flatten=True, use_gap=False)
 
@@ -28,7 +26,7 @@ def main(_):
   console.start('{} on Attn_Sleep task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = 0
+  th.rehearse = 1
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
@@ -46,7 +44,7 @@ def main(_):
   # sleepeasonnpz data come from attnsleep
   SleepAgent.register_dataset("sleepeasonnpz", SleepEason)
 
-  th.data_config = 'sleepeasonnpz EEGx2 beta'
+  th.data_config = 'sleepeasonx EEGx1 beta'
   # th.data_config = 'sleepeasonnpz EEGx2,EOGx1 beta'
   th.data_config += ' pattern=.*(sleepedfx)'
   # th.data_config += ' pattern=.*(ucddb)'
@@ -61,15 +59,17 @@ def main(_):
   th.eval_epoch_num = 1
   th.sg_buffer_size = None
   th.epoch_pad = 0
-
+  th.weight_initializer = 1
   th.lr_decay_method = 'cosine'
-
+  th.ending_lr = 0.0001
+  # th.lr_global_step = 100
+  # th.lr_decay_steps = 10
 
   # th.input_shape = [None, th.input_channels]
   if th.epoch_pad > 0:
     assert th.epoch_num == th.eval_epoch_num == 1
     L = 100 * 30 * (1 + 2 * th.epoch_pad)
-  else: L = 100 * 30 * th.epoch_num
+  else: L = 128 * 30 * th.epoch_num
   th.input_shape = [L * th.epoch_num, th.input_channels]
   th.use_batch_mask = True
 
@@ -96,10 +96,10 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
-  th.epoch = 100
+  th.epoch = 1500
 
   th.early_stop = True
-  th.batch_size = 128
+  th.batch_size = 256
 
   # th.batchlet_size = 128
   # th.gradlet_in_device = 1
