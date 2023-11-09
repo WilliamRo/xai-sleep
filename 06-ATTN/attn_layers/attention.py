@@ -18,10 +18,10 @@ from tframe.utils import get_scale
 from tframe.core.decorators import init_with_graph
 from tframe.core.function import Function
 
-class SelfAttention(Layer, AttentionBase):
+class EncoderLayer(Layer, AttentionBase):
 
-  full_name = 'self_attention'
-  abbreviation = 'self_attn'
+  full_name = 'encoder_layer'
+  abbreviation = 'encoder'
 
   # @init_with_graph
   def __init__(self, **kwargs):
@@ -66,25 +66,26 @@ class SelfAttention(Layer, AttentionBase):
       attention = tf.transpose(attention, perm=[0, 3, 2, 1]) # type: tf.Tensor
       last_dim = attention.shape.as_list()[-1]
       attention = tf.reshape(attention, (-1, q_len, last_dim))
+    attention = self.dropout(attention, 0.1)
 
-    # output = self.dense()
     # Calculate output and return
-    output = (attention if output_dim is None
-              else self.dense(output_dim, attention, scope='output'))
+    if output_dim is not None:
+      output = tf.transpose(attention, perm=[0, 2, 1])
+      output = self.dense(output_dim, output, scope='output')
+      output = tf.transpose(output, perm=[0, 2, 1])
+
+
+
     return output
 
 
   @single_input
   def _link(self, x, **kwargs):
-    # x.shape = [?, L, C], e.g., [?, 45, 30]
-    afr_reduce_cnn_size = 30
-    y = self._mha(x, x, x, num_heads=self.num_heads, V_dim=30, output_dim=afr_reduce_cnn_size)
-    # y = tf.transpose(y, [0, 2, 1])d
-
-    # y = self.dense(78, y, scope='attndense')
-    # y = tf.transpose(y, [0, 2, 1])
-    # output = tf.layers.average_pooling1d(
-    #   input_, pool_size=shape[1], strides=1, data_format=self._data_format)
-    # output = tf.reshape(output, shape=[-1, output.shape.as_list()[-1]])
+    # x.shape = [?, L, C], e.g., [?, 78, 30] ->[?, 80, 30]
+    d_model = 100
+    q = self.conv1d(x, 30, 7, 'qconv')
+    y = self._mha(q, x, x, num_heads=self.num_heads, V_dim=30, output_dim=d_model)
+    y = self.dropout(y, 0.1)
+    y = q + y
     return y
 
