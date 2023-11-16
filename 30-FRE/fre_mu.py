@@ -1,5 +1,7 @@
-from tframe import mu
+from fre_ops.fre_filter import DaFilter
+from fre_ops.stft_layer import STFT
 
+from tframe import mu
 from tframe.layers.pooling import ReduceMean
 
 

@@ -9,17 +9,23 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'shem'
-id = 1
+model_name = 'ham'
+id = 2
 def model():
-  from tframe.layers.common import BatchReshape
-
   th = core.th
   model = m.get_initial_model()
 
-  m.add_deep_sleep_net_lite(model, th.filters)
+  model.add(m.DaFilter(ks=32))
+  model.add(m.STFT(max_fre=30))
 
-  # model.add(BatchReshape())
+  # Add layers according to archi_string
+  for i, layer in enumerate(th.archi_string.split('-')):
+    if layer[0] == 's': stride, c = 3, int(layer[1:])
+    else: stride, c = 1, int(layer)
+
+    bn = th.use_batchnorm if i > 0 else False
+    model.add(m.mu.HyperConv2D(
+      c, th.kernel_size, stride, activation=th.activation, use_batchnorm=bn))
 
   return m.finalize(model, flatten=True, use_gap=False)
 
@@ -63,9 +69,9 @@ def main(_):
 
   th.activation = 'relu'
 
-  th.filters = 64
-  th.dropout = 0.5
-  th.use_batchnorm = True
+  th.kernel_size = 5
+  th.archi_string = 's16-s16-s8'
+  th.use_batchnorm = False
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
@@ -82,7 +88,7 @@ def main(_):
   # th.global_l2_penalty = 0.002
 
   th.train = True
-  th.patience = 50
+  th.patience = 20
   th.overwrite = True
 
   th.updates_per_round = 50
