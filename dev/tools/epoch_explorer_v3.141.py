@@ -51,6 +51,9 @@ class EpochExplorer(Pictor):
     # Set dimension
     self.set_to_axis(self.Keys.STAGES, self.STAGE_KEYS, overwrite=True)
 
+    # Remove Escape shortcut
+    self.shortcuts._library.pop('Escape')
+
   # region: Properties
 
   @property
@@ -109,15 +112,20 @@ class EpochExplorer(Pictor):
       # Get annotation
       anno: Annotation = sg.annotations[cls.Keys.ANNO_KEY_GT_STAGE]
       # Get reshaped tape
-      tape = ds.data.reshape([-1, T, ds.data.shape[-1]])
+      E = ds.data.shape[0] // T
+      tape = ds.data[:E * T]
+      tape = tape.reshape([E, T, ds.data.shape[-1]])
       # Generate map_dict
       map_dict = cls.get_map_dict(sg)
 
       se_dict, cursor = {k: [] for k in cls.STAGE_KEYS}, 0
       for interval, anno_id in zip(anno.intervals, anno.annotations):
-        sid = cls.STAGE_KEYS[map_dict[anno_id]]
         n = int((interval[-1] - interval[0]) / 30)
-        for i in range(cursor, cursor + n): se_dict[sid].append(tape[i])
+        sid = map_dict[anno_id]
+        if sid is not None:
+          skey = cls.STAGE_KEYS[map_dict[anno_id]]
+          for i in range(cursor, cursor + n):
+            if i < len(tape): se_dict[skey].append(tape[i])
         cursor += n
 
       return se_dict
@@ -207,7 +215,7 @@ class RhythmPlotter(Plotter):
     self.new_settable_attr('pctile_margin', 0.01, float, 'Percentile margin')
     self.new_settable_attr('t1', 0, float, 't1')
     self.new_settable_attr('t2', 30, float, 't2')
-    self.new_settable_attr('min_freq', 1, float, 'Minimum frequency')
+    self.new_settable_attr('min_freq', 0.5, float, 'Minimum frequency')
     self.new_settable_attr('max_freq', 20, float, 'Maximum frequency')
     self.new_settable_attr('column_norm', False, bool,
                            'Option to apply column normalization to spectrum')
@@ -217,6 +225,8 @@ class RhythmPlotter(Plotter):
 
     self.new_settable_attr('dev_mode', False, bool,
                            'Option to toggle developer mode')
+    self.new_settable_attr('summit', False, bool,
+                           'Option to toggle summit visualization')
 
     self.new_settable_attr('dev_arg', '32', str, 'Developer mode argument')
 
@@ -244,10 +254,10 @@ class RhythmPlotter(Plotter):
     title = f'[{stage}] {channel_name} {suffix}'
     ax.set_title(title)
 
-  def _plot_spectrum(self, ax: plt.Axes):
+  def _get_spectrum(self):
     from scipy.signal import stft
 
-    # Get signal
+    # get signal
     s: np.ndarray = self.explorer.selected_signal
 
     if self.configs.get('layer', 1) == 2:
@@ -262,8 +272,21 @@ class RhythmPlotter(Plotter):
 
     # Plot STFT result
     spectrum = np.abs((Zxx))
+
+    # Cut value
+    ymin, ymax = self.get('min_freq'), self.get('max_freq')
+    h_mask = f > ymin
+    f, spectrum = f[h_mask], spectrum[h_mask]
+    l_mask = f < ymax
+    f, spectrum = f[l_mask], spectrum[l_mask]
+
     if self.get('column_norm'):
       spectrum = spectrum / np.max(spectrum, axis=0, keepdims=True)
+
+    return f, t, spectrum
+
+  def _plot_spectrum(self, ax: plt.Axes):
+    f, t, spectrum = self._get_spectrum()
 
     # ax.pcolormesh(t, f, spectrum, vmin=0, shading='gouraud')
     ax.pcolormesh(t, f, spectrum, vmin=0)
@@ -291,10 +314,48 @@ class RhythmPlotter(Plotter):
 
     return ''
 
+
   def _low_freq_signal(self, s: np.ndarray):
     ks = int(self.get('dev_arg'))
     x = np.convolve(s, [1/ks] * ks, 'same')
     return x
+
+
+  def pooling(self, size):
+    # `size` should be an odd integer
+    # assert size - size // 2 * 2 == 1
+    p = (size - 1) // 2
+
+    # get signal
+    s: np.ndarray = self.explorer.selected_signal
+
+    shifted_signals = [s]
+    for i in range(1, p + 1):
+      # i = 1, 2, ..., p
+      s_l = np.concatenate([[s[0]] * i, s[:-i]])
+      s_r = np.concatenate([s[i:], [s[-1]] * i])
+      shifted_signals.extend([s_l, s_r])
+
+    aligned_signals = np.stack(shifted_signals, axis=-1)
+    upper = np.max(aligned_signals, axis=-1)
+    lower = np.min(aligned_signals, axis=-1)
+
+    return upper, lower
+
+
+  def _get_summits(self, s: np.ndarray):
+    """TODO"""
+    ks = int(self.get('dev_arg'))
+    x = np.convolve(s, [1/ks] * ks, 'same')
+
+    d_x = x[1:] - x[:-1]
+    sign_d_x = np.sign(d_x)
+    d_sign = sign_d_x[1:] + sign_d_x[:-1]
+
+    indices = np.argwhere(d_sign == 0)
+
+    return indices
+
 
   def _butter_filt(self, s: np.ndarray):
     # Filter signal if required
@@ -342,6 +403,24 @@ class RhythmPlotter(Plotter):
     ymin, ymax = [p[chn_i] for p in self.get_sg_pencentiles(sg, m)]
     ax.set_ylim(ymin, ymax)
 
+    # (2) Plot frequency estimation
+    if self.get('summit'):
+      # (2.1)
+      f, secs, spectrum = self._get_spectrum()
+      dom_f = np.sum(f[..., np.newaxis] * spectrum, axis=0) / np.sum(
+        spectrum, axis=0)
+
+      ax2 = ax.twinx()
+      ax2.plot(secs, dom_f, 'r:', linewidth=2)
+      ax2.plot(secs, [4] * len(secs), '--', linewidth=2, color='orange')
+      ax2.set_ylabel('Frequency Estimation')
+      ax2.set_ylim([0, 12])
+
+      # (2.2)
+      upper, lower = self.pooling(int(self.get('dev_arg')))
+      ax.plot(t, upper, ':', color='gray')
+      ax.plot(t, lower, ':', color='green')
+
     # Return stats
     return ''
 
@@ -372,6 +451,8 @@ class RhythmPlotter(Plotter):
 
     self.register_a_shortcut('d', lambda: self.flip('dev_mode'),
                              'Toggle `dev_mode`')
+    self.register_a_shortcut('s', lambda: self.flip('summit'),
+                             'Toggle `show_summit`')
 
     self.register_a_shortcut('f', lambda: self.flip('filter'),
                              'Toggle `filter`')
@@ -401,8 +482,8 @@ class RhythmPlotter(Plotter):
 
     if t1 == self.get('t1') and t2 == self.get('t2'): return
 
-    self.set('t1', t1, auto_refresh=False)
-    self.set('t2', t2, auto_refresh=False)
+    self.set('t1', t1, auto_refresh=False, verbose=False)
+    self.set('t2', t2, auto_refresh=False, verbose=False)
     self.refresh()
 
   # endregion: Interfaces
@@ -430,13 +511,13 @@ if __name__ == '__main__':
 
   # Set directories
   data_dir = r'../../data/'
-  data_dir += 'sleepeason1'
+  data_dir += 'sleepeasonx'
 
   prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][1]
   pattern = f'{prefix}*.sg'
 
   # Select .sg files
-  sg_file_list = finder.walk(data_dir, pattern=pattern)
+  sg_file_list = finder.walk(data_dir, pattern=pattern)[:20]
 
   signal_groups = []
   for path in sg_file_list:
