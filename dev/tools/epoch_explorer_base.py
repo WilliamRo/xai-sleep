@@ -36,12 +36,13 @@ class EpochExplorer(Pictor):
   STAGE_KEYS = ('W', 'N1', 'N2', 'N3', 'R')
 
 
-  def __init__(self, title='Epoch Explorer', figure_size=(10, 6)):
+  def __init__(self, title='Epoch Explorer', figure_size=(10, 6), **kwargs):
     # Call parent's constructor
     super(EpochExplorer, self).__init__(title, figure_size=figure_size)
 
     self.rhythm_plotter = self.add_plotter(RhythmPlotter(self))
-    self.rhythm_plotter_2 = self.add_plotter(RhythmPlotter(self, layer=2))
+    if kwargs.get('add_layer_2', False):
+      self.rhythm_plotter_2 = self.add_plotter(RhythmPlotter(self, layer=2))
 
     # Create dimensions for epochs and channels
     self.create_dimension(self.Keys.STAGES)
@@ -195,8 +196,8 @@ class EpochExplorer(Pictor):
 
   @staticmethod
   def explore(signal_groups, title='EpochExplorer', figure_size=(10, 6),
-              **kwargs):
-    ee = EpochExplorer(title, figure_size)
+              add_layer_2=False, **kwargs):
+    ee = EpochExplorer(title, figure_size, add_layer_2=add_layer_2)
     for k, v in kwargs.items():
       ee.rhythm_plotter.set(k, v, auto_refresh=False)
     ee.set_signal_groups(signal_groups)
@@ -525,6 +526,6 @@ if __name__ == '__main__':
     signal_groups.append(sg)
 
   # Visualize signal groups
-  EpochExplorer.explore(signal_groups, plot_wave=True)
+  EpochExplorer.explore(signal_groups, plot_wave=True, add_layer_2=True)
 
 
