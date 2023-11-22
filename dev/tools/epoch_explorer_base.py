@@ -40,9 +40,11 @@ class EpochExplorer(Pictor):
     # Call parent's constructor
     super(EpochExplorer, self).__init__(title, figure_size=figure_size)
 
-    self.rhythm_plotter = self.add_plotter(RhythmPlotter(self))
+    plotter_cls = kwargs.get('plotter_class', RhythmPlotter)
+
+    self.rhythm_plotter = self.add_plotter(plotter_cls(self))
     if kwargs.get('add_layer_2', False):
-      self.rhythm_plotter_2 = self.add_plotter(RhythmPlotter(self, layer=2))
+      self.rhythm_plotter_2 = self.add_plotter(plotter_cls(self, layer=2))
 
     # Create dimensions for epochs and channels
     self.create_dimension(self.Keys.STAGES)
@@ -196,8 +198,10 @@ class EpochExplorer(Pictor):
 
   @staticmethod
   def explore(signal_groups, title='EpochExplorer', figure_size=(10, 6),
-              add_layer_2=False, **kwargs):
-    ee = EpochExplorer(title, figure_size, add_layer_2=add_layer_2)
+              add_layer_2=False, plotter_cls=None, **kwargs):
+    if plotter_cls is None: plotter_cls = RhythmPlotter
+    ee = EpochExplorer(title, figure_size, add_layer_2=add_layer_2,
+                       plotter_class=plotter_cls)
     for k, v in kwargs.items():
       ee.rhythm_plotter.set(k, v, auto_refresh=False)
     ee.set_signal_groups(signal_groups)
@@ -255,11 +259,8 @@ class RhythmPlotter(Plotter):
     title = f'[{stage}] {channel_name} {suffix}'
     ax.set_title(title)
 
-  def _get_spectrum(self):
+  def _get_spectrum(self, s):
     from scipy.signal import stft
-
-    # get signal
-    s: np.ndarray = self.explorer.selected_signal
 
     if self.configs.get('layer', 1) == 2:
       x = self._low_freq_signal(s)
@@ -286,8 +287,14 @@ class RhythmPlotter(Plotter):
 
     return f, t, spectrum
 
+  def _calc_dominate_freq_curve(self, s: np.ndarray):
+    f, secs, spectrum = self._get_spectrum(s)
+    dom_f = np.sum(f[..., np.newaxis] * spectrum, axis=0) / np.sum(
+      spectrum, axis=0)
+    return f, secs, spectrum, dom_f
+
   def _plot_spectrum(self, ax: plt.Axes):
-    f, t, spectrum = self._get_spectrum()
+    f, t, spectrum = self._get_spectrum(self.explorer.selected_signal)
 
     # ax.pcolormesh(t, f, spectrum, vmin=0, shading='gouraud')
     ax.pcolormesh(t, f, spectrum, vmin=0)
@@ -322,13 +329,10 @@ class RhythmPlotter(Plotter):
     return x
 
 
-  def pooling(self, size):
+  def pooling(self, s, size):
     # `size` should be an odd integer
     # assert size - size // 2 * 2 == 1
     p = (size - 1) // 2
-
-    # get signal
-    s: np.ndarray = self.explorer.selected_signal
 
     shifted_signals = [s]
     for i in range(1, p + 1):
@@ -407,9 +411,8 @@ class RhythmPlotter(Plotter):
     # (2) Plot frequency estimation
     if self.get('summit'):
       # (2.1)
-      f, secs, spectrum = self._get_spectrum()
-      dom_f = np.sum(f[..., np.newaxis] * spectrum, axis=0) / np.sum(
-        spectrum, axis=0)
+      f, secs, spectrum, dom_f = self._calc_dominate_freq_curve(
+        self.explorer.selected_signal)
 
       ax2 = ax.twinx()
       ax2.plot(secs, dom_f, 'r:', linewidth=2)
@@ -418,7 +421,8 @@ class RhythmPlotter(Plotter):
       ax2.set_ylim([0, 12])
 
       # (2.2)
-      upper, lower = self.pooling(int(self.get('dev_arg')))
+      upper, lower = self.pooling(
+        self.explorer.selected_signal, int(self.get('dev_arg')))
       ax.plot(t, upper, ':', color='gray')
       ax.plot(t, lower, ':', color='green')
 
