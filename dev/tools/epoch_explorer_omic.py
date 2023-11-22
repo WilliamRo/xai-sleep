@@ -1,3 +1,5 @@
+import copy
+
 from epoch_explorer_base import EpochExplorer, RhythmPlotter
 from freud.data_io.mne_based import read_digital_signals_mne
 from freud.gui.sleep_monitor import SleepMonitor
@@ -62,7 +64,7 @@ class RhythmPlotterPro(RhythmPlotter):
     # (1) Find se
     sg = self.explorer.selected_signal_group
     se = self.explorer.get_sg_stage_epoch_dict(sg)
-    # se.keys() == ['W', 'N1', 'N2', 'N3', 'REM']
+    # se.keys() == ['W', 'N1', 'N2', 'N3', 'R']
     # se.values() is a list of signals with shape [fs * 30， C]
     # selected_signal = se[STAGE_KEY][EPOCH_INDEX][:, CHANNEL_INDEX]
 
@@ -73,6 +75,7 @@ class RhythmPlotterPro(RhythmPlotter):
     }
     results = {}
     for _, stage_key in enumerate(colors.keys()):
+      if stage_key not in se: continue
       signals = [data[:, channel_index] for data in se[stage_key]]
       console.show_status(f'Estimating scores for `{stage_key}` ...')
       frequencies = self._calc_freqs(signals)
@@ -81,7 +84,7 @@ class RhythmPlotterPro(RhythmPlotter):
       console.show_status(f'{len(signals)} epochs estimated.')
 
     # (3) set results to sg for future filtering
-    fa_scores = None
+    fa_scores = results
     sg.put_into_pocket('fa_scores', fa_scores, exclusive=False)
 
     # (*) Plot
@@ -115,15 +118,27 @@ class RhythmPlotterPro(RhythmPlotter):
 
     # .. add region selector function
     xlim, ylim = ax.get_xlim(), ax.get_ylim()
-    def onselect_function(eclick, erelease):
+    def onselect_function(*_):
       xmin, xmax, ymin, ymax = rect_selector.extents
-      self.put_into_pocket('fa_rect', rect_selector.extents, exclusive=False)
-
+      # self.put_into_pocket('fa_rect', rect_selector.extents, exclusive=False)
       rect = Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
                        facecolor='red', edgecolor='black',
                        alpha=0.2, fill=True)
       ax.add_patch(rect)
       fig.canvas.draw()
+
+      # Filter and explore
+      new_sg = copy.deepcopy(sg)
+      new_se = {}
+      for s_key, data in se.items():
+        f_scores, a_scores = results[s_key]
+        data = [s for s, f, a in zip(data, f_scores, a_scores)
+                if xmin < f < xmax and ymin < a < ymax]
+        if len(data) > 0: new_se[s_key] = data
+      new_sg.put_into_pocket(EpochExplorer.Keys.STAGE_EPOCH_DICT, new_se,
+                             exclusive=False)
+      EpochExplorer.explore([new_sg], plot_wave=True,
+                            plotter_cls=RhythmPlotterPro)
     rect_selector = RectangleSelector(ax, onselect_function, button=[1])
     ax.set_xlim(xlim), ax.set_ylim(ylim)
 

@@ -142,8 +142,13 @@ class EpochExplorer(Pictor):
     super().set_cursor(key, step, cursor, False)
 
     sg: SignalGroup = self.get_element(self.Keys.OBJECTS)
-    current_stage = self.get_element(self.Keys.STAGES)
     se = self.get_sg_stage_epoch_dict(sg)
+
+    # Get selected stage
+    if key == self.Keys.OBJECTS and len(se) < 5:
+      self.set_to_axis(self.Keys.STAGES, list(se.keys()), overwrite=True)
+
+    current_stage = self.get_element(self.Keys.STAGES)
 
     # Re-assign dimension
     if key in (self.Keys.OBJECTS, self.Keys.STAGES):
