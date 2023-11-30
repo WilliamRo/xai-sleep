@@ -35,7 +35,7 @@ class RhythmPlotterPro(RhythmPlotter):
     freqs = []
     for i, s in enumerate(signals):
       # console.print_progress(i, len(signals))
-      f, secs, spectrum, dom_f = self._calc_dominate_freq_curve(s)
+      f, secs, spectrum, dom_f = self._calc_dominate_freq_curve_v1(s)
       # Estimate freq score based on dom_f
       score = np.average(dom_f)
       freqs.append(score)
@@ -124,8 +124,6 @@ class RhythmPlotterPro(RhythmPlotter):
       rect = Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
                        facecolor='red', edgecolor='black',
                        alpha=0.2, fill=True)
-      ax.add_patch(rect)
-      fig.canvas.draw()
 
       # Filter and explore
       new_sg = copy.deepcopy(sg)
@@ -135,6 +133,13 @@ class RhythmPlotterPro(RhythmPlotter):
         data = [s for s, f, a in zip(data, f_scores, a_scores)
                 if xmin < f < xmax and ymin < a < ymax]
         if len(data) > 0: new_se[s_key] = data
+      if len(new_se) == 0: return
+
+      # Add patch and refresh canvas
+      ax.add_patch(rect)
+      fig.canvas.draw()
+
+      # Create a new epoch explorer and show selected epochs
       new_sg.put_into_pocket(EpochExplorer.Keys.STAGE_EPOCH_DICT, new_se,
                              exclusive=False)
       EpochExplorer.explore([new_sg], plot_wave=True,
@@ -159,16 +164,21 @@ if __name__ == '__main__':
   # Set directories
   data_dir = r'../../data/'
   data_dir += 'sleepeasonx'
+  # data_dir += 'sleepedfx'
 
   prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][1]
   pattern = f'{prefix}*.sg'
+  # pattern = f'SC*raw*.sg'
+
+  channel_names = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 
   # Select .sg files
   sg_file_list = finder.walk(data_dir, pattern=pattern)[:20]
 
   signal_groups = []
   for path in sg_file_list:
-    sg = io.load_file(path, verbose=True)
+    sg: SignalGroup = io.load_file(path, verbose=True)
+    if channel_names: sg = sg.extract_channels(channel_names)
     signal_groups.append(sg)
 
   # Visualize signal groups

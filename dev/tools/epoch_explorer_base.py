@@ -292,7 +292,13 @@ class RhythmPlotter(Plotter):
 
     return f, t, spectrum
 
-  def _calc_dominate_freq_curve(self, s: np.ndarray):
+  def _calc_dominate_freq_curve_v1(self, s: np.ndarray):
+    f, secs, spectrum = self._get_spectrum(s)
+    dom_f = np.sum(f[..., np.newaxis] * spectrum, axis=0) / np.sum(
+      spectrum, axis=0)
+    return f, secs, spectrum, dom_f
+
+  def _calc_dominate_freq_curve_v2(self, s: np.ndarray):
     f, secs, spectrum = self._get_spectrum(s)
     dom_f = np.sum(f[..., np.newaxis] * spectrum, axis=0) / np.sum(
       spectrum, axis=0)
@@ -416,7 +422,7 @@ class RhythmPlotter(Plotter):
     # (2) Plot frequency estimation
     if self.get('summit'):
       # (2.1)
-      f, secs, spectrum, dom_f = self._calc_dominate_freq_curve(
+      f, secs, spectrum, dom_f = self._calc_dominate_freq_curve_v1(
         self.explorer.selected_signal)
 
       ax2 = ax.twinx()
