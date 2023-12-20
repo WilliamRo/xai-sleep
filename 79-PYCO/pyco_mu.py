@@ -1,13 +1,12 @@
 from tframe import mu
-from pyco_layers.eason_classifier import EasonClassifier
 from tframe.layers.pooling import ReduceMean
-
+from pyco_layers.sleepyco import ChannelGate
 
 
 def get_initial_model():
   from pyco_core import th
 
-  model = EasonClassifier(mark=th.mark)
+  model = mu.Classifier(mark=th.mark)
   model.add(mu.Input(sample_shape=th.input_shape))
 
   return model
@@ -19,8 +18,6 @@ def finalize(model: mu.Classifier, flatten=False, use_gap=False):
 
   if use_gap:
     model.add(ReduceMean(axis=1))
-    # model.add(mu.GlobalAveragePooling1D())
-    # model.add(mu.Flatten())
     model.add(mu.Activation('softmax'))
   else:
     if flatten: model.add(mu.Flatten())
@@ -32,20 +29,38 @@ def finalize(model: mu.Classifier, flatten=False, use_gap=False):
 
   return model
 
-def decoder(model, flatten=False, use_gap=False):
+
+
+def make_layers(model, in_channels, out_channels, n_layers, maxpool_size, scope,
+                first=False):
   from pyco_core import th
+  if not first: model.add(mu.MaxPool1D(maxpool_size, maxpool_size))
+  for i in range(n_layers):
+    model.add(mu.HyperConv1D(out_channels, 3, 1,
+                             use_batchnorm=True))
+    if i == n_layers-1:
+      model.add(ChannelGate(in_channels, scope=scope))
+      # add_gate_channels(model)
+    model.add(mu.Activation('relu'))
+    in_channels = out_channels
 
 
-  model.add(mu.Flatten())
-  model.add(mu.Dense(num_neurons=th.output_dim))
-  model.add(mu.Activation('softmax'))
-  model.add(mu.Dense(1024))
-  model.add(mu.Dense(3000))
-
-  model.build(metric=['f1', 'accuracy'], batch_metric='accuracy', loss='mse')
+def add_gate_channels(model, reduction=16, pool_types='avg'):
+  vertices = [[
+              mu.GlobalAveragePooling1D(),
+               mu.Flatten(), mu.Linear(64 // reduction),
+               mu.Activation('relu'), mu.Linear(64), mu.Reshape([1, 64]),
+  mu.HyperConv1D(64, 3, 1)],
+              [mu.Merge(mu.Merge.PROD)]
+              ]
+  gate_channels = mu.ForkMergeDAG(vertices, edges='1;11')
+  model.add(gate_channels)
 
   return model
 
+def get_features(model, fullyfinetune=True):
+  if fullyfinetune:
+    model.add(mu.HyperConv1D(128, 1, 1))
 
 def add_deep_sleep_net_lite(model: mu.Classifier, N: int):
   from pyco_core import th

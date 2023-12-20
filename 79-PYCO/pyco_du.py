@@ -17,12 +17,7 @@ def load_data():
 
   return data_sets
 
-def add_wake(data_sets):
-  train_set = data_sets[0]
-  sgs = train_set.signal_groups
-  for sg in sgs:
-    sg
-  pass
+
 
 def evaluate(trainer: Trainer):
   from pyco_core import th
