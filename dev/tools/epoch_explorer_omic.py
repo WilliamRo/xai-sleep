@@ -31,29 +31,25 @@ class RhythmPlotterPro(RhythmPlotter):
 
   # region: Core Methods
 
-  def _calc_freqs(self, signals: np.ndarray):
-    freqs = []
-    for i, s in enumerate(signals):
-      # console.print_progress(i, len(signals))
-      f, secs, spectrum, dom_f = self._calc_dominate_freq_curve_v1(s)
-      # Estimate freq score based on dom_f
-      score = np.average(dom_f)
-      freqs.append(score)
+  def _bm_01_freq(self, s, min_freq=None, max_freq=None):
+    if min_freq is None: min_freq = self.get('min_freq')
+    if max_freq is None: max_freq = self.get('max_freq')
+    f, secs, spectrum, dom_f = self._calc_dominate_freq_curve_v1(
+      s, min_freq, max_freq)
+    # Estimate freq score based on dom_f
+    return np.average(dom_f)
 
-    return freqs
-
-  def _calc_amps(self, signals: np.ndarray):
-    amps = []
-    for i, s in enumerate(signals):
-      # console.print_progress(i, len(signals))
-      upper, lower = self.pooling(s, int(self.get('dev_arg')))
-      # Estimate amp score based on upper and lower
-      score = np.average(upper - lower)
-      amps.append(score)
-
-    return amps
+  def _bm_02_ampl(self, s, pool_size=None):
+    if pool_size is None: pool_size = int(self.get('dev_arg'))
+    upper, lower = self.pooling(s, pool_size)
+    # Estimate amp score based on upper and lower
+    return np.average(upper - lower)
 
   # endregion: Core Methods
+
+  def calculate_biomarkers(self, func, signals: list, **kwargs):
+    """Calculate biomarkers for each epoch"""
+    return np.array([func(s, **kwargs) for s in signals])
 
   def analyze_selected_sg(self, channel_index: int = 0,
                           show_region='true'):
@@ -78,8 +74,8 @@ class RhythmPlotterPro(RhythmPlotter):
       if stage_key not in se: continue
       signals = [data[:, channel_index] for data in se[stage_key]]
       console.show_status(f'Estimating scores for `{stage_key}` ...')
-      frequencies = self._calc_freqs(signals)
-      amplitudes = self._calc_amps(signals)
+      frequencies = self.calculate_biomarkers(self._bm_01_freq, signals)
+      amplitudes = self.calculate_biomarkers(self._bm_02_ampl, signals)
       results[stage_key] = (frequencies, amplitudes)
       console.show_status(f'{len(signals)} epochs estimated.')
 

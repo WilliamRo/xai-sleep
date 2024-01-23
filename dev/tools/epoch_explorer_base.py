@@ -264,7 +264,7 @@ class RhythmPlotter(Plotter):
     title = f'[{stage}] {channel_name} {suffix}'
     ax.set_title(title)
 
-  def _get_spectrum(self, s):
+  def _get_spectrum(self, s, ymin=None, ymax=None):
     from scipy.signal import stft
 
     if self.configs.get('layer', 1) == 2:
@@ -281,7 +281,8 @@ class RhythmPlotter(Plotter):
     spectrum = np.abs((Zxx))
 
     # Cut value
-    ymin, ymax = self.get('min_freq'), self.get('max_freq')
+    if ymin is None: ymin = self.get('min_freq')
+    if ymax is None: ymax = self.get('max_freq')
     h_mask = f > ymin
     f, spectrum = f[h_mask], spectrum[h_mask]
     l_mask = f < ymax
@@ -292,8 +293,8 @@ class RhythmPlotter(Plotter):
 
     return f, t, spectrum
 
-  def _calc_dominate_freq_curve_v1(self, s: np.ndarray):
-    f, secs, spectrum = self._get_spectrum(s)
+  def _calc_dominate_freq_curve_v1(self, s: np.ndarray, ymin=None, ymax=None):
+    f, secs, spectrum = self._get_spectrum(s, ymin, ymax)
     dom_f = np.sum(f[..., np.newaxis] * spectrum, axis=0) / np.sum(
       spectrum, axis=0)
     return f, secs, spectrum, dom_f
