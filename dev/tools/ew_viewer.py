@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pandas
 from matplotlib.patches import Rectangle
 
 from pictor import Pictor
@@ -32,14 +33,56 @@ class EWViewer(Pictor):
   def bm_arg_tuples(self): return [
     (bm_key, arg_key) for bm_key, (arg_key, _) in self.data['meta'][2].items()]
 
+  @Pictor.property()
+  def dataframe_dict(self):
+    """key = (sg.label, channel_label)"""
+    import pandas as pd
+
+    stage_keys = ('W', 'N1', 'N2', 'N3', 'R')
+
+    series_dict, stage_key_dict = {}, {}
+    for data_key, stage_dict in self.data.items():
+      if data_key == 'meta': continue
+      sg_label, ch_label, config_tuple = data_key
+      # Initialize stage_key_series if necessary
+      if sg_label not in stage_key_dict:
+        sk_list = []
+        for sk in stage_keys: sk_list.extend([sk] * len(stage_dict[sk]))
+        stage_key_dict[sg_label] = pd.Series(data=sk_list, name='Stage')
+
+      group_key = (sg_label, ch_label)
+
+      # Initialize if necessary, group_key = ('sg.label', 'channel_label')
+      if group_key not in series_dict:
+        series_dict[group_key] = {'Stage': stage_key_dict[sg_label]}
+
+      value_list = []
+      for sk in stage_keys: value_list.extend(stage_dict[sk])
+      bm_key, param_key, param_value = config_tuple
+      series_key = f'{bm_key} ({param_key}={param_value})'
+      series_dict[group_key][series_key] = pd.Series(
+        data=value_list, name=series_key)
+
+    # Gather data into DataFrames
+    df_dict = {}
+    for s_key, s_dict in series_dict.items():
+      df_dict[s_key] = pd.DataFrame(data=s_dict)
+
+    return df_dict
+
   @property
   def selected_profiles(self):
+    # e.g., 'sleepedfSC4001E'
     sg_label = self.get_element(self.Keys.OBJECTS)
+    # e.g., 'EEG Fpz-Cz'
     channel_label = self.get_element(self.Keys.CHANNELS)
     key = [sg_label, channel_label]
     profiles = []
     for bm_key, arg_key in self.bm_arg_tuples:
+      # e.g., bm_key = 'BM01-FREQ', arg_key = 'max_freq'
+      # e.g., arg = 25
       arg = self.get_element((bm_key, arg_key))
+      # e.g., profile = ('SC4001E', 'EEG Fpz-Cz', (BM01, 'max_freq', 25))
       profiles.append(tuple(key + [(bm_key, arg_key, arg)]))
 
     return profiles
@@ -47,6 +90,15 @@ class EWViewer(Pictor):
   @property
   def selected_res_dict(self):
     return {key[2][0]: self.data[key] for key in self.selected_profiles}
+
+  @property
+  def selected_dataframe(self):
+    # e.g., 'sleepedfSC4001E'
+    sg_label = self.get_element(self.Keys.OBJECTS)
+    # e.g., 'EEG Fpz-Cz'
+    channel_label = self.get_element(self.Keys.CHANNELS)
+
+    return self.dataframe_dict[(sg_label, channel_label)]
 
   # endregion: Properties
 
@@ -112,15 +164,31 @@ class ProbeScatter(Plotter):
   def __init__(self, pictor, **kwargs):
     super().__init__(self.plot, pictor)
 
-    self.new_settable_attr('show_rect', True, bool,
+    self.new_settable_attr('show_scatter', True, bool,
+                           'Option to show scatter')
+    self.new_settable_attr('show_rect', False, bool,
                            'Option to show region of each stage')
+    self.new_settable_attr('fit_gauss', False, bool,
+                           'Option to fit gauss for each stage')
 
     self.new_settable_attr('xmin', None, float, 'x-min')
     self.new_settable_attr('xmax', None, float, 'x-max')
     self.new_settable_attr('ymin', None, float, 'y-min')
     self.new_settable_attr('ymax', None, float, 'y-max')
 
-  def plot(self, ax: plt.Axes):
+  def register_shortcuts(self):
+    self.register_a_shortcut('f', self.fpa, '...')
+
+    self.register_a_shortcut('s', lambda: self.flip('show_scatter'),
+                             'Toggle `show_scatter`')
+    self.register_a_shortcut('r', lambda: self.flip('show_rect'),
+                             'Toggle `show_rect`')
+    self.register_a_shortcut('g', lambda: self.flip('fit_gauss'),
+                             'Toggle `fit_gauss`')
+
+  # region: Plot Methods
+
+  def plot(self, ax: plt.Axes, fig: plt.Figure):
     """
     res_dict = {<bm_key>: {'W': array_w, 'N1': array_n1, ...}, ...}
     """
@@ -137,15 +205,15 @@ class ProbeScatter(Plotter):
     for stage_key, color in colors.items():
       if stage_key not in res_dict[bm1_key]: continue
       data1, data2 = res_dict[bm1_key][stage_key], res_dict[bm2_key][stage_key]
-      ax.scatter(data1, data2, c=color, label=stage_key, alpha=0.5)
+
+      if self.get('show_scatter'):
+        ax.scatter(data1, data2, c=color, label=stage_key, alpha=0.5)
 
       # show region if required
-      if self.get('show_rect'):
-        f_min, f_max = np.min(data1), np.max(data1)
-        a_min, a_max = np.min(data2), np.max(data2)
-        rect = Rectangle((f_min, a_min), f_max - f_min, a_max - a_min,
-                         alpha=0.5, fill=False, edgecolor=color)
-        ax.add_patch(rect)
+      if self.get('show_rect'): self.show_bounds(ax, data1, data2, color)
+
+      # show gauss is required
+      # if self.get('fit_gauss'): self.fit_gauss(ax, data1, data2, color)
 
     # Set title, axis labels, and legend
     profiles = self.pictor.selected_profiles
@@ -175,6 +243,66 @@ class ProbeScatter(Plotter):
     # scripts.append(amp_inc)
     self.pictor.animate(fps=2, scripts=scripts)
 
+  # endregion: Plot Methods
+
+  # region: Data Analysis
+
+  def finger_print_alpha(self):
+    """
+    res_dict = {<bm_key>: {'W': array_w, 'N1': array_n1, ...}, ...}
+    """
+    import seaborn as sns
+    import pandas as pd
+
+    # sns.set_theme()
+    sns.set_palette(['forestgreen', 'gold', 'orange', 'royalblue',
+                     'lightcoral'])
+
+    # Get dataframe
+    df: pd.DataFrame = self.pictor.selected_dataframe
+
+    (_, _, cfg1), (_, _, cfg2) = self.pictor.selected_profiles
+    keys = [f'{cfg[0]} ({cfg[1]}={cfg[2]})' for cfg in (cfg1, cfg2)]
+
+    sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
+
+    plt.show()
+
+  fpa = finger_print_alpha
+
+
+  def export_displot(self, channel_index=0):
+    from roma import console
+
+    import seaborn as sns
+    import pandas as pd
+
+    sns.set_theme()
+    sns.set_palette(['forestgreen', 'gold', 'orange', 'royalblue',
+                     'lightcoral'])
+
+    # Traverse all sg
+
+    # Get dataframe
+    df: pd.DataFrame = self.pictor.selected_dataframe
+
+    (_, _, cfg1), (_, _, cfg2) = self.pictor.selected_profiles
+    keys = [f'{cfg[0]} ({cfg[1]}={cfg[2]})' for cfg in (cfg1, cfg2)]
+
+    g = sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
+
+    g.savefig('')
+
+
+  def show_bounds(self, ax: plt.Axes, data1, data2, color):
+    f_min, f_max = np.min(data1), np.max(data1)
+    a_min, a_max = np.min(data2), np.max(data2)
+    rect = Rectangle((f_min, a_min), f_max - f_min, a_max - a_min,
+                     alpha=0.5, fill=False, edgecolor=color)
+    ax.add_patch(rect)
+
+  # endregion: Data Analysis
+
 
 
 if __name__ == '__main__':
@@ -182,6 +310,7 @@ if __name__ == '__main__':
 
   save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(15,35)_bm02(32,224).pr'
   save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(15,40)_bm02(32,256).pr'
+  save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(25)_bm02(128).pr'
   results = load(save_path)
   meta = results['meta']
 
