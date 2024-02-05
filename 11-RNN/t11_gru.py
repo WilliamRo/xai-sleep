@@ -33,7 +33,7 @@ def main(_):
   console.start('{} on RNN-SSC task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = 0
+  th.rehearse = 1
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ def main(_):
   # 2. model setup
   # ---------------------------------------------------------------------------
   th.model = model
-  th.use_rnn = 1
+  th.use_rnn = 0
 
   th.filters = 64
   th.kernel_size = 3
@@ -70,7 +70,7 @@ def main(_):
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
-  th.class_weights = [1.0] * 5
+  th.class_weights = [0.4, 1.2, 0.3, 2.0, 1.0]
   th.loss_string = 'wce'
   # th.loss_string = 'cross_entropy'
 
@@ -84,7 +84,7 @@ def main(_):
   else: th.epoch_num = 1
 
   th.optimizer = 'adam'
-  th.learning_rate = 0.0001
+  th.learning_rate = 0.000
 
   th.train = 1
   th.patience = 20
@@ -93,8 +93,8 @@ def main(_):
   vpr = 5
   if th.use_rnn:
     th.validate_cycle = epoch_num // th.num_steps * vpr
-    th.val_batch_size = 1
-    th.eval_batch_size = -1
+    th.val_batch_size = -1
+    th.eval_batch_size = 1
   else:
     th.updates_per_round = epoch_num // th.num_steps
     th.validation_per_round = 1 / vpr

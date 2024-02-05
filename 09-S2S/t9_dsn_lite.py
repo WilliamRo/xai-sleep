@@ -37,7 +37,7 @@ def main(_):
   # th.data_config += ' pattern=.*(ucddb)'
   # th.data_config += ' pattern=.*(rrsh)'
 
-  th.pp_config = 'alpha-1:8'
+  # th.pp_config = 'alpha-2:8'
 
   th.epoch_num = 1
   th.eval_epoch_num = 1
@@ -50,6 +50,7 @@ def main(_):
     L = 128 * 30 * (1 + 2 * th.epoch_pad)
   else: L = 128 * 30 * th.epoch_num
   th.input_shape = [L, th.input_channels]
+  # th.input_shape = [L, 5]
   th.use_batch_mask = True
 
   # th.dtype = tf.float16
@@ -88,7 +89,7 @@ def main(_):
   th.balance_classes = True
   th.epoch_delta = 0.1
 
-  th.global_l2_penalty = 0.002
+  # th.global_l2_penalty = 0.002
 
   th.train = True
   th.patience = 50

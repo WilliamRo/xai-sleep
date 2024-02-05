@@ -125,12 +125,16 @@ if __name__ == '__main__':
 
   # Set directories
   data_dir = r'../../data/'
-  data_dir += 'sleepeasonx'
+  # data_dir += 'sleepeasonx'
   # data_dir += 'sleepedfx'
+  data_dir += 'rrsh-osa'
 
   prefix = ['', 'sleepedfx', 'ucddb', 'rrsh'][1]
   pattern = f'{prefix}*.sg'
   # pattern = f'SC*raw*.sg'
+
+  # For rrsh-osa
+  pattern = f'*(trim;easy;100).sg'
 
   channel_names = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 

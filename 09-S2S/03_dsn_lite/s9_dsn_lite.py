@@ -44,6 +44,10 @@ s.register('lr', 0.0005, 0.003)
 
 s.register('batch_size', 256, 512)
 
+s.register('pp_config', '',
+           'alpha-1:8', 'alpha-2:8', 'alpha-1:16', 'alpha-2:16')
 
-s.configure_engine(strategy='skopt', criterion='Best F1')
+
+# s.configure_engine(strategy='skopt', criterion='Best F1')
+s.configure_engine(times=5)
 s.run(rehearsal=0)

@@ -1,12 +1,12 @@
-import matplotlib.pyplot as plt
-import pandas
 from matplotlib.patches import Rectangle
-
 from pictor import Pictor
 from pictor.plotters.plotter_base import Plotter
 from roma import console
 
+import matplotlib.pyplot as plt
 import numpy as np
+import os
+import pandas
 
 
 
@@ -270,6 +270,68 @@ class ProbeScatter(Plotter):
 
   fpa = finger_print_alpha
 
+  def export_fpa(self, tgt_path=None, overwrite=False):
+    import seaborn as sns
+    import pandas as pd
+    import warnings
+
+    # Ignore all warnings
+    warnings.filterwarnings("ignore")
+
+    # Set color
+    sns.set_palette(['forestgreen', 'gold', 'orange', 'royalblue',
+                     'lightcoral'])
+
+    # Check path to export
+    if tgt_path is None:
+      from pictor.plugins.dialog_utils import DialogUtilities
+      tgt_path = DialogUtilities.select_folder_dialog(
+        'Please select path to export')
+    if not tgt_path: return
+    assert os.path.exists(tgt_path)
+    console.show_status(f'Target path set to `{tgt_path}`.')
+
+    # Get all sg_labels and channels
+    v: EWViewer = self.pictor
+    sg_label_list, channel_list, _ = v.data['meta']
+
+    # Set keys as selected profiles
+    (_, _, cfg1), (_, _, cfg2) = self.pictor.selected_profiles
+    keys = [f'{cfg[0]} ({cfg[1]}={cfg[2]})' for cfg in (cfg1, cfg2)]
+
+    # Export fingerprints of all sg across all channels
+    N, i = len(sg_label_list) * len(channel_list), 0
+    for sg_label in sg_label_list:
+      console.show_status(f'Analyzing PID {sg_label} ...')
+      for channel in channel_list:
+        console.show_status(f'Exporting fingerprints of channel {channel} ...')
+        console.print_progress(i, N)
+
+        file_name = f'{sg_label},{channel}.png'
+        file_path = os.path.join(tgt_path, file_name)
+
+        if os.path.exists(file_path) and not overwrite:
+          N -= 1
+          continue
+
+        df: pd.DataFrame = v.dataframe_dict[(sg_label, channel)]
+
+        # Generate KDE plot
+        sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
+
+        # Set styles
+        plt.title(f'PID: {sg_label}, Channel: {channel}')
+
+        # Export figure
+        plt.tight_layout()
+        plt.savefig(file_path)
+
+        i += 1
+
+    console.show_status(f'Successfully exported {N} fingerprints.')
+
+  efpa = export_fpa
+
 
   def export_displot(self, channel_index=0):
     from roma import console
@@ -311,6 +373,8 @@ if __name__ == '__main__':
   save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(15,35)_bm02(32,224).pr'
   save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(15,40)_bm02(32,256).pr'
   save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(25)_bm02(128).pr'
+  save_path = r'P:\xai-sleep\data\probe_reports\rrsh_insomnia_eeg4_bm01(25)_bm02(128).pr'
+  save_path = r'P:\xai-sleep\data\probe_reports\rrsh_narcolepsy_eeg4_bm01(25)_bm02(128).pr'
   results = load(save_path)
   meta = results['meta']
 

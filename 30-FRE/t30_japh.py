@@ -9,25 +9,42 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'ham'
-id = 2
+model_name = 'japh'
+id = 3
 def model():
   th = core.th
   model = m.get_initial_model()
 
-  model.add(m.DaFilter(ks=32))
-  model.add(m.STFT(max_fre=30))
+  vertices = [
+    m.FrequencyEstimator(max_fre=20),   # [?, T=29, C]
+    m.AmplitudeEstimator(ks=256),       # [?, T=29, C]
+    m.mu.Merge.Concat(axis=-1),
+  ]
+  fm = m.mu.ForkMergeDAG(vertices, edges='1;10;011')
+  model.add(fm)
+
+  # model.add(m.mu.Flatten())
+
+  # for c in th.archi_string.split('-'):
+  #   c = int(c)
+  #   model.add(m.mu.Dense(c, activation=th.activation))
 
   # Add layers according to archi_string
-  for i, layer in enumerate(th.archi_string.split('-')):
-    if layer[0] == 's': stride, c = 3, int(layer[1:])
+  conv_part, dense_part = th.archi_string.split('=')
+
+  for i, layer in enumerate(conv_part.split('-')):
+    if layer[0] == 's': stride, c = 2, int(layer[1:])
     else: stride, c = 1, int(layer)
 
     bn = th.use_batchnorm if i > 0 else False
-    model.add(m.mu.HyperConv2D(
+    model.add(m.mu.HyperConv1D(
       c, th.kernel_size, stride, activation=th.activation, use_batchnorm=bn))
 
-  return m.finalize(model, flatten=True, use_gap=False)
+  model.add(m.mu.Flatten())
+  for str_c in dense_part.split('-'):
+    model.add(m.mu.Dense(int(str_c), th.activation))
+
+  return m.finalize(model, flatten=False, use_gap=False)
 
 
 
@@ -70,12 +87,12 @@ def main(_):
   th.activation = 'relu'
 
   th.kernel_size = 5
-  th.archi_string = '16-s16-32-s32-64'
+  th.archi_string = '32-s32-64-s64=128-64'
   th.use_batchnorm = False
   # ---------------------------------------------------------------------------
   # 3. trainer setup
   # ---------------------------------------------------------------------------
-  th.epoch = 100
+  th.epoch = 10000
 
   th.early_stop = True
   th.batch_size = 128
@@ -88,7 +105,7 @@ def main(_):
   # th.global_l2_penalty = 0.002
 
   th.train = True
-  th.patience = 5
+  th.patience = 50
   th.overwrite = True
 
   th.updates_per_round = 50

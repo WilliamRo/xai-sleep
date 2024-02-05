@@ -1,3 +1,8 @@
+# 31-files
+*.pptx
+*.png
+*.fp
+
 # PyCharm files
 .idea
 

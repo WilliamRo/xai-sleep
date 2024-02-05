@@ -70,7 +70,7 @@ def main(_):
   th.activation = 'relu'
 
   th.kernel_size = 5
-  th.archi_string = 's16-s16-s8'
+  th.archi_string = '16-s16-32-s32-64'
   th.use_batchnorm = False
   # ---------------------------------------------------------------------------
   # 3. trainer setup
@@ -88,14 +88,14 @@ def main(_):
   # th.global_l2_penalty = 0.002
 
   th.train = True
-  th.patience = 20
+  th.patience = 5
   th.overwrite = True
 
   th.updates_per_round = 50
   # ---------------------------------------------------------------------------
   # 4. other stuff and activate
   # ---------------------------------------------------------------------------
-  th.mark = '{}({})'.format(model_name, th.filters)
+  th.mark = '{}({})'.format(model_name, th.archi_string)
   th.gather_summ_name = th.prefix + summ_name + '.sum'
   core.activate()
 

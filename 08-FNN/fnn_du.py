@@ -25,6 +25,10 @@ def load_data_cheat():
 
   for j in (0, 1, 2):
     val_set = data_sets[j].validation_set
+
+    y = val_set.targets
+    val_set.targets = np.reshape(y, [-1, y.shape[-1]])
+
     features = np.zeros(shape=[val_set.size] + th.input_shape)
     for i, x in enumerate(val_set.features):
       features[i, :, 0:2] = x

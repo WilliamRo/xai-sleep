@@ -6,6 +6,7 @@ from tframe import context
 
 def get_initial_model():
   from fnn_core import th
+  mu.GlobalAveragePooling2D
 
   model = mu.Classifier(mark=th.mark)
 

@@ -45,4 +45,4 @@ s.register('num_steps', 20)
 
 # s.configure_engine(strategy='skopt', criterion='Best F1')
 s.configure_engine(times=5)
-s.run(rehearsal=1)
+s.run(rehearsal=0)

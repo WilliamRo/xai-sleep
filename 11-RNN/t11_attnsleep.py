@@ -9,17 +9,16 @@ from tframe import tf
 # -----------------------------------------------------------------------------
 # Define model here
 # -----------------------------------------------------------------------------
-model_name = 'gru'
-id = 3
+model_name = 'attnsleep'
+id = 5
 def model():
+  from freud.talos_utils.sleep_models.attnsleep import AttnSleep
+
   th = core.th
   model = m.get_initial_model()
 
   # Add dsn backbone
-  m.add_deep_sleep_net_lite(model, th.filters)
-
-  # Add bottleneck
-  model.add(m.mu.HyperConv1D(filters=4, kernel_size=1))
+  AttnSleep(128, th.filters).add_to(model)
 
   model.add(m.mu.Flatten())
 
@@ -33,7 +32,7 @@ def main(_):
   console.start('{} on RNN-SSC task'.format(model_name.upper()))
 
   th = core.th
-  th.rehearse = 0
+  th.rehearse = 1
   # ---------------------------------------------------------------------------
   # 0. date set setup
   # ---------------------------------------------------------------------------
@@ -42,6 +41,7 @@ def main(_):
   th.data_config = 'sleepeasonx EEGx2,EOGx1 beta'
 
   th.input_shape = [128 * 30, th.input_channels]
+  th.input_shape = [100 * 30, th.input_channels]
   th.use_batch_mask = 1
   th.val_num_steps = 20
   th.eval_num_steps = 20
@@ -60,7 +60,7 @@ def main(_):
   # 2. model setup
   # ---------------------------------------------------------------------------
   th.model = model
-  th.use_rnn = 1
+  th.use_rnn = 0
 
   th.filters = 64
   th.kernel_size = 3

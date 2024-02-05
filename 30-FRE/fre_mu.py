@@ -1,5 +1,6 @@
 from fre_ops.fre_filter import DaFilter
-from fre_ops.stft_layer import STFT
+from fre_ops.stft_layer import STFT, FrequencyEstimator
+from fre_ops.ampest import AmplitudeEstimator
 
 from tframe import mu
 from tframe.layers.pooling import ReduceMean

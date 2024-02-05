@@ -3,12 +3,12 @@ from tframe.layers.layer import Layer, single_input
 
 
 
-class DaFilter(Layer):
+class AmplitudeEstimator(Layer):
   """"""
-  abbreviation = 'da_filter'
+  abbreviation = 'ampest'
   full_name = abbreviation
 
-  def __init__(self, ks=32):
+  def __init__(self, ks=128):
     self.ks = ks
 
   @property
@@ -18,13 +18,9 @@ class DaFilter(Layer):
   def _link(self, x, **kwargs):
     """Remove low-fre in each channel using depth-wise conv1D"""
     # x.shape = [?, L, C] (NWC format), e.g., [?, fs*30, 2]
-    C = x.shape.as_list()[-1]
-    xs = tf.split(x, num_or_size_splits=C, axis=-1)
+    ks, stride = self.ks, self.ks // 2
+    x_max = tf.nn.max_pool1d(x, self.ks, stride, padding='VALID')
+    x_min = -tf.nn.max_pool1d(-x, self.ks, stride, padding='VALID')
+    amp = x_max - x_min
 
-    filters = tf.constant(
-      [1 / self.ks] * self.ks, dtype=tf.float32, shape=[self.ks, 1, 1])
-
-    xs_low_fre = [tf.nn.conv1d(x, filters=filters, padding='SAME') for x in xs]
-    x_low_fre = tf.concat(xs_low_fre, axis=-1)
-
-    return x - x_low_fre
+    return amp
