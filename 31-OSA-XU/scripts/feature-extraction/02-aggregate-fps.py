@@ -19,7 +19,7 @@ EXPORT_PATH = r'../../features/sub-data-02'
 AGG_PATH = r'../../features/sub-data-02/agg'
 XLSX_PATH = r'../../../data/rrsh-osa/OSA-wm.xlsx'
 
-OVERWRITE = False
+OVERWRITE = 0
 
 HEAD = []
 HEAD.append(('序号', r'PID: {}'))
@@ -53,6 +53,10 @@ for sg_label in sg_label_list:
   agg_path = os.path.join(AGG_PATH, f'{int(sg_label):03d}.png')
   if os.path.exists(agg_path) and not OVERWRITE:
     N -= 1
+    continue
+
+  # Patch for fixing fp color issue
+  if int(sg_label) not in (75, 53, 170, 197, 218, 282, 285, 311, 327):
     continue
 
   file_paths = [os.path.join(EXPORT_PATH, f'{sg_label},{ch}.png')

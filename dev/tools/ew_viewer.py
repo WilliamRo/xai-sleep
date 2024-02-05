@@ -278,10 +278,6 @@ class ProbeScatter(Plotter):
     # Ignore all warnings
     warnings.filterwarnings("ignore")
 
-    # Set color
-    sns.set_palette(['forestgreen', 'gold', 'orange', 'royalblue',
-                     'lightcoral'])
-
     # Check path to export
     if tgt_path is None:
       from pictor.plugins.dialog_utils import DialogUtilities
@@ -314,7 +310,21 @@ class ProbeScatter(Plotter):
           N -= 1
           continue
 
+        # Patch for fixing fp color issue
+        # if int(sg_label) not in (75, 53, 170, 197, 218, 282, 285, 311, 327):
+        #   continue
+
         df: pd.DataFrame = v.dataframe_dict[(sg_label, channel)]
+
+        # Set color
+        palette = []
+        stages = df['Stage'].tolist()
+        if 'W' in stages: palette.append('forestgreen')
+        if 'N1' in stages: palette.append('gold')
+        if 'N2' in stages: palette.append('orange')
+        if 'N3' in stages: palette.append('royalblue')
+        if 'R' in stages: palette.append('lightcoral')
+        sns.set_palette(palette)
 
         # Generate KDE plot
         sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
