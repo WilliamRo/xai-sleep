@@ -5,7 +5,6 @@ from tframe.utils.file_tools.io_utils import load
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
-import time
 import warnings
 
 
@@ -19,7 +18,7 @@ EXPORT_PATH = r'../../features/sub-data-02'
 AGG_PATH = r'../../features/sub-data-02/agg'
 XLSX_PATH = r'../../../data/rrsh-osa/OSA-wm.xlsx'
 
-OVERWRITE = 0
+OVERWRITE = 1
 
 HEAD = []
 HEAD.append(('序号', r'PID: {}'))
@@ -55,15 +54,13 @@ for sg_label in sg_label_list:
     N -= 1
     continue
 
-  # Patch for fixing fp color issue
-  if int(sg_label) not in (75, 53, 170, 197, 218, 282, 285, 311, 327):
-    continue
-
   file_paths = [os.path.join(EXPORT_PATH, f'{sg_label},{ch}.png')
                 for ch in channel_list]
   if not os.path.exists(file_paths[-1]): break
 
-  images = [plt.imread(fp) for fp in file_paths]
+  x = [plt.imread(fp) for fp in file_paths]
+  images = [x[0], x[2], x[3], x[4],
+            x[1], x[-3], x[-2], x[-1]]
   fig = plt.figure(figsize=(22, 10))
   for j, im in enumerate(images):
     plt.subplot(2, 4, j + 1)

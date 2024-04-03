@@ -203,14 +203,15 @@ class EpochExplorer(Pictor):
 
   @staticmethod
   def explore(signal_groups, title='EpochExplorer', figure_size=(10, 6),
-              add_layer_2=False, plotter_cls=None, **kwargs):
+              add_layer_2=False, plotter_cls=None, dont_show=False, **kwargs):
     if plotter_cls is None: plotter_cls = RhythmPlotter
     ee = EpochExplorer(title, figure_size, add_layer_2=add_layer_2,
                        plotter_class=plotter_cls)
     for k, v in kwargs.items():
       ee.rhythm_plotter.set(k, v, auto_refresh=False)
     ee.set_signal_groups(signal_groups)
-    ee.show()
+    if not dont_show: ee.show()
+    else: return ee
 
 
 

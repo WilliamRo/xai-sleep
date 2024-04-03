@@ -3,6 +3,7 @@ from pictor import Pictor
 from pictor.plotters.plotter_base import Plotter
 from roma import console
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -270,7 +271,8 @@ class ProbeScatter(Plotter):
 
   fpa = finger_print_alpha
 
-  def export_fpa(self, tgt_path=None, overwrite=False):
+  def export_fpa(self, tgt_path=None, overwrite=False, yscale: float = 1.0,
+                 xlim=None, ylim=None):
     import seaborn as sns
     import pandas as pd
     import warnings
@@ -310,10 +312,6 @@ class ProbeScatter(Plotter):
           N -= 1
           continue
 
-        # Patch for fixing fp color issue
-        # if int(sg_label) not in (75, 53, 170, 197, 218, 282, 285, 311, 327):
-        #   continue
-
         df: pd.DataFrame = v.dataframe_dict[(sg_label, channel)]
 
         # Set color
@@ -327,7 +325,11 @@ class ProbeScatter(Plotter):
         sns.set_palette(palette)
 
         # Generate KDE plot
-        sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
+        p = sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
+        if yscale != 1.0:
+          formatter = matplotlib.ticker.FuncFormatter(
+            lambda x, pos: f'{x * yscale:.0f}')
+          p.axes.flat[0].yaxis.set_major_formatter(formatter)
 
         # Set styles
         plt.title(f'PID: {sg_label}, Channel: {channel}')
@@ -340,16 +342,16 @@ class ProbeScatter(Plotter):
 
     console.show_status(f'Successfully exported {N} fingerprints.')
 
-  efpa = export_fpa
+  fpa = export_fpa
 
 
-  def export_displot(self, channel_index=0):
+  def show_displot(self, channel_index=0):
     from roma import console
 
     import seaborn as sns
     import pandas as pd
 
-    sns.set_theme()
+    # sns.set_theme()
     sns.set_palette(['forestgreen', 'gold', 'orange', 'royalblue',
                      'lightcoral'])
 
@@ -363,7 +365,15 @@ class ProbeScatter(Plotter):
 
     g = sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
 
-    g.savefig('')
+    # g = sns.displot(df, x=keys[0], hue='Stage', kind='kde')
+
+    # p = sns.displot(df, x=keys[1], hue='Stage', kind='kde')
+    # formatter = matplotlib.ticker.FuncFormatter(
+    #   lambda x, pos: f'{x * 1e6:.0f}')
+    # p.axes.flat[0].xaxis.set_major_formatter(formatter)
+
+    plt.show()
+  disp = show_displot
 
 
   def show_bounds(self, ax: plt.Axes, data1, data2, color):

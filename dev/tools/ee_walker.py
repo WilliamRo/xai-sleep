@@ -133,9 +133,6 @@ if __name__ == '__main__':
   pattern = f'{prefix}*.sg'
   # pattern = f'SC*raw*.sg'
 
-  # For rrsh-osa
-  pattern = f'*(trim;easy;100).sg'
-
   channel_names = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 
   # Select .sg files

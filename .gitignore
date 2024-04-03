@@ -1,4 +1,6 @@
 # 31-files
+*.pdf
+*.xlsx
 *.pptx
 *.png
 *.fp

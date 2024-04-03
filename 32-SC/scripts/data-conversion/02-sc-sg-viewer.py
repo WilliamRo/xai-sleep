@@ -1,19 +1,17 @@
 from roma import finder
 from roma import io
-from pictor.objects.signals.signal_group import SignalGroup, Annotation
+from pictor.objects.signals.signal_group import SignalGroup
 
 
 
 # Configs
-N = 10
+N = 2
 
 # Select .sg files
-data_dir = r'../../data/rrsh-osa'
-pattern = f'*(trim;simple;100).sg'
+data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette/'
+pattern = f'*(trim1800;128).sg'
 
-sg_file_list = finder.walk(data_dir, pattern=pattern)
-sg_file_list = sorted(
-  sg_file_list, key=lambda fn: int(fn.split('/')[4].split('(')[0]))
+sg_file_list = finder.walk(data_dir, pattern=pattern)[:N]
 
 signal_groups = []
 for path in sg_file_list[:N]:
@@ -24,5 +22,5 @@ for path in sg_file_list[:N]:
 from freud.gui.freud_gui import Freud
 
 # Initialize pictor and set objects
-Freud.visualize_signal_groups(signal_groups, 'RRSH-OSA',
+Freud.visualize_signal_groups(signal_groups, 'SleepEDFx-SC',
                               default_win_duration=9999999)
