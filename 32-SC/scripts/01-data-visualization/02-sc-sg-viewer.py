@@ -5,7 +5,7 @@ from pictor.objects.signals.signal_group import SignalGroup
 
 
 # Configs
-N = 2
+N = 20
 
 # Select .sg files
 data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette/'

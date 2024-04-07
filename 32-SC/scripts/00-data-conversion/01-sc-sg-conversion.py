@@ -14,7 +14,7 @@ preprocess = 'trim,1800;128'
 fn_pattern = '*SC*'
 SleepEDFx.load_as_sleep_set(
   data_dir, overwrite=0, fn_pattern=fn_pattern, preprocess=preprocess,
-  overwrite_pp=1, just_conversion=True)
+  overwrite_pp=0, just_conversion=True)
 
 elapsed = time.time() - tic
 console.show_info(f'Time elapsed = {elapsed:.2f} sec.')
