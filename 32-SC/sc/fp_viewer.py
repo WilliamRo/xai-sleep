@@ -169,23 +169,23 @@ class ProbeScatter(Plotter):
                            'Option to show scatter')
     self.new_settable_attr('show_rect', False, bool,
                            'Option to show region of each stage')
-    self.new_settable_attr('fit_gauss', False, bool,
-                           'Option to fit gauss for each stage')
+    self.new_settable_attr('show_kde', True, bool,
+                           'Option to show KDE for each stage')
 
     self.new_settable_attr('xmin', None, float, 'x-min')
     self.new_settable_attr('xmax', None, float, 'x-max')
     self.new_settable_attr('ymin', None, float, 'y-min')
     self.new_settable_attr('ymax', None, float, 'y-max')
 
-  def register_shortcuts(self):
-    self.register_a_shortcut('f', self.fpa, '...')
+    self.new_settable_attr('margin', 0.15, float, 'margin')
 
+  def register_shortcuts(self):
     self.register_a_shortcut('s', lambda: self.flip('show_scatter'),
                              'Toggle `show_scatter`')
     self.register_a_shortcut('r', lambda: self.flip('show_rect'),
                              'Toggle `show_rect`')
-    self.register_a_shortcut('g', lambda: self.flip('fit_gauss'),
-                             'Toggle `fit_gauss`')
+    self.register_a_shortcut('g', lambda: self.flip('show_kde'),
+                             'Toggle `show_kde`')
 
   # region: Plot Methods
 
@@ -203,18 +203,25 @@ class ProbeScatter(Plotter):
     }
 
     bm1_key, bm2_key = list(res_dict.keys())
+    xmin, xmax, ymin, ymax = np.inf, -np.inf, np.inf, -np.inf
     for stage_key, color in colors.items():
       if stage_key not in res_dict[bm1_key]: continue
       data1, data2 = res_dict[bm1_key][stage_key], res_dict[bm2_key][stage_key]
+      # Convert data2 to micro-volt
+      data2 = data2 * 1e6
 
       if self.get('show_scatter'):
         ax.scatter(data1, data2, c=color, label=stage_key, alpha=0.5)
 
       # show region if required
-      if self.get('show_rect'): self.show_bounds(ax, data1, data2, color)
+      # if self.get('show_rect'): self.show_bounds(ax, data1, data2, color)
 
       # show gauss is required
-      # if self.get('fit_gauss'): self.fit_gauss(ax, data1, data2, color)
+      if self.get('show_kde'): self.show_kde(ax, data1, data2, color)
+
+      # Update limits
+      xmin, xmax = min(xmin, np.min(data1)), max(xmax, np.max(data1))
+      ymin, ymax = min(ymin, np.min(data2)), max(ymax, np.max(data2))
 
     # Set title, axis labels, and legend
     profiles = self.pictor.selected_profiles
@@ -224,8 +231,12 @@ class ProbeScatter(Plotter):
     bm_key, arg_key, arg_v = profiles[0][2]
     ax.set_xlabel(f'{bm_key} ({arg_key}={arg_v})')
 
-    ax.set_xlim(self.get('xmin'), self.get('xmax'))
-    ax.set_ylim(self.get('ymin'), self.get('ymax'))
+    # ax.set_xlim(self.get('xmin'), self.get('xmax'))
+    # ax.set_ylim(self.get('ymin'), self.get('ymax'))
+    m = self.get('margin')
+    xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
+    ax.set_xlim(xmin - xm, xmax + xm)
+    ax.set_ylim(ymin - ym, ymax + ym)
 
     bm_key, arg_key, arg_v = profiles[1][2]
     ax.set_ylabel(f'{bm_key} ({arg_key}={arg_v})')
@@ -248,133 +259,25 @@ class ProbeScatter(Plotter):
 
   # region: Data Analysis
 
-  def finger_print_alpha(self):
-    """
-    res_dict = {<bm_key>: {'W': array_w, 'N1': array_n1, ...}, ...}
-    """
-    import seaborn as sns
-    import pandas as pd
+  def show_kde(self, ax: plt.Axes, m1, m2, color):
+    from scipy import stats
 
-    # sns.set_theme()
-    sns.set_palette(['forestgreen', 'gold', 'orange', 'royalblue',
-                     'lightcoral'])
+    xmin, xmax = np.min(m1), np.max(m1)
+    ymin, ymax = np.min(m2), np.max(m2)
 
-    # Get dataframe
-    df: pd.DataFrame = self.pictor.selected_dataframe
+    # Set margin
+    m = self.get('margin')
+    xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
+    xmin, xmax = xmin - xm, xmax + xm
+    ymin, ymax = ymin - ym, ymax + ym
 
-    (_, _, cfg1), (_, _, cfg2) = self.pictor.selected_profiles
-    keys = [f'{cfg[0]} ({cfg[1]}={cfg[2]})' for cfg in (cfg1, cfg2)]
+    X, Y = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+    positions = np.vstack([X.ravel(), Y.ravel()])
+    values = np.vstack([m1, m2])
+    kernel = stats.gaussian_kde(values)
+    Z = np.reshape(kernel(positions).T, X.shape)
 
-    sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
-
-    plt.show()
-
-  fpa = finger_print_alpha
-
-  def export_fpa(self, tgt_path=None, overwrite=False, yscale: float = 1.0,
-                 xlim=None, ylim=None):
-    import seaborn as sns
-    import pandas as pd
-    import warnings
-
-    # Ignore all warnings
-    warnings.filterwarnings("ignore")
-
-    # Check path to export
-    if tgt_path is None:
-      from pictor.plugins.dialog_utils import DialogUtilities
-      tgt_path = DialogUtilities.select_folder_dialog(
-        'Please select path to export')
-    if not tgt_path: return
-    assert os.path.exists(tgt_path)
-    console.show_status(f'Target path set to `{tgt_path}`.')
-
-    # Get all sg_labels and channels
-    v: EWViewer = self.pictor
-    sg_label_list, channel_list, _ = v.data['meta']
-
-    # Set keys as selected profiles
-    (_, _, cfg1), (_, _, cfg2) = self.pictor.selected_profiles
-    keys = [f'{cfg[0]} ({cfg[1]}={cfg[2]})' for cfg in (cfg1, cfg2)]
-
-    # Export fingerprints of all sg across all channels
-    N, i = len(sg_label_list) * len(channel_list), 0
-    for sg_label in sg_label_list:
-      console.show_status(f'Analyzing PID {sg_label} ...')
-      for channel in channel_list:
-        console.show_status(f'Exporting fingerprints of channel {channel} ...')
-        console.print_progress(i, N)
-
-        file_name = f'{sg_label},{channel}.png'
-        file_path = os.path.join(tgt_path, file_name)
-
-        if os.path.exists(file_path) and not overwrite:
-          N -= 1
-          continue
-
-        df: pd.DataFrame = v.dataframe_dict[(sg_label, channel)]
-
-        # Set color
-        palette = []
-        stages = df['Stage'].tolist()
-        if 'W' in stages: palette.append('forestgreen')
-        if 'N1' in stages: palette.append('gold')
-        if 'N2' in stages: palette.append('orange')
-        if 'N3' in stages: palette.append('royalblue')
-        if 'R' in stages: palette.append('lightcoral')
-        sns.set_palette(palette)
-
-        # Generate KDE plot
-        p = sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
-        if yscale != 1.0:
-          formatter = matplotlib.ticker.FuncFormatter(
-            lambda x, pos: f'{x * yscale:.0f}')
-          p.axes.flat[0].yaxis.set_major_formatter(formatter)
-
-        # Set styles
-        plt.title(f'PID: {sg_label}, Channel: {channel}')
-
-        # Export figure
-        plt.tight_layout()
-        plt.savefig(file_path)
-
-        i += 1
-
-    console.show_status(f'Successfully exported {N} fingerprints.')
-
-  efpa = export_fpa
-
-
-  def show_displot(self, channel_index=0):
-    from roma import console
-
-    import seaborn as sns
-    import pandas as pd
-
-    # sns.set_theme()
-    sns.set_palette(['forestgreen', 'gold', 'orange', 'royalblue',
-                     'lightcoral'])
-
-    # Traverse all sg
-
-    # Get dataframe
-    df: pd.DataFrame = self.pictor.selected_dataframe
-
-    (_, _, cfg1), (_, _, cfg2) = self.pictor.selected_profiles
-    keys = [f'{cfg[0]} ({cfg[1]}={cfg[2]})' for cfg in (cfg1, cfg2)]
-
-    g = sns.displot(df, x=keys[0], y=keys[1], hue='Stage', kind='kde')
-
-    # g = sns.displot(df, x=keys[0], hue='Stage', kind='kde')
-
-    # p = sns.displot(df, x=keys[1], hue='Stage', kind='kde')
-    # formatter = matplotlib.ticker.FuncFormatter(
-    #   lambda x, pos: f'{x * 1e6:.0f}')
-    # p.axes.flat[0].xaxis.set_major_formatter(formatter)
-
-    plt.show()
-  disp = show_displot
-
+    ax.contour(X, Y, Z, colors=color)
 
   def show_bounds(self, ax: plt.Axes, data1, data2, color):
     f_min, f_max = np.min(data1), np.max(data1)

@@ -27,7 +27,6 @@ class SCWalker(RhythmWalker):
                              os.path.join(FEATURE_DIR, SAVE_FILE_NAME))
 
 
-
 # Select .sg files
 sg_file_list = finder.walk(DATA_DIR, pattern=PATTERN)
 
