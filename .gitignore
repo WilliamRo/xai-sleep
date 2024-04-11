@@ -7,6 +7,7 @@
 
 # PyCharm files
 .idea
+features/
 
 # Customized files
 *_loc.py

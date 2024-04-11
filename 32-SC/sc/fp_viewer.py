@@ -171,11 +171,14 @@ class ProbeScatter(Plotter):
                            'Option to show region of each stage')
     self.new_settable_attr('show_kde', True, bool,
                            'Option to show KDE for each stage')
+    self.new_settable_attr('show_vector', False, bool,
+                           'Option to show KDE for each stage')
 
     self.new_settable_attr('xmin', None, float, 'x-min')
     self.new_settable_attr('xmax', None, float, 'x-max')
     self.new_settable_attr('ymin', None, float, 'y-min')
     self.new_settable_attr('ymax', None, float, 'y-max')
+    self.new_settable_attr('scatter_alpha', 0.5, float, 'scatter_alpha')
 
     self.new_settable_attr('margin', 0.15, float, 'margin')
 
@@ -186,6 +189,8 @@ class ProbeScatter(Plotter):
                              'Toggle `show_rect`')
     self.register_a_shortcut('g', lambda: self.flip('show_kde'),
                              'Toggle `show_kde`')
+    self.register_a_shortcut('v', lambda: self.flip('show_vector'),
+                             'Toggle `show_vector`')
 
   # region: Plot Methods
 
@@ -207,17 +212,24 @@ class ProbeScatter(Plotter):
     for stage_key, color in colors.items():
       if stage_key not in res_dict[bm1_key]: continue
       data1, data2 = res_dict[bm1_key][stage_key], res_dict[bm2_key][stage_key]
+
+      if len(data1) < 2: continue
+
       # Convert data2 to micro-volt
       data2 = data2 * 1e6
 
       if self.get('show_scatter'):
-        ax.scatter(data1, data2, c=color, label=stage_key, alpha=0.5)
+        alpha = self.get('scatter_alpha')
+        ax.scatter(data1, data2, c=color, label=stage_key, alpha=alpha)
 
       # show region if required
       # if self.get('show_rect'): self.show_bounds(ax, data1, data2, color)
 
       # show gauss is required
       if self.get('show_kde'): self.show_kde(ax, data1, data2, color)
+
+      # show vector is required
+      if self.get('show_vector'): self.show_vector(ax, data1, data2, color)
 
       # Update limits
       xmin, xmax = min(xmin, np.min(data1)), max(xmax, np.max(data1))
@@ -231,12 +243,14 @@ class ProbeScatter(Plotter):
     bm_key, arg_key, arg_v = profiles[0][2]
     ax.set_xlabel(f'{bm_key} ({arg_key}={arg_v})')
 
-    # ax.set_xlim(self.get('xmin'), self.get('xmax'))
-    # ax.set_ylim(self.get('ymin'), self.get('ymax'))
-    m = self.get('margin')
-    xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
-    ax.set_xlim(xmin - xm, xmax + xm)
-    ax.set_ylim(ymin - ym, ymax + ym)
+    if self.get('xmin') is not None:
+      ax.set_xlim(self.get('xmin'), self.get('xmax'))
+      ax.set_ylim(self.get('ymin'), self.get('ymax'))
+    else:
+      m = self.get('margin')
+      xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
+      ax.set_xlim(xmin - xm, xmax + xm)
+      ax.set_ylim(ymin - ym, ymax + ym)
 
     bm_key, arg_key, arg_v = profiles[1][2]
     ax.set_ylabel(f'{bm_key} ({arg_key}={arg_v})')
@@ -258,6 +272,20 @@ class ProbeScatter(Plotter):
   # endregion: Plot Methods
 
   # region: Data Analysis
+
+
+  def show_vector(self, ax: plt.Axes, m1, m2, color):
+    mu1, mu2 = np.mean(m1), np.mean(m2)
+    # Calculate covariance matrix
+    cov = np.cov(m1, m2)
+    assert cov[0, 1] == cov[1, 0]
+    k = cov[0, 1] / cov[0, 0]
+    x1, y1 = mu1, mu2
+    step = np.sqrt(cov[0, 0])
+    x2, y2 = mu1 + step, mu2 + step * k
+
+    ax.plot(x1, y1, 's', color=color)
+    ax.plot([x1, x2], [y1, y2], '-', color=color)
 
   def show_kde(self, ax: plt.Axes, m1, m2, color):
     from scipy import stats

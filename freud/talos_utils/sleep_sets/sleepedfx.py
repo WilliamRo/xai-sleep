@@ -119,7 +119,7 @@ class SleepEDFx(SleepSet):
       cls.save_sg_file_if_necessary(
         pid, sg_path, n_patients, i, sg, **kwargs)
 
-      # This is for data-conversion scripts
+      # This is for 00-data-conversion scripts
       if kwargs.get('just_conversion', False): signal_groups.clear()
 
     console.show_status(f'Successfully read {n_patients} files.')
