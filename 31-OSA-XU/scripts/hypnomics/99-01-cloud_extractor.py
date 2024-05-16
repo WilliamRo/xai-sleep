@@ -29,20 +29,24 @@ for path in sg_file_list[:N]:
 
 # Extract hypnoprints
 channels = [
-  'E1-M2', 'E2-M2',
-  'F3-M2', 'F4-M1',
-  'C3-M2', 'C4-M1',
-  'O1-M2', 'O2-M1',
+  # 'E1-M2',
+  # 'E2-M2',
+  'F3-M2',
+  # 'F4-M1',
+  'C3-M2',
+  # 'C4-M1',
+  # 'O1-M2',
+  # 'O2-M1',
 ]
 NC = len(channels)
 
-clouds = []
+clouds = {}
 N = len(signal_groups)
 console.show_status(f'Extracting clouds from {N} sg files ...')
 for i, sg in enumerate(signal_groups):
   console.print_progress(i, N)
-  clouds.append(extract_hypnocloud_from_signal_group(
-    sg, channels, time_resolution=reso))
+  clouds[sg.label] = extract_hypnocloud_from_signal_group(
+    sg, channels, time_resolution=reso)
 console.show_status(f'Extracted clouds from {N} sg files.')
 
 

@@ -5,6 +5,7 @@ from roma import io, console
 from pictor.objects.signals.signal_group import SignalGroup
 
 from sc.fp_viewer import FPViewer
+from collections import OrderedDict
 
 import os
 
@@ -43,7 +44,15 @@ NC = len(channels)
 # Save cloud files
 cloud_data_dir = r'../../features/'
 cloud_file_name = f'OSA-{N}pts-{NC}chs-{reso}s.clouds'
-clouds = io.load_file(os.path.join(cloud_data_dir, cloud_file_name), verbose=True)
+file_path = os.path.join(cloud_data_dir, cloud_file_name)
+clouds = io.load_file(file_path, verbose=True)
+
+if isinstance(clouds, list):
+  cloud_dict = OrderedDict()
+  for sg, cloud in zip(signal_groups, clouds):
+    cloud_dict[sg.label] = cloud
+  io.save_file(cloud_dict, file_path, verbose=True)
+else: cloud_dict = clouds
 
 # -----------------------------------------------------------------------------
 # Make an FPS
@@ -53,12 +62,12 @@ STAGE_KEYS = ('W', 'N1', 'N2', 'N3', 'R')
 fps = {}
 fps['meta'] = ([sg.label for sg in signal_groups], channels,
                {'FREQ': ('max_freq', [20]), 'AMP': ('pool_size', [128])})
-for sg, cloud in zip(signal_groups, clouds):
+for label, cloud in cloud_dict.items():
   for chn in channels:
     for pk in ('amplitude', 'frequency'):
       bk = {'amplitude': ('AMP', 'pool_size', 128),
             'frequency': ('FREQ', 'max_freq', 20)}[pk]
-      key = (sg.label, chn, bk)
+      key = (label, chn, bk)
       fps[key] = {}
       for sk in STAGE_KEYS: fps[key][sk] = cloud[chn][sk][pk]
 

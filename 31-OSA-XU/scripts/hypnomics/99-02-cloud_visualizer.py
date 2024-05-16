@@ -11,21 +11,12 @@ import os
 
 
 # Configs
-N = 999
-# N = 5
+N = 125
 reso = 30
 
 # Select .sg files
 data_dir = r'../../../data/rrsh-osa/'
 pattern = f'*(trim;simple;100).sg'
-
-sg_file_list = finder.walk(data_dir, pattern=pattern)[:N]
-N = len(sg_file_list)
-
-signal_groups = []
-for path in sg_file_list[:N]:
-  sg: SignalGroup = io.load_file(path, verbose=True)
-  signal_groups.append(sg)
 
 # Extract hypnoprints
 channels = [
@@ -51,14 +42,14 @@ clouds = io.load_file(os.path.join(cloud_data_dir, cloud_file_name), verbose=Tru
 STAGE_KEYS = ('W', 'N1', 'N2', 'N3', 'R')
 
 fps = {}
-fps['meta'] = ([sg.label for sg in signal_groups], channels,
+fps['meta'] = (list(clouds.keys()), channels,
                {'FREQ': ('max_freq', [20]), 'AMP': ('pool_size', [128])})
-for sg, cloud in zip(signal_groups, clouds):
+for label, cloud in clouds.items():
   for chn in channels:
     for pk in ('amplitude', 'frequency'):
       bk = {'amplitude': ('AMP', 'pool_size', 128),
             'frequency': ('FREQ', 'max_freq', 20)}[pk]
-      key = (sg.label, chn, bk)
+      key = (label, chn, bk)
       fps[key] = {}
       for sk in STAGE_KEYS: fps[key][sk] = cloud[chn][sk][pk]
 
