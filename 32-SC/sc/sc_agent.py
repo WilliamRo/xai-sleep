@@ -351,9 +351,9 @@ class SCAgent(Nomear):
     return features, targets, pids
 
   def get_distance_matrix(self, channel, dim1_tuple, dim2_tuple, N=999,
-                          method='euclidean'):
+                          method='euclidean', version='v2'):
     fea_dicts_1, fea_dicts_2 = self.get_feature_dicts(
-      channel, dim1_tuple, dim2_tuple)
+      channel, dim1_tuple, dim2_tuple, version=version)
     uni_subs = self.beta_uni_subs[:N]
     matrix = np.zeros((N, N))
     for i, s1 in enumerate(uni_subs):

@@ -121,6 +121,7 @@ class MatOptimizer(Nomear):
   def fit(self, max_steps=1000, print_cycle=20, print_w=False):
     losses, accs, mats, steps = [], [], [], []
     for i in range(max_steps):
+
       loss, acc, mat = self.take_a_train_step()
       if i % print_cycle != 0: continue
       losses.append(loss)

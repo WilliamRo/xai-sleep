@@ -19,7 +19,7 @@ channels = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 max_freqs = [20, 30]
 
 # Calculate distance matrices
-N = 20
+N = 67
 for i, pid in enumerate(sca.beta_uni_subs[:N]):
   console.supplement(f'{i+1:02d}/{N:02d} {pid}')
 

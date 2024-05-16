@@ -243,14 +243,25 @@ class ProbeScatter(Plotter):
     bm_key, arg_key, arg_v = profiles[0][2]
     ax.set_xlabel(f'{bm_key} ({arg_key}={arg_v})')
 
-    if self.get('xmin') is not None:
-      ax.set_xlim(self.get('xmin'), self.get('xmax'))
-      ax.set_ylim(self.get('ymin'), self.get('ymax'))
-    else:
-      m = self.get('margin')
-      xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
-      ax.set_xlim(xmin - xm, xmax + xm)
-      ax.set_ylim(ymin - ym, ymax + ym)
+    m = self.get('margin')
+    xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
+    xmin, xmax = xmin - xm, xmax + xm
+    ymin, ymax = ymin - ym, ymax + ym
+    xmin = self.get('xmin') if self.get('xmin') is not None else xmin
+    xmax = self.get('xmax') if self.get('xmax') is not None else xmax
+    ymin = self.get('ymin') if self.get('ymin') is not None else ymin
+    ymax = self.get('ymax') if self.get('ymax') is not None else ymax
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    # if self.get('xmin') is not None:
+    #   ax.set_xlim(self.get('xmin'), self.get('xmax'))
+    #   ax.set_ylim(self.get('ymin'), self.get('ymax'))
+    # else:
+    #   m = self.get('margin')
+    #   xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
+    #   ax.set_xlim(xmin - xm, xmax + xm)
+    #   ax.set_ylim(ymin - ym, ymax + ym)
 
     bm_key, arg_key, arg_v = profiles[1][2]
     ax.set_ylabel(f'{bm_key} ({arg_key}={arg_v})')
