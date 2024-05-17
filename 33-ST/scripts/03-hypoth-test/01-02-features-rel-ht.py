@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from hypnomics.hypnoprints import extract_hypnoprints_from_hypnocloud
 from roma import io
-
+from scipy import stats
 
 import numpy as np
 import os
@@ -61,31 +61,24 @@ from pictor import Pictor
 import matplotlib.pyplot as plt
 
 p = Pictor(title='Hypothesis test')
-p.objects = objects
+p.objects = [objects]
 
-def plot_box_inter(ax: plt.Axes, x):
-  P, T = x['P'], x['T']
-  ax.boxplot([P, T], showfliers=False)
-  ax.set_xticklabels(['Placebo', 'Temazepam'])
+def multi_boxes(ax: plt.Axes, x):
+  results = []
+  for pkg in x:
+    xk, P, T = pkg['label'], pkg['P'], pkg['T']
+    delta = T - P
+    alternative = 'greater' if delta.mean() > 0 else 'less'
+    _, p_val = stats.ttest_1samp(delta, 0, alternative=alternative)
+    results.append((xk, p_val, delta))
 
-  from scipy import stats
-  alternative = 'greater' if P.mean() > T.mean() else 'less'
-  t_stat, p_val = stats.ttest_ind(
-    P, T, equal_var=False, alternative=alternative)
+  results = sorted(results, key=lambda r: r[1])
 
-  ax.set_title(f'{x["label"]}, p = {p_val: .4f}')
+  results = results[::-1]
+  ax.plot([0, 0], [-1, len(results) + 1], 'r-')
+  ax.boxplot([r[2] for r in results], showfliers=False, vert=False)
+  ax.set_yticklabels([f'{r[0]}, p={r[1]:.4f}' for r in results])
 
-def plot_box_inner(ax: plt.Axes, x):
-  P, T = x['P'], x['T']
-  delta = T - P
-  ax.boxplot([delta], showfliers=False)
-  ax.set_xticklabels(['Temazepam - Placebo'])
-
-  from scipy import stats
-  alternative = 'greater' if delta.mean() > 0 else 'less'
-  t_stat, p_val = stats.ttest_1samp(delta, 0, alternative=alternative)
-  ax.set_title(f'{x["label"]}, p = {p_val: .4f}')
-
-p.add_plotter(plot_box_inter)
-p.add_plotter(plot_box_inner)
+p.add_plotter(multi_boxes)
+p.add_plotter(multi_boxes)
 p.show()

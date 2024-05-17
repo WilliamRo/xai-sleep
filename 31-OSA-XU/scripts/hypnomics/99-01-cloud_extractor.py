@@ -55,26 +55,3 @@ cloud_data_dir = r'../../features/'
 cloud_file_name = f'OSA-{N}pts-{NC}chs-{reso}s.clouds'
 io.save_file(clouds, os.path.join(cloud_data_dir, cloud_file_name), verbose=True)
 
-exit(0)
-
-# -----------------------------------------------------------------------------
-# Make an FPS
-# -----------------------------------------------------------------------------
-STAGE_KEYS = ('W', 'N1', 'N2', 'N3', 'R')
-
-fps = {}
-fps['meta'] = ([sg.label for sg in signal_groups], channels,
-               {'FREQ': ('max_freq', [20]), 'AMP': ('pool_size', [128])})
-for sg, cloud in zip(signal_groups, clouds):
-  for chn in channels:
-    for pk in ('amplitude', 'frequency'):
-      bk = {'amplitude': ('AMP', 'pool_size', 128),
-            'frequency': ('FREQ', 'max_freq', 20)}[pk]
-      key = (sg.label, chn, bk)
-      fps[key] = {}
-      for sk in STAGE_KEYS: fps[key][sk] = cloud[chn][sk][pk]
-
-fpv = FPViewer(walker_results=fps)
-fpv.show()
-
-

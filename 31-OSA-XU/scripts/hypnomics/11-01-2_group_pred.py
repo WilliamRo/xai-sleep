@@ -48,12 +48,15 @@ targets = [
   df.loc[df['序号'] == int(pid), '分组'].values[0] - 1
   for pid in clouds.keys()
 ]
+targets = [0 if t == 0 else 1 for t in targets]
 targets = np.array(targets)
+target_labels = ['Group 1', 'Group 2&3']
 
 # -----------------------------------------------------------------------------
 # Wrap and show
 # -----------------------------------------------------------------------------
-omix = Omix(features, targets, feature_names, data_name=f'OSA-{NC}chs-{reso}s')
+omix = Omix(features, targets, feature_names, target_labels,
+            data_name=f'OSA-{NC}chs-{reso}s')
 
 omix.show_in_explorer()
 

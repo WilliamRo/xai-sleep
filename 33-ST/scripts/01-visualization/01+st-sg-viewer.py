@@ -8,7 +8,7 @@ from pictor.objects.signals.signal_group import SignalGroup
 N = 20
 
 # Select .sg files
-data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette/'
+data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-telemetry/'
 pattern = f'*(trim1800;128).sg'
 
 sg_file_list = finder.walk(data_dir, pattern=pattern)[:N]

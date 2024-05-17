@@ -6,12 +6,12 @@ import time
 
 
 console.suppress_logging()
-data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette'
+data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-telemetry'
 
 tic = time.time()
 preprocess = 'trim,1800;128'
 
-fn_pattern = '*SC*'
+fn_pattern = '*ST*'
 SleepEDFx.load_as_sleep_set(
   data_dir, overwrite=0, fn_pattern=fn_pattern, preprocess=preprocess,
   overwrite_pp=0, just_conversion=True)

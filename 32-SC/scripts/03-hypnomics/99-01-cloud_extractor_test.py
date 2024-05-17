@@ -1,33 +1,63 @@
 from hypnomics.hypnoprints import extract_hypnocloud_from_signal_group
 from hypnomics.hypnoprints.hp_extractor import extract_hypnoprints_from_hypnocloud
 from roma import finder
-from roma import io
+from roma import io, console
 from pictor.objects.signals.signal_group import SignalGroup
 
 from sc.fp_viewer import FPViewer
 
+from collections import OrderedDict
+
+import os
 
 
+
+# -----------------------------------------------------------------------------
+# Config
+# -----------------------------------------------------------------------------
 # Configs
-N = 2
+N = 999
+R = 30
+overwrite = False
 
-# Select .sg files
 data_dir = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette/'
 pattern = f'*(trim1800;128).sg'
 
-sg_file_list = finder.walk(data_dir, pattern=pattern)[:N]
+N = min(N, 153)
 
-signal_groups = []
-for path in sg_file_list[:N]:
-  sg: SignalGroup = io.load_file(path, verbose=True)
-  signal_groups.append(sg)
+save_to_dir = r'../../features/'
+cloud_file_name = f'SC-pt{N}-C2-dt{R}.clouds'
+save_path = os.path.join(save_to_dir, cloud_file_name)
 
-
-# Extract hypnoprints
 channels = ['EEG Fpz-Cz', 'EEG Pz-Oz']
+# -----------------------------------------------------------------------------
+# Read .sg files
+# -----------------------------------------------------------------------------
+if not os.path.exists(save_path) or overwrite:
+  sg_file_list = finder.walk(data_dir, pattern=pattern)[:N]
+  N = len(sg_file_list)
 
-clouds = [extract_hypnocloud_from_signal_group(sg, channels, time_resolution=6)
-          for sg in signal_groups]
+  signal_groups = []
+  for path in sg_file_list:
+    sg: SignalGroup = io.load_file(path, verbose=True)
+    signal_groups.append(sg)
+
+# -----------------------------------------------------------------------------
+# Extract clouds and save
+# -----------------------------------------------------------------------------
+  # Extract hypnoprints
+  clouds = OrderedDict()
+
+  console.show_status(f'Converting {N} sg files to clouds ...')
+  for i, sg in enumerate(signal_groups):
+    console.print_progress(i, N)
+    clouds[sg.label] = extract_hypnocloud_from_signal_group(
+      sg, channels, time_resolution=R)
+  console.show_status(f'Converted {N} sg files.')
+
+  io.save_file(clouds, os.path.join(save_to_dir, cloud_file_name), verbose=True)
+else:
+  clouds = io.load_file(save_path, verbose=True)
 
 # -----------------------------------------------------------------------------
 # Make an FPS
@@ -35,14 +65,14 @@ clouds = [extract_hypnocloud_from_signal_group(sg, channels, time_resolution=6)
 STAGE_KEYS = ('W', 'N1', 'N2', 'N3', 'R')
 
 fps = {}
-fps['meta'] = ([sg.label for sg in signal_groups], channels,
+fps['meta'] = (list(clouds.keys()), channels,
                {'FREQ': ('max_freq', [20]), 'AMP': ('pool_size', [128])})
-for sg, cloud in zip(signal_groups, clouds):
+for label, cloud in clouds.items():
   for chn in channels:
     for pk in ('amplitude', 'frequency'):
       bk = {'amplitude': ('AMP', 'pool_size', 128),
             'frequency': ('FREQ', 'max_freq', 20)}[pk]
-      key = (sg.label, chn, bk)
+      key = (label, chn, bk)
       fps[key] = {}
       for sk in STAGE_KEYS: fps[key][sk] = cloud[chn][sk][pk]
 
