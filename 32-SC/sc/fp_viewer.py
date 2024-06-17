@@ -180,7 +180,10 @@ class ProbeScatter(Plotter):
     self.new_settable_attr('ymax', None, float, 'y-max')
     self.new_settable_attr('scatter_alpha', 0.5, float, 'scatter_alpha')
 
-    self.new_settable_attr('margin', 0.15, float, 'margin')
+    self.new_settable_attr('margin', 0.2, float, 'margin')
+    self.new_settable_attr('pm', 0.02, float, 'Percentile margin for kde plot')
+    self.new_settable_attr(
+      'iw', False, bool, 'Option to ignore wake for axis limits')
 
   def register_shortcuts(self):
     self.register_a_shortcut('s', lambda: self.flip('show_scatter'),
@@ -191,6 +194,7 @@ class ProbeScatter(Plotter):
                              'Toggle `show_kde`')
     self.register_a_shortcut('v', lambda: self.flip('show_vector'),
                              'Toggle `show_vector`')
+    self.register_a_shortcut('w', lambda: self.flip('iw'), 'Toggle `iw`')
 
   # region: Plot Methods
 
@@ -207,8 +211,9 @@ class ProbeScatter(Plotter):
       'R': 'lightcoral'
     }
 
+    # (1) Plot scatter/KDE/vector of each stage
     bm1_key, bm2_key = list(res_dict.keys())
-    xmin, xmax, ymin, ymax = np.inf, -np.inf, np.inf, -np.inf
+    X, Y = None, None
     for stage_key, color in colors.items():
       if stage_key not in res_dict[bm1_key]: continue
       data1, data2 = res_dict[bm1_key][stage_key], res_dict[bm2_key][stage_key]
@@ -231,11 +236,13 @@ class ProbeScatter(Plotter):
       # show vector is required
       if self.get('show_vector'): self.show_vector(ax, data1, data2, color)
 
-      # Update limits
-      xmin, xmax = min(xmin, np.min(data1)), max(xmax, np.max(data1))
-      ymin, ymax = min(ymin, np.min(data2)), max(ymax, np.max(data2))
+      # Gather data, note that data[12].shape.__len__ == 1
+      if self.get('iw'):
+        if stage_key == 'W': continue
+      if X is None: X, Y = data1, data2
+      else: X, Y = np.concatenate([X, data1]), np.concatenate([Y, data2])
 
-    # Set title, axis labels, and legend
+    # (2) Set title, axis labels, and legend
     profiles = self.pictor.selected_profiles
     sg_label, channel_key = profiles[0][:2]
     ax.set_title(f'{sg_label} ({channel_key})')
@@ -243,26 +250,27 @@ class ProbeScatter(Plotter):
     bm_key, arg_key, arg_v = profiles[0][2]
     ax.set_xlabel(f'{bm_key} ({arg_key}={arg_v})')
 
+    # (2.1) Set limits
+    d = 100 * self.get('pm') / 2
+    q1, q2 = d, 100 - d
+
+    xmin, xmax = np.percentile(X, q1), np.percentile(X, q2)
+    ymin, ymax = np.percentile(Y, q1), np.percentile(Y, q2)
+
     m = self.get('margin')
     xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
     xmin, xmax = xmin - xm, xmax + xm
     ymin, ymax = ymin - ym, ymax + ym
+
     xmin = self.get('xmin') if self.get('xmin') is not None else xmin
     xmax = self.get('xmax') if self.get('xmax') is not None else xmax
     ymin = self.get('ymin') if self.get('ymin') is not None else ymin
     ymax = self.get('ymax') if self.get('ymax') is not None else ymax
+
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
 
-    # if self.get('xmin') is not None:
-    #   ax.set_xlim(self.get('xmin'), self.get('xmax'))
-    #   ax.set_ylim(self.get('ymin'), self.get('ymax'))
-    # else:
-    #   m = self.get('margin')
-    #   xm, ym = (xmax - xmin) * m, (ymax - ymin) * m
-    #   ax.set_xlim(xmin - xm, xmax + xm)
-    #   ax.set_ylim(ymin - ym, ymax + ym)
-
+    # (2.2) MISC
     bm_key, arg_key, arg_v = profiles[1][2]
     ax.set_ylabel(f'{bm_key} ({arg_key}={arg_v})')
     ax.legend()
@@ -301,8 +309,11 @@ class ProbeScatter(Plotter):
   def show_kde(self, ax: plt.Axes, m1, m2, color):
     from scipy import stats
 
-    xmin, xmax = np.min(m1), np.max(m1)
-    ymin, ymax = np.min(m2), np.max(m2)
+    d = 100 * self.get('pm') / 2
+    q1, q2 = d, 100 - d
+
+    xmin, xmax = np.percentile(m1, q1), np.percentile(m1, q2)
+    ymin, ymax = np.percentile(m2, q1), np.percentile(m2, q2)
 
     # Set margin
     m = self.get('margin')
@@ -332,16 +343,6 @@ class ProbeScatter(Plotter):
 if __name__ == '__main__':
   from tframe.utils.file_tools.io_utils import load
 
-  save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(15,35)_bm02(32,224).pr'
-  save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(15,40)_bm02(32,256).pr'
-  save_path = r'P:\xai-sleep\data\probe_reports\sg10_eeg2_bm01(25)_bm02(128).pr'
-  save_path = r'P:\xai-sleep\data\probe_reports\rrsh_insomnia_eeg4_bm01(25)_bm02(128).pr'
-  save_path = r'P:\xai-sleep\data\probe_reports\rrsh_narcolepsy_eeg4_bm01(25)_bm02(128).pr'
-  results = load(save_path)
-  meta = results['meta']
-
-  ew = EWViewer(walker_results=results)
-  ew.show()
   print()
 
 
