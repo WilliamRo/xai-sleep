@@ -52,10 +52,12 @@ targets = [
   df.loc[df['subject'] == int(pid[3:5]), 'age'].values[0]
   for pid in clouds.keys()
 ]
-targets = [int(t > T) for t in targets]
-target_labels = [f'Age<={T}', f'Age>{T}']
 
-omix = Omix(features, targets, feature_names, target_labels,
-            data_name=f'SC-pt153-{R}s')
-omix.show_in_explorer()
+omix = Omix(features, targets, feature_names, None, ['Age'])
+print(np.median(omix.targets))
+# omix.show_in_explorer()
+
+
+
+
 

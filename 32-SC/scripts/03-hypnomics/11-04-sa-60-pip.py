@@ -12,50 +12,33 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # Config
 # -----------------------------------------------------------------------------
-# Configs
-N = 399
-R = 30
-overwrite = False
-N = min(N, 153)
-
-save_to_dir = r'../../features/'
-cloud_file_name = f'SC-pt{N}-C2-dt{R}.clouds'
-save_path = os.path.join(save_to_dir, cloud_file_name)
-
-channels = ['EEG Fpz-Cz', 'EEG Pz-Oz']
-
-XLSX_PATH = r'../../../data/sleep-edf-database-expanded-1.0.0/SC-subjects.xls'
+data_dir = r'../../features/'
+file_name = r'sleep-age-60.omix'
+save_path = os.path.join(data_dir, file_name)
 
 # -----------------------------------------------------------------------------
 # Load cloud and excel
 # -----------------------------------------------------------------------------
-clouds = io.load_file(save_path, verbose=True)
-df = pd.read_excel(XLSX_PATH)
+omix = Omix.load(save_path)
+# omix.show_in_explorer()
 
 # -----------------------------------------------------------------------------
-# Wrap
+# Pipeline
 # -----------------------------------------------------------------------------
-feature_names = None
-hypn_dict = OrderedDict()
-for pid, cloud in clouds.items():
-  if feature_names is None:
-    x_dict = extract_hypnoprints_from_hypnocloud(cloud, return_dict=True)
-    hypn_dict[pid] = np.array(list(x_dict.values()))
-    feature_names = list(x_dict.keys())
-  else: hypn_dict[pid] = extract_hypnoprints_from_hypnocloud(cloud)
+from pictor.xomics.evaluation.pipeline import Pipeline
 
-features = np.stack(list(hypn_dict.values()))
+pi = Pipeline(omix, ignore_warnings=1, save_models=0)
+M = 5
+pi.create_sub_space('lasso', repeats=M, show_progress=1)
+pi.create_sub_space('*', repeats=M, show_progress=1)
 
-T = 60
+N = 5
+pi.fit_traverse_spaces('lr', repeats=N, show_progress=1)
+pi.fit_traverse_spaces('svm', repeats=N, show_progress=1)
+pi.fit_traverse_spaces('dt', repeats=N, show_progress=1)
+pi.fit_traverse_spaces('rf', repeats=N, show_progress=1)
+pi.fit_traverse_spaces('xgb', repeats=N, show_progress=1)
 
-targets = [
-  df.loc[df['subject'] == int(pid[3:5]), 'age'].values[0]
-  for pid in clouds.keys()
-]
-targets = [int(t > T) for t in targets]
-target_labels = [f'Age<={T}', f'Age>{T}']
+pi.report()
 
-omix = Omix(features, targets, feature_names, None, target_labels,
-            data_name=f'SC-pt153-{R}s')
-omix.show_in_explorer()
-
+omix.save(os.path.join(data_dir, '20240610-sa-60.omix'), verbose=True)

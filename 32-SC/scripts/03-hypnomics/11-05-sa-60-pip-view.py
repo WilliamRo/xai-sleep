@@ -13,13 +13,15 @@ import numpy as np
 # Config
 # -----------------------------------------------------------------------------
 data_dir = r'../../features/'
-file_name = r'sleep-age-60.omix'
-save_path = os.path.join(data_dir, file_name)
+file_names = [
+'20240610-sa-60.omix',
+]
+file_path = os.path.join(data_dir, file_names[0])
 
 # -----------------------------------------------------------------------------
 # Load cloud and excel
 # -----------------------------------------------------------------------------
-omix = Omix.load(save_path)
+omix = Omix.load(file_path)
 # omix.show_in_explorer()
 
 # -----------------------------------------------------------------------------
@@ -28,17 +30,6 @@ omix = Omix.load(save_path)
 from pictor.xomics.evaluation.pipeline import Pipeline
 
 pi = Pipeline(omix, ignore_warnings=1, save_models=0)
-M = 5
-pi.create_sub_space('lasso', repeats=M, show_progress=1)
-pi.create_sub_space('*', repeats=M, show_progress=1)
-
-N = 5
-pi.fit_traverse_spaces('lr', repeats=N, show_progress=1)
-pi.fit_traverse_spaces('svm', repeats=N, show_progress=1)
-pi.fit_traverse_spaces('dt', repeats=N, show_progress=1)
-pi.fit_traverse_spaces('rf', repeats=N, show_progress=1)
-pi.fit_traverse_spaces('xgb', repeats=N, show_progress=1)
 
 pi.report()
-
-omix.save(os.path.join(data_dir, '20240610-sa-60.omix'), verbose=True)
+pi.plot_matrix()

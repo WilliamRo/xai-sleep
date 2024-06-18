@@ -1,6 +1,7 @@
 from matplotlib.patches import Rectangle
 from pictor import Pictor
 from pictor.plotters.plotter_base import Plotter
+from pictor.xomics.misc.distribution import remove_outliers_for_list
 from roma import console
 
 import matplotlib
@@ -184,6 +185,8 @@ class ProbeScatter(Plotter):
     self.new_settable_attr('pm', 0.02, float, 'Percentile margin for kde plot')
     self.new_settable_attr(
       'iw', False, bool, 'Option to ignore wake for axis limits')
+    self.new_settable_attr(
+      'io', False, bool, 'Option to ignore ourliers for axis limits')
 
   def register_shortcuts(self):
     self.register_a_shortcut('s', lambda: self.flip('show_scatter'),
@@ -195,6 +198,11 @@ class ProbeScatter(Plotter):
     self.register_a_shortcut('v', lambda: self.flip('show_vector'),
                              'Toggle `show_vector`')
     self.register_a_shortcut('w', lambda: self.flip('iw'), 'Toggle `iw`')
+    self.register_a_shortcut('o', lambda: self.flip('io'), 'Toggle `io`')
+    self.register_a_shortcut('Left', lambda: self.set_lim('xmin'), 'Set xmin')
+    self.register_a_shortcut('Right', lambda: self.set_lim('xmax'), 'Set xmax')
+    self.register_a_shortcut('Down', lambda: self.set_lim('ymin'), 'Set ymin')
+    self.register_a_shortcut('Up', lambda: self.set_lim('ymax'), 'Set ymax')
 
   # region: Plot Methods
 
@@ -254,6 +262,9 @@ class ProbeScatter(Plotter):
     d = 100 * self.get('pm') / 2
     q1, q2 = d, 100 - d
 
+    # Remove outliers if required
+    if self.get('io'): X, Y = remove_outliers_for_list(X, Y)
+
     xmin, xmax = np.percentile(X, q1), np.percentile(X, q2)
     ymin, ymax = np.percentile(Y, q1), np.percentile(Y, q2)
 
@@ -292,7 +303,6 @@ class ProbeScatter(Plotter):
 
   # region: Data Analysis
 
-
   def show_vector(self, ax: plt.Axes, m1, m2, color):
     mu1, mu2 = np.mean(m1), np.mean(m2)
     # Calculate covariance matrix
@@ -308,6 +318,8 @@ class ProbeScatter(Plotter):
 
   def show_kde(self, ax: plt.Axes, m1, m2, color):
     from scipy import stats
+
+    m1, m2 = remove_outliers_for_list(m1, m2, alpha=1.5)
 
     d = 100 * self.get('pm') / 2
     q1, q2 = d, 100 - d
@@ -337,6 +349,21 @@ class ProbeScatter(Plotter):
     ax.add_patch(rect)
 
   # endregion: Data Analysis
+
+  # region: MISC
+
+  def set_lim(self, key):
+    if self.get(key) is not None:
+      self.set(key)
+      return
+
+    ax = self.pictor.canvas.axes2D
+    lim_dict = {}
+    lim_dict['xmin'], lim_dict['xmax'] = ax.get_xlim()
+    lim_dict['ymin'], lim_dict['ymax'] = ax.get_ylim()
+    self.set(key, value=lim_dict[key])
+
+  # endregion: MISC
 
 
 

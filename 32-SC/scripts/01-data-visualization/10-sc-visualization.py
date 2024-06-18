@@ -6,59 +6,45 @@ from roma import io, console
 import os
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-
-# -----------------------------------------------------------------------------
-# Config
-# -----------------------------------------------------------------------------
-# Configs
-N = 399
-R = 30
-overwrite = False
-N = min(N, 153)
-
-save_to_dir = r'../../features/'
-cloud_file_name = f'SC-pt{N}-C2-dt{R}.clouds'
-save_path = os.path.join(save_to_dir, cloud_file_name)
-
-channels = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 
 XLSX_PATH = r'../../../data/sleep-edf-database-expanded-1.0.0/SC-subjects.xls'
-
-# -----------------------------------------------------------------------------
-# Load cloud and excel
-# -----------------------------------------------------------------------------
-clouds = io.load_file(save_path, verbose=True)
 df = pd.read_excel(XLSX_PATH)
 
-# -----------------------------------------------------------------------------
-# Wrap
-# -----------------------------------------------------------------------------
-feature_names = None
-hypn_dict = OrderedDict()
-for pid, cloud in clouds.items():
-  if feature_names is None:
-    x_dict = extract_hypnoprints_from_hypnocloud(cloud, return_dict=True)
-    hypn_dict[pid] = np.array(list(x_dict.values()))
-    feature_names = list(x_dict.keys())
-  else: hypn_dict[pid] = extract_hypnoprints_from_hypnocloud(cloud)
 
-features = np.stack(list(hypn_dict.values()))
+male_ages, female_ages = [], []
+pids = sorted(list(set(df['subject'])))
+for pid in pids:
+  age = df.loc[df['subject'] == pid, 'age'].values[0]
+  gender = df.loc[df['subject'] == pid, 'sex (F=1)'].values[0]
+  if gender == 1: female_ages.append(age)
+  else:
+    assert gender == 2
+    male_ages.append(age)
 
-ages = [
-  df.loc[df['subject'] == int(pid[3:5]), 'age'].values[0]
-  for pid in clouds.keys()
-]
-targets = []
-for age in ages:
-  if age <= 40: targets.append(0)
-  elif age <= 70: targets.append(1)
-  else: targets.append(2)
+# Plot age distribution
+# alpha = 0.5
+# bins = np.linspace(10, 110, 10)
+# plt.hist(male_ages, bins, label='Male', alpha=alpha)
+# plt.hist(female_ages, bins, label='Female', alpha=alpha)
+# plt.legend()
 
-target_labels = ['Age<=40', '40<Age<=70', 'Age>70']
+print(f'Male ({len(male_ages)}): [{np.min(male_ages)}, {np.max(male_ages)}]')
+print(f'Female ({len(female_ages)}): [{np.min(female_ages)}, {np.max(female_ages)}]')
 
-omix = Omix(features, targets, feature_names, target_labels,
-            data_name=f'SC-pt153-{R}s')
-omix.show_in_explorer()
+plt.figure(figsize=(7, 2))
+
+v1 = plt.violinplot([male_ages], showmeans=True, vert=False, side='high')
+v2 = plt.violinplot([female_ages], showmeans=True, vert=False, side='low')
+plt.legend([v1['bodies'][0], v2['bodies'][0]], ['Male', 'Female'],
+           loc='upper right')
+# ticks = ['Male', 'Female']
+plt.yticks([])
+plt.xlabel('Age')
+
+plt.tight_layout()
+plt.show()
+
 

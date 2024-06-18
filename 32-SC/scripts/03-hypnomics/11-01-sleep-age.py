@@ -55,7 +55,7 @@ targets = [
 targets = [int(t > T) for t in targets]
 target_labels = [f'Age<={T}', f'Age>{T}']
 
-omix = Omix(features, targets, feature_names, target_labels,
+omix = Omix(features, targets, feature_names, None, target_labels,
             data_name=f'SC-pt153-{R}s')
 omix.show_in_explorer()
 
