@@ -21,3 +21,7 @@ def get_extractor_dict(keys, **kwargs):
     else: raise KeyError(f'Unknown key: {key}')
 
   return od
+
+
+def cloud_to_vector_lib():
+  pass

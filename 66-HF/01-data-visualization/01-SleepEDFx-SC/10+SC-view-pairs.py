@@ -1,8 +1,8 @@
 import os
 
-from hypnomics.freud.freud import Freud
 from hypnomics.freud.nebula import Nebula
 from hypnomics.freud.telescopes.telescope import Telescope
+from hf.sc_tools import get_paired_sg_labels
 from roma import finder
 
 
@@ -10,8 +10,6 @@ from roma import finder
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
-# sca = SCAgent()
-# sca.report_data_info()
 configs = {
   # 'xmin': 3, 'xmax': 9, 'ymin': 0, 'ymax': 200,
   'show_kde': 0,
@@ -30,25 +28,17 @@ PK2 = 'AMP-1'
 
 # SG_LABELS = ['SC4001E', 'SC4002E']
 SG_LABELS = finder.walk(WORK_DIR, type_filter='dir', return_basename=True)[:999]
+PAIRED_LABELS = get_paired_sg_labels(SG_LABELS)
 
 # [ 2, 5, 10, 30, ]
 TIME_RESOLUTION = 10
 
-NEB_FN = [
-  None,
-  'SC-153-partial.nebula',
-][1]
+NEB_FN = 'SC-153-partial.nebula'
 # -----------------------------------------------------------------------------
 # (2) Visualize
 # -----------------------------------------------------------------------------
-if NEB_FN is not None:
-  nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
-else:
-  freud = Freud(WORK_DIR)
-  nebula = freud.load_nebula(sg_labels=SG_LABELS,
-                             channels=CHANNELS,
-                             time_resolution=TIME_RESOLUTION,
-                             probe_keys=[PK1, PK2])
+nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
+nebula = nebula[PAIRED_LABELS]
 
 viewer_class = Telescope
 # viewer_class = None
