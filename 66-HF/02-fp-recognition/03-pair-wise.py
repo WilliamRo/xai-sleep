@@ -1,11 +1,14 @@
-import os
-
 from hypnomics.hypnoprints.extractor import Extractor
 from hypnomics.freud.nebula import Nebula
 from hf.sc_tools import get_paired_sg_labels, get_dual_nebula
 from hf.match_lab import MatchLab
+from pictor.xomics.omix import Omix
+from pictor.xomics.evaluation.pipeline import Pipeline, FitPackage
 from roma import finder
 from roma import console
+
+import os
+import numpy as np
 
 
 
@@ -22,28 +25,40 @@ nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
 nebula.set_labels(PAIRED_LABELS)
 
 neb_1, neb_2 = get_dual_nebula(nebula)
-
-# viewer_class = Telescope
-# neb_2.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class, **configs)
-
 # -----------------------------------------------------------------------------
-# (3) Extract features and analysis
+# (3) Extract features
 # -----------------------------------------------------------------------------
 extractor = Extractor()
 F1 = extractor.extract(neb_1, return_dict=True)
 F2 = extractor.extract(neb_2, return_dict=True)
 
+# -----------------------------------------------------------------------------
+# (4) Pair-wise learning
+# -----------------------------------------------------------------------------
 matlab = MatchLab(F1, F2, normalize=1, N=999,
                   neb_1=neb_1, neb_2=neb_2, nebula=nebula)
 
-matlab.select_feature(min_ICC=0.5, verbose=1, set_C=1)
-if 1:
-  # matlab.ICC_analysis()
-  matlab.analyze(toolbar=1)
-  exit()
+k = 5
+OMIX_NAME = f'0628_SC150_K{k}.omix'
+OMIX_SAVE_PATH = os.path.join(WORK_DIR, OMIX_NAME)
 
-if 0:
-  omix = matlab.get_pair_omix(k=999, include_dm=1)
-  omix.show_in_explorer()
-  exit()
+if os.path.exists(OMIX_SAVE_PATH):
+  omix = Omix.load(OMIX_SAVE_PATH)
+  pi = Pipeline(omix, ignore_warnings=1, save_models=1)
+else:
+  omix = matlab.get_pair_omix(k=k)
+  pi = matlab.fit_pipeline(omix, show_progress=1)
+  omix.save(OMIX_SAVE_PATH, verbose=True)
+
+pi.report()
+# pi.plot_matrix()
+
+# -----------------------------------------------------------------------------
+# (5) Validation
+# -----------------------------------------------------------------------------
+omix_val = matlab.get_pair_omix(k=50)
+pkg: FitPackage = pi.evaluate_best_pipeline(omix_val)
+pkg.report()
+matlab.dm_validate(pi, ranking=3, reducer=None)
+
 

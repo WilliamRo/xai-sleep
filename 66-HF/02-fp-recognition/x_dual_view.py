@@ -18,7 +18,7 @@ configs = {
   # 'scatter_alpha': 0.05,
 }
 
-WORK_DIR = r'../../data/sleepedfx_sc'
+WORK_DIR = r'../data/sleepedfx_sc'
 CHANNELS = [
   'EEG Fpz-Cz',
   'EEG Pz-Oz'
@@ -37,9 +37,9 @@ NEB_FN = 'SC-153-partial.nebula'
 # -----------------------------------------------------------------------------
 # (2) Visualize
 # -----------------------------------------------------------------------------
-nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
-nebula.set_labels(PAIRED_LABELS)
+if __name__ == '__main__':
+  nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
+  nebula.set_labels(PAIRED_LABELS)
 
-viewer_class = Telescope
-# viewer_class = None
-nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class, **configs)
+  viewer_class = Telescope
+  nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class, **configs)

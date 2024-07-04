@@ -4,13 +4,13 @@ import numpy as np
 
 
 
-def get_paired_sg_labels(sg_labels: list):
+def get_paired_sg_labels(sg_labels: list, excludes=()):
   """e.g., label = `SC4012E`"""
   paired_sg_labels = []
   pids = [sg_label[2:5] for sg_label in sg_labels]
   for label, pid in zip(sg_labels, pids):
     if len([p for p in pids if p == pid]) > 1:
-      paired_sg_labels.append(label)
+      if pid not in excludes: paired_sg_labels.append(label)
 
   return paired_sg_labels
 
