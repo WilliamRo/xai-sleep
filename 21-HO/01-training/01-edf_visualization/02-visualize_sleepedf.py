@@ -37,11 +37,22 @@ for psg_fn, ann_fn in data_files:
     # -------------------------------------------------------------------------
     # Begin
     # -------------------------------------------------------------------------
-    sg = None
+    # data.shape = (n_ticks, n_channels)
+    data = None
+    # sampling_frequency = XXX Hz
+    sampling_frequency = None
+    ds = DigitalSignal(data, sampling_frequency, channel_names=file.ch_names)
+    sg = SignalGroup(ds, label=psg_fn.split('-')[0])
 
+    # intervals = [(start_1, end_1), (start_2, end_2), ...]
+    intervals = None
+    # annotations = [0, 1, 2, 1, 3, ...]
+    annotations = None
+    anno = Annotation(intervals, annotations, anno_labels)
     # -------------------------------------------------------------------------
     # End
     # -------------------------------------------------------------------------
+    sg.annotations['stage Ground-Truth'] = anno
     signal_groups.append(sg)
 
 # -----------------------------------------------------------------------------
