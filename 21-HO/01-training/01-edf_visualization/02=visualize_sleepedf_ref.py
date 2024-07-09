@@ -1,5 +1,6 @@
 from freud.gui.freud_gui import Freud
 from pictor.objects.signals import SignalGroup, Annotation, DigitalSignal
+from roma import io
 
 import mne
 import os
@@ -32,13 +33,23 @@ for psg_fn, ann_fn in data_files:
   edf_file_path = os.path.join(data_dir, psg_fn)
   hypnogram_file_path = os.path.join(data_dir, ann_fn)
 
+  # Get PID, e.g., SC4001E0-PSG.edf -> SC4001E
+  pid = psg_fn.split('-')[0][:-1]
+  sg_file_name = f'{pid}(raw).sg'
+  sg_file_path = os.path.join(data_dir, sg_file_name)
+
+  if os.path.exists(sg_file_path):
+    sg: SignalGroup = io.load_file(sg_file_path, verbose=True)
+    signal_groups.append(sg)
+    continue
+
   # (1) Read PSG data
   with mne.io.read_raw_edf(edf_file_path, preload=False) as file:
     sampling_frequency = file.info['sfreq']
     data = file.get_data()
 
     ds = DigitalSignal(data.T, sampling_frequency, channel_names=file.ch_names)
-    sg = SignalGroup(ds, label=psg_fn.split('-')[0])
+    sg = SignalGroup(ds, label=pid)
 
     # (2) Read annotation
     mne_anno: mne.Annotations = mne.read_annotations(hypnogram_file_path)
@@ -57,6 +68,9 @@ for psg_fn, ann_fn in data_files:
 
     # (3) Put sg into bucket
     signal_groups.append(sg)
+
+    # (4) Save .sg file if not exist
+    io.save_file(sg, sg_file_path, verbose=True)
 
 # -----------------------------------------------------------------------------
 # Visualize data
