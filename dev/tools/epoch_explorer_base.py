@@ -238,6 +238,8 @@ class RhythmPlotter(Plotter):
                            'Option to toggle developer mode')
     self.new_settable_attr('summit', False, bool,
                            'Option to toggle summit visualization')
+    self.new_settable_attr('stft', True, bool,
+                           'Option to plot STFT instead of FT spectrum')
 
     self.new_settable_attr('dev_arg', '32', str, 'Developer mode argument')
 
@@ -307,31 +309,57 @@ class RhythmPlotter(Plotter):
     return f, secs, spectrum, dom_f
 
   def _plot_spectrum(self, ax: plt.Axes):
-    f, t, spectrum = self._get_spectrum(self.explorer.selected_signal)
+    if self.get('stft'):
+      f, t, spectrum = self._get_spectrum(self.explorer.selected_signal)
 
-    # ax.pcolormesh(t, f, spectrum, vmin=0, shading='gouraud')
-    ax.pcolormesh(t, f, spectrum, vmin=0)
-    # ax.set_yscale('log')
+      # ax.pcolormesh(t, f, spectrum, vmin=0, shading='gouraud')
+      ax.pcolormesh(t, f, spectrum, vmin=0)
+      # ax.set_yscale('log')
 
-    # Set styles
-    ax.set_xlabel('Time [sec]')
-    ax.set_ylabel('Frequency [Hz]')
+      # Set styles
+      ax.set_xlabel('Time [sec]')
+      ax.set_ylabel('Frequency [Hz]')
 
-    # Set maximum frequency
-    ax.set_xlim(t[0], t[-1])
-    ymin, ymax = self.get('min_freq'), self.get('max_freq')
-    ax.set_ylim(ymin, ymax)
+      # Set maximum frequency
+      ax.set_xlim(t[0], t[-1])
+      ymin, ymax = self.get('min_freq'), self.get('max_freq')
+      ax.set_ylim(ymin, ymax)
 
-    # Show wave threshold if required
-    if self.get('show_wave_threshold'):
-      ax.plot([0, 30], [4, 4], 'r:')
-      ax.plot([0, 30], [8, 8], 'r:')
-      ax.plot([0, 30], [13, 13], 'r:')
+      # Show wave threshold if required
+      if self.get('show_wave_threshold'):
+        ax.plot([0, 30], [4, 4], 'r:')
+        ax.plot([0, 30], [8, 8], 'r:')
+        ax.plot([0, 30], [13, 13], 'r:')
 
-      ax2 = ax.twinx()
-      ax2.set_yticks([(ymin + 4) / 2, 6, 10.5, (13 + ymax) / 2],
-                     [r'$\delta$', r'$\theta$', r'$\alpha$', r'$\beta$'])
-      ax2.set_ylim(ymin, ymax)
+        ax2 = ax.twinx()
+        ax2.set_yticks([(ymin + 4) / 2, 6, 10.5, (13 + ymax) / 2],
+                       [r'$\delta$', r'$\theta$', r'$\alpha$', r'$\beta$'])
+        ax2.set_ylim(ymin, ymax)
+    else:
+      s = self.explorer.selected_signal
+      if self.get('filter'): s = self._butter_filt(s)
+
+      fs = self.explorer.selected_signal_group.digital_signals[0].sfreq
+      N = len(s)
+      X = np.fft.fft(s)
+      X_mag = np.abs(X) / N
+      f = np.fft.fftfreq(N, 1 / fs)
+      ax.plot(f[:N // 2], X_mag[:N // 2])
+      ax.set_xlabel('Frequency [Hz]')
+      ax.set_ylabel('Magnitude')
+      ax.grid(True)
+
+      y_lim = ax.get_ylim()
+      for freq in (0.5, 4, 8, 13): ax.plot([freq] * 2, [0, 1], 'r--')
+      ax.set_ylim(y_lim)
+
+      if self.get('filter'): ax.set_xlim(0, 35)
+
+      # Calculate average frequency
+      mask = (f > 0.5) & (f < 35)
+      avg_f = np.sum(f[mask] * X_mag[mask]) / np.sum(X_mag[mask])
+
+      return f'(AVG_F = {avg_f:.2f} Hz)'
 
     return ''
 
@@ -384,7 +412,8 @@ class RhythmPlotter(Plotter):
     assert len(filter_args) == 2
     low, high = [float(s) for s in filter_args]
 
-    sos = butter(10, [low, high], 'bandpass', fs=128, output='sos')
+    fs = self.explorer.selected_signal_group.digital_signals[0].sfreq
+    sos = butter(10, [low, high], 'bandpass', fs=fs, output='sos')
     s = sosfilt(sos, s)
 
     return s
@@ -474,6 +503,8 @@ class RhythmPlotter(Plotter):
 
     self.register_a_shortcut('f', lambda: self.flip('filter'),
                              'Toggle `filter`')
+    self.register_a_shortcut('t', lambda: self.flip('stft'),
+                             'Toggle `stft`')
 
   def zoom(self, multiplier):
     assert multiplier in (0.5, 2)
