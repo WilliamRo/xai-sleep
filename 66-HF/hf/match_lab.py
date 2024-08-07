@@ -144,6 +144,30 @@ class MatchLab(Nomear):
     else: dm = self.distance_matrix
 
     # (1)
+    if 'matrices' in kwargs:
+      matrices = kwargs.pop('matrices')
+      labels = kwargs.pop('labels')
+    else:
+      matrices = [self.delta_brick[..., d] for d in range(self.D)]
+      labels = [f'"{fn}"' for fn in self.feature_names]
+
+    matrices.insert(0, dm)
+    labels.insert(0, 'Distance Matrix')
+    omix_labels = labels
+
+    # (1.1)
+    ACC1s = self._top_k_acc(matrices, k=1)
+    ACC5s = self._top_k_acc(matrices, k=5)
+    labels = [f'{lb}, ACC1/5 = {acc1:.2f}/{acc5:.2f}'
+              for lb, acc1, acc5 in zip(labels, ACC1s, ACC5s)]
+
+    # (1.2)
+    scores = self._rank_score(matrices)
+    labels = [f'{lb}, RS = {s:.1f}' for lb, s in zip(labels, scores)]
+
+    # (2)
+    assign_omix = kwargs.pop('omix', False)
+
     p = Pictor.image_viewer(
       f'MatchLab (N = {self.N})', figure_size=(7, 7), **kwargs)
     p.plotters[0].set('cmap', 'RdYlGn')
@@ -151,28 +175,26 @@ class MatchLab(Nomear):
     p.plotters[0].set('title', True)
     p.canvas._canvas.mpl_connect('button_press_event', self.on_click_show_dual)
 
-    # (2)
-    matrices = [self.delta_brick[..., d] for d in range(self.D)]
-    labels = [f'"{fn}"' for fn in self.feature_names]
-
-    matrices.insert(0, dm)
-    labels.insert(0, 'Distance Matrix')
-
-    # (2.1)
-    ACC1s = self._top_k_acc(matrices, k=1)
-    ACC5s = self._top_k_acc(matrices, k=5)
-    labels = [f'{lb}, ACC1/5 = {acc1:.2f}/{acc5:.2f}'
-              for lb, acc1, acc5 in zip(labels, ACC1s, ACC5s)]
-
-    # (2.2)
-    scores = self._rank_score(matrices)
-    labels = [f'{lb}, RS = {s:.1f}' for lb, s in zip(labels, scores)]
-
     # (3)
     p.objects = matrices
     p.labels = labels
-    p.show()
 
+    # (4)
+    if assign_omix:
+      matrices = np.stack(matrices, axis=-1)
+      features, targets = [], []
+      for i, j in [(i, j) for i in range(self.N) for j in range(self.N)]:
+        features.append(matrices[i, j])
+        targets.append(0 if i != j else 1)
+
+      features = np.stack(features, axis=0)
+      omix = Omix(features, targets, feature_labels=omix_labels,
+                  target_labels=['Not Match', 'Match'])
+      p.plotters[0].omix = omix.show_in_explorer
+
+    # (-1)
+    p.show()
+  
   def get_pair_omix(self, k=5, include_dm=False) -> Omix:
     N = self.N
     B = self.delta_brick
@@ -284,7 +306,7 @@ class MatchLab(Nomear):
 
     self.nebula.set_labels(all_labels, check_sub_set=False)
 
-  def ICC_analysis(self):
+  def ICC_analysis(self, ymax=None):
     import matplotlib.pyplot as plt
 
     sorted_od = self.sorted_ICC3_dict
@@ -295,6 +317,8 @@ class MatchLab(Nomear):
     plt.xlabel('ICC3')
     plt.yticks(Y, list(sorted_od.keys()))
     plt.title('Feature Ranking')
+
+    if ymax is not None: plt.ylim(Y[-1] - ymax, Y[-1] + 1)
 
     plt.grid(True)
 

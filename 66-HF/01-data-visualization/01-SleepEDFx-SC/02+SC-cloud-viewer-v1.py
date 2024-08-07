@@ -25,31 +25,45 @@ CHANNELS = [
   'EEG Fpz-Cz',
   'EEG Pz-Oz'
 ]
-PK1 = 'FREQ-20'
-PK2 = 'AMP-1'
+
+PROBE_KEYS = [
+  'FREQ-20',   # 0
+  'GFREQ-35',  # 1
+  'AMP-1',     # 2
+  'P-TOTAL',   # 3
+  'RP-DELTA',  # 4
+  'RP-THETA',  # 5
+  'RP-ALPHA',  # 6
+  'RP-BETA',   # 7
+]
+PK1 = PROBE_KEYS[5]
+PK2 = PROBE_KEYS[6]
 
 # SG_LABELS = ['SC4001E', 'SC4002E']
-SG_LABELS = finder.walk(WORK_DIR, type_filter='dir', return_basename=True)[:999]
+N = 999
+SG_LABELS = finder.walk(WORK_DIR, type_filter='dir', return_basename=True)[:N]
 
 # [ 2, 5, 10, 30, ]
-TIME_RESOLUTION = 10
+TIME_RESOLUTION = 30
 
 NEB_FN = [
-  None,
-  'SC-153-partial.nebula',
-][1]
+  'None',
+  f'SC-153-partial-{TIME_RESOLUTION}.nebula',
+  f'SC-{TIME_RESOLUTION}-KDE-0730.nebula',
+][2]
 # -----------------------------------------------------------------------------
 # (2) Visualize
 # -----------------------------------------------------------------------------
-if NEB_FN is not None:
-  nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
+neb_file_path = os.path.join(WORK_DIR, NEB_FN)
+if NEB_FN != 'None' and os.path.exists(neb_file_path):
+  nebula: Nebula = Nebula.load(neb_file_path)
 else:
   freud = Freud(WORK_DIR)
   nebula = freud.load_nebula(sg_labels=SG_LABELS,
                              channels=CHANNELS,
                              time_resolution=TIME_RESOLUTION,
-                             probe_keys=[PK1, PK2])
+                             probe_keys=PROBE_KEYS)
 
 viewer_class = Telescope
-# viewer_class = None
-nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class, **configs)
+nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class,
+                 viewer_configs={'plotters': 'HA'}, **configs)

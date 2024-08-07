@@ -17,7 +17,7 @@ import numpy as np
 # -----------------------------------------------------------------------------
 from x_dual_view import configs, WORK_DIR, CHANNELS, PK1, PK2, SG_LABELS, TIME_RESOLUTION, NEB_FN, PAIRED_LABELS
 
-NEB_FN = 'SC-153-partial.nebula'
+NEB_FN = f'SC-153-partial-{TIME_RESOLUTION}.nebula'
 # -----------------------------------------------------------------------------
 # (2) Get dual nebula
 # -----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ F2 = extractor.extract(neb_2, return_dict=True)
 matlab = MatchLab(F1, F2, normalize=1, N=999,
                   neb_1=neb_1, neb_2=neb_2, nebula=nebula)
 
-k = 5
+k = 2
 OMIX_NAME = f'0628_SC150_K{k}.omix'
 OMIX_SAVE_PATH = os.path.join(WORK_DIR, OMIX_NAME)
 
@@ -47,6 +47,9 @@ if os.path.exists(OMIX_SAVE_PATH):
   pi = Pipeline(omix, ignore_warnings=1, save_models=1)
 else:
   omix = matlab.get_pair_omix(k=k)
+  # omix.show_in_explorer()
+  # exit()
+
   pi = matlab.fit_pipeline(omix, show_progress=1)
   omix.save(OMIX_SAVE_PATH, verbose=True)
 

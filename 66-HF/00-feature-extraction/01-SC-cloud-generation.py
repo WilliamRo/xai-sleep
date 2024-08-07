@@ -3,7 +3,6 @@ from hf.extractors import get_extractor_dict
 
 
 
-
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
@@ -17,16 +16,23 @@ CHANNELS = [
   'EEG Pz-Oz'
 ]
 TIME_RESOLUTIONS = [
-  2,
-  5,
-  10,
+  # 2,
+  # 5,
+  # 10,
   30,
 ]
 EXTRACTOR_KEYS = [
-  'AMP-1',
-  'FREQ-20',
+  # 'AMP-1',
+  # 'FREQ-20',
+  # 'GFREQ-35',
+  'P-TOTAL',
+  'RP-DELTA',
+  'RP-THETA',
+  'RP-ALPHA',
+  'RP-BETA',
 ]
 
+OVERWRITE = 0
 # -----------------------------------------------------------------------------
 # (2) Cloud generation
 # -----------------------------------------------------------------------------
@@ -36,5 +42,5 @@ fs = freud.get_sampling_frequency(SG_DIR, SG_PATTERN, CHANNELS)
 assert fs == 128
 
 freud.generate_clouds(SG_DIR, pattern=SG_PATTERN, channels=CHANNELS,
-                      time_resolutions=TIME_RESOLUTIONS,
+                      time_resolutions=TIME_RESOLUTIONS, overwrite=OVERWRITE,
                       extractor_dict=get_extractor_dict(EXTRACTOR_KEYS, fs=fs))

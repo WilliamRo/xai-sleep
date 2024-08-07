@@ -7,14 +7,15 @@ from hf.match_lab import MatchLab
 from roma import finder
 from roma import console
 
-
-
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
 from x_dual_view import configs, WORK_DIR, CHANNELS, PK1, PK2, SG_LABELS, TIME_RESOLUTION, NEB_FN, PAIRED_LABELS
 
-NEB_FN = 'SC-153-partial.nebula'
+TIME_RESOLUTION = 30
+
+# NEB_FN = f'SC-153-partial-{TIME_RESOLUTION}.nebula'
+NEB_FN = f'SC-{TIME_RESOLUTION}-KDE-0730.nebula'
 # -----------------------------------------------------------------------------
 # (2) Get dual nebula
 # -----------------------------------------------------------------------------
@@ -38,11 +39,11 @@ matlab = MatchLab(F1, F2, normalize=1, N=999,
 
 matlab.select_feature(min_ICC=0.5, verbose=1, set_C=1)
 if 1:
-  # matlab.ICC_analysis()
+  matlab.ICC_analysis(ymax=30)
   matlab.analyze(toolbar=1)
   exit()
 
-if 0:
+if 1:
   omix = matlab.get_pair_omix(k=999, include_dm=1)
   omix.show_in_explorer()
   exit()

@@ -11,14 +11,14 @@ from roma import finder
 # (1) Configuration
 # -----------------------------------------------------------------------------
 configs = {
-  # 'xmin': 3, 'xmax': 9, 'ymin': 0, 'ymax': 200,
+  # 'xmin': 4, 'xmax': 10, 'ymin': 1e-5, 'ymax': 7e-5,
   'show_kde': 1,
   'show_scatter': 0,
   'show_vector': 0,
   # 'scatter_alpha': 0.05,
 }
 
-WORK_DIR = r'../data/sleepedfx_sc'
+WORK_DIR = r'../../data/sleepedfx_sc'
 CHANNELS = [
   'EEG Fpz-Cz',
   'EEG Pz-Oz'
@@ -31,7 +31,7 @@ EXCLUDES = ('422', '459', '476', '411')
 PAIRED_LABELS = get_paired_sg_labels(SG_LABELS, excludes=EXCLUDES)
 
 # [ 2, 5, 10, 30, ]
-TIME_RESOLUTION = 10
+TIME_RESOLUTION = 30
 
 NEB_FN = f'SC-153-partial-{TIME_RESOLUTION}.nebula'
 # -----------------------------------------------------------------------------
