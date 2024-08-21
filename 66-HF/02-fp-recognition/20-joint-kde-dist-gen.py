@@ -20,17 +20,17 @@ neb_file_path = os.path.join(WORK_DIR, NEB_FN)
 
 # (1.2) Set estimating configs
 CHANNELS = [
-  # 'EEG Fpz-Cz',
+  'EEG Fpz-Cz',
   'EEG Pz-Oz'
 ]
 
 PROBE_KEYS = [
-  'FREQ-20',
-  'AMP-1',
+  # 'FREQ-20',
+  # 'AMP-1',
   # 'GFREQ-35',
   # 'P-TOTAL',
   'RP-DELTA', 'RP-THETA', 'RP-ALPHA',
-  # 'RP-BETA',
+  'RP-BETA',
 ]
 
 CHNL_PROB_KEYS = [(ck, pk) for ck in CHANNELS for pk in PROBE_KEYS]
@@ -53,7 +53,9 @@ assert N == len(neb_2.labels)
 CHNL_PROB_PRODUCTS = [
   (ck1, pk1, ck2, pk2)
   for (ck1, pk1) in CHNL_PROB_KEYS for (ck2, pk2) in CHNL_PROB_KEYS
-  if ck1 != ck2 or pk1 != pk2
+  if (ck1, pk1) != (ck2, pk2)
+  # if ck1 != ck2 or pk1 != pk2
+  # if ck1 != ck2 and pk1 == pk2
 ]
 
 hm = HypnoModel1()
@@ -66,6 +68,7 @@ for ck1, pk1, ck2, pk2 in CHNL_PROB_PRODUCTS:
   kde_dist_dict = nebula.get_from_pocket(
     mat_key, initializer=lambda: {}, local=True)
 
+  # TODO
   if len(kde_dist_dict) == N * N:
     console.show_status(f'Joint KDE distance matrix `{mat_key}` already estimated')
     continue
@@ -83,6 +86,8 @@ for ck1, pk1, ck2, pk2 in CHNL_PROB_PRODUCTS:
         nebula.save(neb_file_path)
 
       k = (label_1, label_2)
+
+      # TODO: overwrite
       if k in kde_dist_dict: continue
 
       key_1_1, key_1_2 = (label_1, ck1, pk1), (label_1, ck2, pk2)

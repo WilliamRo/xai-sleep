@@ -1,6 +1,7 @@
 from hypnomics.freud.nebula import Nebula
 from hf.model_helper import gen_dist_mat
 from hf.sc_tools import get_dual_nebula, get_joint_key
+from hf.sc_tools import CK_MAP, PK_MAP
 from roma import console
 from roma import finder
 from x_dual_view import PAIRED_LABELS
@@ -16,7 +17,7 @@ import numpy as np
 WORK_DIR = r'../data/sleepedfx_sc'
 CHANNELS = [
   'EEG Fpz-Cz',
-  # 'EEG Pz-Oz'
+  'EEG Pz-Oz'
 ]
 
 PROBE_KEYS = [
@@ -84,56 +85,57 @@ for ck1, pk1, ck2, pk2 in CHNL_PROB_PRODUCTS:
     mat = gen_dist_mat(neb_1, neb_2, kde_dist_dict, mat_key_2D)
     matrix_dict[((ck1, pk1), (ck2, pk2))] = mat
 
-# -----------------------------------------------------------------------------
-# (4) Generate and show AUC matrix
-# -----------------------------------------------------------------------------
-from pictor.xomics.evaluation.roc import ROC
-
-def get_auc_ci(mat: np.ndarray):
-  assert len(mat.shape) == 2
-
-  features, targets, N = [], [], mat.shape[0]
-  for i, j in [(i, j) for i in range(N) for j in range(N)]:
-    features.append(mat[i, j])
-    targets.append(0 if i == j else 1)
-
-  roc = ROC(features, targets)
-  # l, h = roc.calc_CI()
-  l, h = 0, 0
-  return roc.auc, l, h
 
 
-auc_matrix = np.zeros((len(cpk_list), len(cpk_list)))
-CIs = {}
-for i, key_i in enumerate(cpk_list):
-  # key_i = (ck_i, pk_i)
-  assert key_i in matrix_dict
-  a, l, h = get_auc_ci(matrix_dict[key_i])
-  auc_matrix[i, i] = a
-  CIs[key_i] = (l, h)
+if __name__ == '__main__':
+  # -----------------------------------------------------------------------------
+  # (4) Generate and show AUC matrix
+  # -----------------------------------------------------------------------------
+  from pictor.xomics.evaluation.roc import ROC
 
-  for j, key_j in enumerate(cpk_list[i+1:]):
-    joint_key = (key_i, key_j)
-    if joint_key not in matrix_dict:
-      console.warning(f'{joint_key} not found in matrix_dict')
-      continue
+  def get_auc_ci(mat: np.ndarray):
+    assert len(mat.shape) == 2
 
-    a, l, h = get_auc_ci(matrix_dict[joint_key])
-    auc_matrix[i, j + i + 1] = a
-    CIs[joint_key] = (l, h)
+    features, targets, N = [], [], mat.shape[0]
+    for i, j in [(i, j) for i in range(N) for j in range(N)]:
+      features.append(mat[i, j])
+      targets.append(0 if i == j else 1)
 
-# -----------------------------------------------------------------------------
-# (5) Plot AUC matrix
-# -----------------------------------------------------------------------------
-from pictor.plotters.matrix_viewer import MatrixViewer
-from hf.sc_tools import CK_MAP, PK_MAP
+    roc = ROC(features, targets)
+    # l, h = roc.calc_CI()
+    l, h = 0, 0
+    return roc.auc, l, h
 
 
-row_labels = [f'{CK_MAP[ck]}-{PK_MAP[pk]}' for ck, pk in cpk_list]
-col_labels = row_labels
-cmap = ['Blues', 'Oranges'][0]
-MatrixViewer.show_matrices({'AUC': auc_matrix.T}, row_labels, col_labels,
-                           (7, 7), cmap=cmap)
+  auc_matrix = np.zeros((len(cpk_list), len(cpk_list)))
+  CIs = {}
+  for i, key_i in enumerate(cpk_list):
+    # key_i = (ck_i, pk_i)
+    assert key_i in matrix_dict
+    a, l, h = get_auc_ci(matrix_dict[key_i])
+    auc_matrix[i, i] = a
+    CIs[key_i] = (l, h)
+
+    for j, key_j in enumerate(cpk_list[i+1:]):
+      joint_key = (key_i, key_j)
+      if joint_key not in matrix_dict:
+        console.warning(f'{joint_key} not found in matrix_dict')
+        continue
+
+      a, l, h = get_auc_ci(matrix_dict[joint_key])
+      auc_matrix[i, j + i + 1] = a
+      CIs[joint_key] = (l, h)
+
+  # -----------------------------------------------------------------------------
+  # (5) Plot AUC matrix
+  # -----------------------------------------------------------------------------
+  from pictor.plotters.matrix_viewer import MatrixViewer
+
+  row_labels = [f'{CK_MAP[ck]}-{PK_MAP[pk]}' for ck, pk in cpk_list]
+  col_labels = row_labels
+  cmap = ['Blues', 'Oranges'][0]
+  MatrixViewer.show_matrices({'AUC': auc_matrix.T}, row_labels, col_labels,
+                             (7, 7), cmap=cmap)
 
 
 
