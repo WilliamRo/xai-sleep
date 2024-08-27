@@ -5,6 +5,7 @@ from typing import List
 import os
 import numpy as np
 
+from scripts.ee_rrsh_osa import channel_names
 
 
 def read_digital_signals_mne(
@@ -34,16 +35,24 @@ def read_digital_signals_mne(
   open_file = lambda exclude=(): mne.io.read_raw_edf(
     file_path, exclude=exclude, preload=False, verbose=False)
 
+  # Read all channel names, create a reverse map
+  with open_file() as file: edf_channel_names = file.ch_names
+  if callable(chn_map):
+    chn_map_dict = {chn: chn_map(chn) for chn in edf_channel_names}
+  else:
+    chn_map_dict = {chn: chn for chn in edf_channel_names}
+
+  chn_rev_map = {v: k for k, v in chn_map_dict.items()}
+
   # Initialize groups if not provided, otherwise get channel_names from groups
   if groups is None:
-    with open_file() as file:
-      channel_names = file.ch_names
+    channel_names = edf_channel_names
     groups = [[chn] for chn in channel_names]
   else:
     channel_names = [chn for g in groups for chn in g]
 
   # Generate exclude lists
-  exclude_lists = [[chn for chn in channel_names if chn not in g]
+  exclude_lists = [[chn_rev_map[chn] for chn in channel_names if chn not in g]
                    for g in groups]
 
   # Read raw data
@@ -66,11 +75,9 @@ def read_digital_signals_mne(
   for sfreq, signal_lists in signal_dict.items():
     data = np.concatenate([x for _, x in signal_lists], axis=0)
     data = np.transpose(data).astype(dtype)
-    channel_names = [name for names, _ in signal_lists for name in names]
 
-    if chn_map is not None:
-      assert callable(chn_map)
-      channel_names = [chn_map(chn) for chn in channel_names]
+    channel_names = [chn_map_dict[name] for names, _ in signal_lists
+                     for name in names]
 
     digital_signals.append(DigitalSignal(
       data, channel_names=channel_names, sfreq=sfreq,
