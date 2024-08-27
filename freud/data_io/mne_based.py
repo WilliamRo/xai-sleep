@@ -24,6 +24,7 @@ def read_digital_signals_mne(
   import mne.io
 
   max_sfreq = kwargs.get('max_sfreq', None)
+  chn_map = kwargs.get('chn_map', None)
 
   # Rename file if necessary
   if file_path[-4:] != '.edf' and kwargs.get('allow_rename', False):
@@ -66,6 +67,11 @@ def read_digital_signals_mne(
     data = np.concatenate([x for _, x in signal_lists], axis=0)
     data = np.transpose(data).astype(dtype)
     channel_names = [name for names, _ in signal_lists for name in names]
+
+    if chn_map is not None:
+      assert callable(chn_map)
+      channel_names = [chn_map(chn) for chn in channel_names]
+
     digital_signals.append(DigitalSignal(
       data, channel_names=channel_names, sfreq=sfreq,
       label=','.join(channel_names)))
