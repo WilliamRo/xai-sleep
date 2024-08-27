@@ -5,7 +5,6 @@ from typing import List
 import os
 import numpy as np
 
-from scripts.ee_rrsh_osa import channel_names
 
 
 def read_digital_signals_mne(
