@@ -12,7 +12,7 @@ import sys
 # -----------------------------------------------------------------------------
 # Import Predictor definition
 # -----------------------------------------------------------------------------
-spec = importlib.util.spec_from_file_location("module.name", "./02-train_and_save_model.py")
+spec = importlib.util.spec_from_file_location("module.name", "./02=train_and_save_model.py")
 foo = importlib.util.module_from_spec(spec)
 sys.modules["module.name"] = foo
 spec.loader.exec_module(foo)

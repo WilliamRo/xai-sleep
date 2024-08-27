@@ -1,3 +1,5 @@
+import numpy as np
+
 from hypnomics.freud.freud import Freud
 from hypnomics.freud.telescopes.telescope import Telescope
 from roma import finder
@@ -43,5 +45,12 @@ nebula = freud.load_nebula(sg_labels=SG_LABELS,
                            time_resolution=TIME_RESOLUTION,
                            probe_keys=[PK1, PK2])
 
-nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=Telescope, **configs)
+# Put random age and gender into nebula.meta for demo only
+for pid in nebula.labels:
+  nebula.meta[pid] = {'age': np.random.randint(20, 100),
+                      'gender': np.random.choice(['M', 'F'])}
+
+viewer_configs = {'plotters': 'HA', 'meta_keys': ('age', 'gender')}
+nebula.dual_view(x_key=PK1, y_key=PK2, viewer_configs=viewer_configs,
+                 viewer_class=Telescope, **configs)
 

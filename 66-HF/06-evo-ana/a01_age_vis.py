@@ -1,9 +1,6 @@
-from hypnomics.freud.freud import Freud
+from hf.sc_tools import load_nebula_from_clouds
 from hypnomics.freud.telescopes.telescope import Telescope
 from roma import finder
-
-import pandas as pd
-import numpy as np
 
 
 
@@ -39,18 +36,13 @@ PK2 = PROBE_KEYS[1]
 
 # (1.3) Excel path
 XLSX_PATH = r'../../data/sleep-edf-database-expanded-1.0.0/SC-subjects.xls'
-# -----------------------------------------------------------------------------
-# (2) Load nebula
-# -----------------------------------------------------------------------------
-# (2.1) Load nebula
-freud = Freud(WORK_DIR)
-nebula = freud.load_nebula(sg_labels=SG_LABELS,
-                           channels=CHANNELS,
-                           time_resolution=TIME_RESOLUTION,
-                           probe_keys=PROBE_KEYS)
 
-# (2.2) Set basic infor
-df = pd.read_excel(XLSX_PATH)
+# -----------------------------------------------------------------------------
+# (2) Load nebula, generate evolution
+# -----------------------------------------------------------------------------
+nebula = load_nebula_from_clouds(WORK_DIR, SG_LABELS, CHANNELS, TIME_RESOLUTION,
+                                 PROBE_KEYS, XLSX_PATH)
+
 # -----------------------------------------------------------------------------
 # (3) Visualization
 # -----------------------------------------------------------------------------
@@ -63,5 +55,6 @@ configs = {
 }
 
 viewer_class = Telescope
+viewer_configs = {'plotters': 'HA', 'meta_keys': ('age', 'gender')}
 nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class,
-                 viewer_configs={'plotters': 'HA'}, **configs)
+                 viewer_configs=viewer_configs, **configs)
