@@ -45,7 +45,7 @@ def read_digital_signals_mne(
 
   # Initialize groups if not provided, otherwise get channel_names from groups
   if groups is None:
-    channel_names = edf_channel_names
+    channel_names = [chn_map_dict[chn] for chn in edf_channel_names]
     groups = [[chn] for chn in channel_names]
   else:
     channel_names = [chn for g in groups for chn in g]
