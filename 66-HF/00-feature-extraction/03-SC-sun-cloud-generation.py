@@ -1,3 +1,4 @@
+from hypnomics.hypnoprints.probes.wavestats.sun17 import STAT_DICT
 from hypnomics.freud.freud import Freud
 from hf.extractors import get_extractor_dict
 
@@ -22,15 +23,18 @@ TIME_RESOLUTIONS = [
   30,
 ]
 EXTRACTOR_KEYS = [
-  # 'AMP-1',
-  # 'FREQ-20',
-  # 'GFREQ-35',
-  # 'P-TOTAL',
-  # 'RP-DELTA',
-  # 'RP-THETA',
-  # 'RP-ALPHA',
-  # 'RP-BETA',
+  'MAG',
+  'KURT',
+  'ENTROPY',
 ]
+
+for b1, b2 in [('DELTA', 'TOTAL'), ('THETA', 'TOTAL'), ('ALPHA', 'TOTAL'),
+               ('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
+  for stat_key in ['95', 'MIN', 'AVG', 'STD']:
+    EXTRACTOR_KEYS.append(f'RPS-{b1}_{b2}_{stat_key}')
+
+for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']:
+  EXTRACTOR_KEYS.append(f'KURT-{b}')
 
 OVERWRITE = 0
 # -----------------------------------------------------------------------------
