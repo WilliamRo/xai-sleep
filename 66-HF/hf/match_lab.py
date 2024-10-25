@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from hypnomics.freud.nebula import Nebula
+from pictor.xomics.ml.ml_engine import FitPackage
 from pictor.xomics.omix import Omix
 from pictor.xomics.evaluation.pipeline import Pipeline
 from roma import console
@@ -194,7 +195,7 @@ class MatchLab(Nomear):
 
     # (-1)
     p.show()
-  
+
   def get_pair_omix(self, k=5, include_dm=False) -> Omix:
     N = self.N
     B = self.delta_brick
@@ -233,31 +234,52 @@ class MatchLab(Nomear):
     return omix
 
   def fit_pipeline(self, omix: Omix, M=5, N=5, **kwargs):
+    # Get configs
+    threshold = kwargs.get('threshold', 0.7)
+
+    # Fit pipeline
     pi = Pipeline(omix, ignore_warnings=1, save_models=1)
 
-    k = 15
-    pi.create_sub_space('lasso', repeats=M, show_progress=1)
-    pi.create_sub_space('pca', n_components=k, repeats=M, show_progress=1)
-    pi.create_sub_space('mrmr', k=k, repeats=M, show_progress=1)
-    pi.create_sub_space('pval', k=k, repeats=M, show_progress=1)
+    # pi.create_sub_space('lasso', repeats=M, show_progress=1)
+    # pi.create_sub_space('pca', n_components=k, repeats=M, show_progress=1)
+    # pi.create_sub_space('mrmr', k=k, repeats=M, show_progress=1)
 
-    pi.fit_traverse_spaces('lr', repeats=N, show_progress=1)
-    pi.fit_traverse_spaces('svm', repeats=N, show_progress=1)
+    # pi.create_sub_space('pval', k=10, repeats=M, nested=True, show_progress=1)
+    pi.create_sub_space('ucp', k=5, threshold=threshold,
+                        repeats=M, nested=True, show_progress=1)
+    # pi.create_sub_space('ucp', k=10, threshold=threshold,
+    #                     repeats=M, nested=True, show_progress=1)
+    pi.create_sub_space('ucp', k=15, threshold=threshold,
+                        repeats=M, nested=True, show_progress=1)
+
+    pi.fit_traverse_spaces('lr', repeats=N, nested=True,
+                           show_progress=1)
+    # pi.fit_traverse_spaces('svm', repeats=N, show_progress=1)
     pi.fit_traverse_spaces('dt', repeats=N, show_progress=1)
     # pi.fit_traverse_spaces('rf', repeats=N, show_progress=1)
-    pi.fit_traverse_spaces('xgb', repeats=N, show_progress=1)
-
-    pi.report()
+    # pi.fit_traverse_spaces('xgb', repeats=N, show_progress=1)
 
     return pi
 
   def dm_validate(self, pi: Pipeline, ranking=1, reducer=None):
+    """TODO: """
     dr, pkg = pi.get_best_pipeline(rank=ranking, reducer=reducer)
-    x = np.reshape(self.delta_brick, (self.N * self.N, self.D))
 
-    y = dr.reduce_dimension(x)
-    y = pkg.predict_proba(y.features)
-    y = np.reshape(y[:, 1], (self.N, self.N))
+    # Recover ordered probability
+    y = np.zeros(shape=(self.N, self.N), dtype=np.float32)
+    sample_labels = pkg['sample_labels']
+    for di, sl in zip(pkg.probabilities[:, 1], sample_labels):
+      # label = f'({i + 1}, {j + 1})'
+      i_str, j_str = sl.split(', ')
+      i = int(i_str[1:]) - 1
+      j = int(j_str[:-1]) - 1
+      y[i, j] = di
+
+    # TODO: remove the routine below if things are all well
+    # x = np.reshape(self.delta_brick, (self.N * self.N, self.D))
+    ## y = dr.reduce_dimension(x)
+    # y = pkg.predict_proba(x)
+    # y = np.reshape(y[:, 1], (self.N, self.N))
 
     self.analyze(distance_matrix=y)
 
@@ -346,3 +368,120 @@ class MatchLab(Nomear):
     if set_C: self.feature_coef = np.array(C)
 
   # endregion: Lab Methods
+
+  # region: Efficacy Estimation
+
+  def estimate_efficacy_v1(self, pi_key=None):
+    """Estimate the efficacy of the feature vector in the task of individual
+    matching.
+    """
+    # (0) Set keys
+    OMIX_KEY = 'PAIR_OMIX'
+
+    # (1) Construct or load omix
+    if self.in_pocket(OMIX_KEY):
+      omix = self.get_from_pocket(OMIX_KEY)
+      console.show_status('Pair-omix loaded.')
+    else:
+      omix = self.get_pair_omix(k=99999)
+      self.put_into_pocket(OMIX_KEY, omix, local=True)
+      console.show_status('Pair-omix created.')
+
+    # (2) Fit pipeline
+    if isinstance(pi_key, str) and self.in_pocket(pi_key):
+      pi: Pipeline = self.get_from_pocket(pi_key)
+    else:
+      pi: Pipeline = self.fit_pipeline(omix, M=3, N=3)
+      if isinstance(pi_key, str): self.put_into_pocket(pi_key, pi, local=True)
+
+    # (3) Report
+    from pictor.xomics.stat_analyzers import calc_CI
+
+    def _report_mu_CI95(values, key, n_pkg):
+      mu = np.mean(values)
+      CI1, CI2 = calc_CI(values, alpha=0.95, key=key)
+      info = f'Avg({key}) over {n_pkg} trials: {mu:.3f}'
+      info += f', CI95% = [{CI1:.3f}, {CI2:.3f}]'
+      console.supplement(info, level=4)
+
+    console.section('Pipeline Report')
+    row_labels, col_labels, matrix_dict = pi.get_pkg_matrix()
+    for sf_key in row_labels:
+      console.show_info(f'Feature selection method: {sf_key}')
+      for ml_key in col_labels:
+        console.supplement(f'Model: {ml_key}', level=3)
+        pkg_list = matrix_dict[(sf_key, ml_key)]
+        n_pkg = len(pkg_list)
+
+        # (3.1) Report AUC & F1
+        key = 'AUC'
+        values = [p[key] for p in pkg_list]
+        _report_mu_CI95(values, key, n_pkg)
+
+        key = 'F1'
+        values = [p[key] for p in pkg_list]
+        _report_mu_CI95(values, key, n_pkg)
+
+        # (3.2) Report Top-k acc
+        values_top1, values_top5 = [], []
+        for pkg in pkg_list:
+          # Re-construct distance matrix
+          y = np.zeros(shape=(self.N, self.N), dtype=np.float32)
+          sample_labels = pkg['sample_labels']
+          for di, sl in zip(pkg.probabilities[:, 1], sample_labels):
+            # label = f'({i + 1}, {j + 1})'
+            i_str, j_str = sl.split(', ')
+            i = int(i_str[1:]) - 1
+            j = int(j_str[:-1]) - 1
+            y[i, j] = di
+
+          values_top1.append(self._top_k_acc([y], k=1)[0])
+          values_top5.append(self._top_k_acc([y], k=5)[0])
+
+        _report_mu_CI95(values_top1, 'Top1-Acc', n_pkg)
+        _report_mu_CI95(values_top5, 'Top5-Acc', n_pkg)
+
+        # (3.3) Report TAR @ FAR
+        values = []
+        for pkg in pkg_list:
+          assert isinstance(pkg, FitPackage)
+          p = pkg.probabilities[:, 1]
+          y = pkg.targets
+
+          tar = self.calculate_TAR_at_FAR(p, y, target_FAR=0.01)
+          values.append(tar)
+
+        _report_mu_CI95(values, 'TAR % FAR = 1%', n_pkg)
+
+    print('-' * 79)
+
+
+  @staticmethod
+  def calculate_TAR_at_FAR(d, y, target_FAR=0.001):
+    """Calculate TAR at specified FAR
+
+      Args:
+          d: array of distances
+          y: array of labels (1 for impostor, 0 for genuine)
+          target_FAR: target FAR value (default: 0.001 for 0.1%)
+      Returns:
+          TAR value at the specified FAR
+      """
+    # Split distances into genuine and impostor
+    d_impostor = d[y == 1]
+    d_genuine = d[y == 0]
+
+    # Sort impostor distances
+    sorted_impostor = np.sort(d_impostor)
+
+    # Find threshold at target FAR
+    threshold_idx = int(np.ceil(len(d_impostor) * target_FAR)) - 1
+    threshold = sorted_impostor[threshold_idx]
+
+    # Calculate TAR
+    TAR = np.sum(d_genuine <= threshold) / len(d_genuine)
+
+    return TAR
+
+  # endregion: Efficacy Estimation
+

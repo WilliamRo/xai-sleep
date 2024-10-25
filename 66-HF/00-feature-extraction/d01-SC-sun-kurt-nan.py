@@ -17,24 +17,11 @@ CHANNELS = [
   'EEG Pz-Oz'
 ]
 TIME_RESOLUTIONS = [
-  # 2,
-  # 5,
-  # 10,
   30,
 ]
 EXTRACTOR_KEYS = [
-  # 'MAG',
   'KURT',
-  # 'ENTROPY',
 ]
-
-# for b1, b2 in [('DELTA', 'TOTAL'), ('THETA', 'TOTAL'), ('ALPHA', 'TOTAL'),
-#                ('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
-#   for stat_key in ['95', 'MIN', 'AVG', 'STD']:
-#     EXTRACTOR_KEYS.append(f'RPS-{b1}_{b2}_{stat_key}')
-
-# for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']:
-#   EXTRACTOR_KEYS.append(f'BKURT-{b}')
 
 OVERWRITE = 1
 # -----------------------------------------------------------------------------

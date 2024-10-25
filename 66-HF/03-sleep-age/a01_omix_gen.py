@@ -36,6 +36,14 @@ PROBE_KEYS = [
 # (1.3) Excel path
 XLSX_PATH = r'../../data/sleep-edf-database-expanded-1.0.0/SC-subjects.xls'
 
+# (1.4)
+E_SETTINGS = {
+  # 'include_proportion': 0,
+  # 'include_stage_shift': 0,
+  # 'include_channel_shift': 0,
+  # 'include_stage_wise_covariance': 0,
+  # 'include_stage_mean': 1,
+}
 # -----------------------------------------------------------------------------
 # (2) Load nebula, generate evolution
 # -----------------------------------------------------------------------------
@@ -50,7 +58,7 @@ _gender = [None, 'male', 'female'][0]
 
 
 if __name__ == '__main__':
-  extractor = Extractor()
+  extractor = Extractor(**E_SETTINGS)
   feature_dict = extractor.extract(nebula, return_dict=True)
   features = np.stack([np.array(list(v.values()))
                        for v in feature_dict.values()], axis=0)

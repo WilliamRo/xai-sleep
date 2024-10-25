@@ -44,7 +44,7 @@ compare_id = 2
 ck1 = CHANNELS[0]
 ck2 = CHANNELS[1]
 pk1 = PROBE_KEYS[0]
-pk2 = PROBE_KEYS[0]
+pk2 = PROBE_KEYS[2]
 # -----------------------------------------------------------------------------
 # (2) Load paired nebula
 # -----------------------------------------------------------------------------
@@ -78,11 +78,22 @@ d_same_pk2 = hm.calc_distance(data_1_pk2, data_2_pk2)
 d_compare_pk1 = hm.calc_distance(data_1_pk1, data_c_pk1)
 d_compare_pk2 = hm.calc_distance(data_1_pk2, data_c_pk2)
 
+d_same_pk1_nc = hm.calc_distance(data_1_pk1, data_2_pk1, conditional=False)
+d_same_pk2_nc = hm.calc_distance(data_1_pk2, data_2_pk2, conditional=False)
+d_compare_pk1_nc = hm.calc_distance(data_1_pk1, data_c_pk1, conditional=False)
+d_compare_pk2_nc = hm.calc_distance(data_1_pk2, data_c_pk2, conditional=False)
+
 console.show_info('1-D Distance')
 console.supplement(f'D({l1},{l2})@({ck1}x{pk1}) = {d_same_pk1:.3f}', level=2)
 console.supplement(f'D({l1},{l2})@({ck2}x{pk2}) = {d_same_pk2:.3f}', level=2)
 console.supplement(f'D({l1},{lc})@({ck1}x{pk1}) = {d_compare_pk1:.3f}', level=2)
 console.supplement(f'D({l1},{lc})@({ck2}x{pk2}) = {d_compare_pk2:.3f}', level=2)
+
+console.show_info('1-D Distance (NC)')
+console.supplement(f'D({l1},{l2})@({ck1}x{pk1}) = {d_same_pk1_nc:.3f}', level=2)
+console.supplement(f'D({l1},{l2})@({ck2}x{pk2}) = {d_same_pk2_nc:.3f}', level=2)
+console.supplement(f'D({l1},{lc})@({ck1}x{pk1}) = {d_compare_pk1_nc:.3f}', level=2)
+console.supplement(f'D({l1},{lc})@({ck2}x{pk2}) = {d_compare_pk2_nc:.3f}', level=2)
 
 # (3.3) Report joint distance
 d_same_pk1_pk2 = hm.calc_joint_distance((data_1_pk1, data_1_pk2),

@@ -42,7 +42,7 @@ def get_extractor_dict(keys, **kwargs):
             'AVG': 'mean', 'STD': 'std'}[st]
       od[key] = lambda s, fs=fs, b1=b1, b2=b2, st=st: ProbeLibrary.relative_power_stats(
         s, fs=fs, band1=b1, band2=b2, stat_key=st)
-    elif name == 'KURT':
+    elif name == 'BKURT':
       fs = kwargs.get('fs')
       od[key] = lambda s, fs=fs, band=arg: ProbeLibrary.band_kurtosis(
         s, fs=fs, band=band)

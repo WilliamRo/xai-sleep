@@ -1,23 +1,32 @@
-from hf.sc_tools import load_macro_and_meta_from_workdir
+from osaxu.osa_tools import load_macro_and_meta_from_workdir
+from hypnomics.hypnoprints.extractor import Extractor
 from pictor.xomics.omix import Omix
 from roma import finder
 
 import numpy as np
+import os
 
 
 
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
-WORK_DIR = r'../data/sleepedfx_sc'
+# (1.1) Path configuration
+WORK_DIR = r'../data'  # contains cloud files
 SG_LABELS = finder.walk(WORK_DIR, type_filter='dir', return_basename=True)
 
-FEATURE_PATS = ['*_Percentage', 'Transition_Probability_*_to_*']
-INCLUDE_TRANSITION_PER_HOUR = 0
-LOG = 0
-
 # (1.2) Excel path
-XLSX_PATH = r'../../data/sleep-edf-database-expanded-1.0.0/SC-subjects.xls'
+XLSX_PATH = r"P:\xai-sleep\data\rrsh-osa\OSA-xu.xlsx"
+
+# (1.3) Target
+TARGET = [
+  'AHI',
+  'age'
+][0]
+
+# (1.4) MISC
+INCLUDE_TRANSITION_PER_HOUR = 0
+LOG = 1
 # -----------------------------------------------------------------------------
 # (2) Load macro features and meta data
 # -----------------------------------------------------------------------------
@@ -38,19 +47,23 @@ if not INCLUDE_TRANSITION_PER_HOUR:
 
 n_features = 30 + INCLUDE_TRANSITION_PER_HOUR
 assert features.shape[1] == len(feature_names) == n_features
-
 # -----------------------------------------------------------------------------
 # (3) Wrap data into Omix
 # -----------------------------------------------------------------------------
-target_labels = ['Age']
-targets = [meta_dict[pid]['age'] for pid in SG_LABELS]
+target_labels = [TARGET]
+targets = [meta_dict[pid][TARGET] for pid in SG_LABELS]
 
-data_name = f'SC-age-macro-{n_features}'
-if LOG: data_name += '-log'
+data_name = f'OSA-{TARGET}-macro-{n_features}'
 omix = Omix(features, targets, feature_names, SG_LABELS, target_labels,
             data_name=data_name)
 
 
 
+"""
+TARGET = AHI:
+  - simple 'ml eln' yields approx MAE = 8.8 when LOG=1
+"""
+
 if __name__ == '__main__':
   omix.show_in_explorer()
+

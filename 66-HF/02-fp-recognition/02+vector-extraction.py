@@ -1,11 +1,15 @@
-import os
+"""
 
+"""
 from hypnomics.hypnoprints.extractor import Extractor
 from hypnomics.freud.nebula import Nebula
 from hf.sc_tools import get_paired_sg_labels, get_dual_nebula
 from hf.match_lab import MatchLab
 from roma import finder
 from roma import console
+
+import os
+
 
 # -----------------------------------------------------------------------------
 # (1) Configuration
@@ -16,6 +20,7 @@ TIME_RESOLUTION = 30
 
 # NEB_FN = f'SC-153-partial-{TIME_RESOLUTION}.nebula'
 NEB_FN = f'SC-{TIME_RESOLUTION}-KDE-0730.nebula'
+# NEB_FN = f'SC-{TIME_RESOLUTION}s-KDE-39-probes.nebula'
 # -----------------------------------------------------------------------------
 # (2) Get dual nebula
 # -----------------------------------------------------------------------------
@@ -38,8 +43,10 @@ matlab = MatchLab(F1, F2, normalize=1, N=999,
                   neb_1=neb_1, neb_2=neb_2, nebula=nebula)
 
 matlab.select_feature(min_ICC=0.5, verbose=1, set_C=1)
-if 1:
-  matlab.ICC_analysis(ymax=30)
+if 0:
+  # Show ICC plot
+  # matlab.ICC_analysis(ymax=30)
+
   matlab.analyze(toolbar=1)
   exit()
 

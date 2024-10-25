@@ -31,9 +31,10 @@ EXCLUDES = ('422', '459', '476', '411')
 PAIRED_LABELS = get_paired_sg_labels(SG_LABELS, excludes=EXCLUDES)
 
 # [ 2, 5, 10, 30, ]
-TIME_RESOLUTION = 10
+TIME_RESOLUTION = 30
 
-NEB_FN = f'SC-153-partial-{TIME_RESOLUTION}.nebula'
+# NEB_FN = f'SC-153-partial-{TIME_RESOLUTION}.nebula'
+NEB_FN = f'SC-{TIME_RESOLUTION}s-KDE-39-probes.nebula'
 # -----------------------------------------------------------------------------
 # (2) Visualize
 # -----------------------------------------------------------------------------

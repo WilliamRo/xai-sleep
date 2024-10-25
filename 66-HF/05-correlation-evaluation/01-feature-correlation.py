@@ -24,7 +24,8 @@ SG_LABELS = finder.walk(WORK_DIR, type_filter='dir', return_basename=True)[:999]
 TIME_RESOLUTION = 30
 
 # NEB_FN = f'SC-{TIME_RESOLUTION}-KDE.nebula'
-NEB_FN = f'SC-{TIME_RESOLUTION}-KDE-0730.nebula'
+# NEB_FN = f'SC-{TIME_RESOLUTION}-KDE-0730.nebula'
+NEB_FN = f'SC-{TIME_RESOLUTION}s-KDE-39-probes.nebula'
 neb_file_path = os.path.join(WORK_DIR, NEB_FN)
 
 # -----------------------------------------------------------------------------
@@ -55,11 +56,25 @@ CHANNELS = [
 PROBE_KEYS = [
   'FREQ-20',
   'AMP-1',
-  # 'GFREQ-35',
-  # 'P-TOTAL',
-  'RP-DELTA', 'RP-THETA', 'RP-ALPHA',
+  'GFREQ-35',
+
+  'P-TOTAL',
+  'RP-DELTA',
+  'RP-THETA',
+  'RP-ALPHA',
   'RP-BETA',
+
+  'MAG',
+  'KURT',
+  'ENTROPY',
 ]
+
+for b1, b2 in [('DELTA', 'TOTAL'), ('THETA', 'TOTAL'), ('ALPHA', 'TOTAL'),
+               ('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
+  for stat_key in ['95', 'MIN', 'AVG', 'STD']:
+    PROBE_KEYS.append(f'RPS-{b1}_{b2}_{stat_key}')
+
+for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']: PROBE_KEYS.append(f'BKURT-{b}')
 
 CHNL_PROB_KEYS = [(ck, pk) for ck in CHANNELS for pk in PROBE_KEYS]
 
@@ -71,7 +86,7 @@ for ck, pk in CHNL_PROB_KEYS:
 feature_labels = [f'{CK_MAP[ck]}-{PK_MAP[pk]}'
                   for ck, pk in feature_dict.keys()]
 
-# -----------------------------------------------------------------------------
+# -------------------------jkjk----------------------------------------------------
 # (4) Plot
 # -----------------------------------------------------------------------------
 import matplotlib.pyplot as plt

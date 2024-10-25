@@ -66,9 +66,15 @@ from pictor.xomics.evaluation.pipeline import Pipeline
 
 data_dir = r'../../../data/rrsh-osa'
 pi = Pipeline(omix, ignore_warnings=1, save_models=0)
-pi.create_sub_space()
 
-N = 50
+M = 10
+pi.create_sub_space('lasso', repeats=M, show_progress=1)
+k = pi.lasso_dim_median
+pi.create_sub_space('sig', n_components=k, repeats=M, show_progress=1)
+pi.create_sub_space('pca', n_components=k, repeats=M, show_progress=1)
+pi.create_sub_space('mrmr', k=k, repeats=M, show_progress=1)
+
+N = 10
 pi.fit_traverse_spaces('lr', repeats=N, show_progress=1)
 pi.fit_traverse_spaces('svm', repeats=N, show_progress=1)
 pi.fit_traverse_spaces('dt', repeats=N, show_progress=1)
@@ -77,4 +83,4 @@ pi.fit_traverse_spaces('xgb', repeats=N, show_progress=1)
 
 pi.report()
 
-omix.save(os.path.join(data_dir, '20240530.omix'), verbose=True)
+omix.save(os.path.join(data_dir, '20240530-v1.omix'), verbose=True)
