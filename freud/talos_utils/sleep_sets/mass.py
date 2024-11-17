@@ -1,6 +1,3 @@
-from statsmodels.sandbox.stats.stats_mstats_short import \
-  edf_normal_inverse_transformed
-
 from freud.talos_utils.slp_set import SleepSet
 from fnmatch import fnmatch
 from pictor.objects.signals.signal_group import Annotation

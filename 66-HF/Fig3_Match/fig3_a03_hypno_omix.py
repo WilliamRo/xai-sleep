@@ -19,7 +19,7 @@ SG_LABELS = finder.walk(WORK_DIR, type_filter='dir', return_basename=True)
 
 # (1.2) TODO: Configure this part
 CONDITIONAL = 1
-PROBE_CONFIG = 'AC'
+PROBE_CONFIG = 'AB'
 OVERWRITE = 0
 
 # (1.3) File names and MISC
