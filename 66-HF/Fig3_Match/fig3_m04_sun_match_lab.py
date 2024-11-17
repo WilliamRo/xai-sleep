@@ -12,14 +12,10 @@ WORK_DIR = r'../data/sleepedfx_sc'
 
 # (1.2) TODO: Configure this part
 CONDITIONAL = 1
-PROBE_SUFFIX = ['ABC38', 'AC33', 'C31', 'AB7'][3]
-INCLUDE_WAKE = 0
+PROBE_SUFFIX = 'C31'
 
 # (1.3) File names
-W_SUFFIX = '' if INCLUDE_WAKE else '-NW'
-C_SUFFIX = f'{"c" if CONDITIONAL else "nc"}'
-
-MAT_FN = f'SC-30s-{PROBE_SUFFIX}-{C_SUFFIX}{W_SUFFIX}.matlab'
+MAT_FN = f'SC-30s-{PROBE_SUFFIX}-sun.matlab'
 # -----------------------------------------------------------------------------
 # (2) Macro-distance omix generation
 # -----------------------------------------------------------------------------

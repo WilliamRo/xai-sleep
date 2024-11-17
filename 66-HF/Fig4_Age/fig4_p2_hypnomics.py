@@ -23,8 +23,9 @@ ks = [20, 35, 50]
 ts = [0.5, 0.7, 0.9]
 
 CONDITIONAL = 1
-PROBE_CONFIG = 'ABC'
-INCLUDE_MACRO = 1
+PROBE_CONFIG = 'ABD'
+INCLUDE_MACRO = 0
+INCLUDE_WAKE = 0
 NESTED = 0
 
 PLOT_MAT = 1
@@ -49,6 +50,7 @@ if OVERWRITE or not os.path.exists(PKG_PATH):
   OMIX_PATH = os.path.join(SRC_OMIX_DIR, OMIX_FN)
 
   omix = Omix.load(OMIX_PATH)
+  if not INCLUDE_WAKE: omix = omix.filter_by_name('W', include=False)
 
   # (2.1) Initialize pipeline using macro omix
   pi = Pipeline(omix, ignore_warnings=1, save_models=1)

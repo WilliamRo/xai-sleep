@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from hf.probe_tools import get_probe_keys
 from hypnomics.freud.nebula import Nebula
 from hf.model_helper import gen_dist_mat
 from hf.sc_tools import get_dual_nebula, get_joint_key
@@ -50,43 +51,24 @@ label = nebula.labels[1]
 
 CHANNELS = [
   'EEG Fpz-Cz',
-  'EEG Pz-Oz'
+  # 'EEG Pz-Oz'
 ]
 
-PROBE_KEYS = [
-  'FREQ-20',
-  'AMP-1',
-  'GFREQ-35',
-
-  'P-TOTAL',
-  'RP-DELTA',
-  'RP-THETA',
-  'RP-ALPHA',
-  'RP-BETA',
-
-  'MAG',
-  'KURT',
-  'ENTROPY',
-]
-
-for b1, b2 in [('DELTA', 'TOTAL'), ('THETA', 'TOTAL'), ('ALPHA', 'TOTAL'),
-               ('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
-  for stat_key in ['95', 'MIN', 'AVG', 'STD']:
-    PROBE_KEYS.append(f'RPS-{b1}_{b2}_{stat_key}')
-
-for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']: PROBE_KEYS.append(f'BKURT-{b}')
+PROBE_CONFIG = 'ABD'
+PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 
 CHNL_PROB_KEYS = [(ck, pk) for ck in CHANNELS for pk in PROBE_KEYS]
 
 for ck, pk in CHNL_PROB_KEYS:
   feature_dict[(ck, pk)] = []
+  # for sk in ('N1', 'N2', 'N3', 'R'): # stronger correlation
   for sk in ('W', 'N1', 'N2', 'N3', 'R'):
-    feature_dict[(ck, pk)].extend(nebula.data_dict[(label, ck, pk)][sk])
+      feature_dict[(ck, pk)].extend(nebula.data_dict[(label, ck, pk)][sk])
 
 feature_labels = [f'{CK_MAP[ck]}-{PK_MAP[pk]}'
                   for ck, pk in feature_dict.keys()]
 
-# -------------------------jkjk----------------------------------------------------
+# -----------------------------------------------------------------------------
 # (4) Plot
 # -----------------------------------------------------------------------------
 import matplotlib.pyplot as plt

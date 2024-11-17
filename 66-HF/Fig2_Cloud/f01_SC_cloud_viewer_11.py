@@ -1,3 +1,4 @@
+from hf.probe_tools import get_probe_keys
 from hypnomics.freud.freud import Freud
 from hypnomics.freud.nebula import Nebula
 from hypnomics.freud.telescopes.telescope import Telescope
@@ -23,37 +24,11 @@ CHANNELS = [
   'EEG Pz-Oz'
 ]
 
-PROBE_KEYS = [
-  'FREQ-20',   # 0
-  'GFREQ-35',  # 1
-  'AMP-1',     # 2
-  'P-TOTAL',   # 3
-  'RP-DELTA',  # 4
-  'RP-THETA',  # 5
-  'RP-ALPHA',  # 6
-  'RP-BETA',   # 7
-
-  'MAG',
-  'KURT',
-  'ENTROPY',
-]
-
-# Add sun2019 probes
-for b1, b2 in [('DELTA', 'TOTAL'), ('THETA', 'TOTAL'), ('ALPHA', 'TOTAL'),
-               ('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
-  for stat_key in [
-    '95',
-    'MIN',
-    'AVG',
-    'STD',
-  ]:
-    PROBE_KEYS.append(f'RPS-{b1}_{b2}_{stat_key}')
-
-for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']: PROBE_KEYS.append(f'BKURT-{b}')
+PROBE_CONFIG = 'ABD'
+PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 
 PK1 = PROBE_KEYS[0]
-PK2 = PROBE_KEYS[2]
-# PK2 = 'RP-ALPHA'
+PK2 = PROBE_KEYS[1]
 
 # SG_LABELS = ['SC4001E', 'SC4002E']
 N = 999
@@ -81,5 +56,6 @@ else:
   nebula.save(neb_file_path)
 
 viewer_class = Telescope
+nebula.set_probe_keys(PROBE_KEYS)
 nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class,
                  viewer_configs={'plotters': 'HA'}, **configs)

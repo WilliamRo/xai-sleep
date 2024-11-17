@@ -1,14 +1,12 @@
 '''See 02/10'''
 from hf.sc_tools import get_paired_sg_labels, get_dual_nebula, get_joint_key
+from hf.probe_tools import get_probe_keys
 from hypnomics.freud.nebula import Nebula
-from hypnomics.hypnoprints.stat_models.model_1 import HypnoModel1
-from roma import console
 from pictor.xomics.omix import Omix
 from x_dual_view import PAIRED_LABELS
 
 import os, time
 import numpy as np
-
 
 
 
@@ -29,28 +27,8 @@ CHANNELS = [
 ]
 
 # (1.3) Set probe keys
-PROBE_KEYS = [
-  'FREQ-20',
-  'AMP-1',
-  'GFREQ-35',
-
-  'P-TOTAL',
-  'RP-DELTA',
-  'RP-THETA',
-  'RP-ALPHA',
-  'RP-BETA',
-
-  'MAG',
-  'KURT',
-  'ENTROPY',
-]
-
-for b1, b2 in [('DELTA', 'TOTAL'), ('THETA', 'TOTAL'), ('ALPHA', 'TOTAL'),
-               ('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
-  for stat_key in ['95', 'MIN', 'AVG', 'STD']:
-    PROBE_KEYS.append(f'RPS-{b1}_{b2}_{stat_key}')
-
-for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']: PROBE_KEYS.append(f'BKURT-{b}')
+PROBE_CONFIG = 'ABD'
+PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 
 CHNL_PROB_KEYS = [(ck, pk) for ck in CHANNELS for pk in PROBE_KEYS]
 

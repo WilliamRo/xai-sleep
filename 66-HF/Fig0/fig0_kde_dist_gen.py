@@ -31,10 +31,13 @@ CHANNELS = [
 NEB_FN = f'SC-30s-ABC38.nebula'
 NEB_PATH = os.path.join(WORK_DIR, NEB_FN)
 
+KDE_DIST_FN = NEB_FN.split('.')[0] + '.kdist'
+KDE_DIST_PATH = os.path.join(WORK_DIR, KDE_DIST_FN)
+
 PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 CHNL_PROB_KEYS = [(ck, pk) for ck in CHANNELS for pk in PROBE_KEYS]
 # -----------------------------------------------------------------------------
-# (2) Generate KDE distance
+# (2) Load nebular and kdist dictionary
 # -----------------------------------------------------------------------------
 # (2.1) Load nebula
 assert os.path.exists(NEB_PATH)
@@ -43,6 +46,14 @@ nebula: Nebula = Nebula.load(NEB_PATH)
 # (2.2) Get paired neb
 nebula.set_labels(PAIRED_LABELS)
 neb_1, neb_2 = get_dual_nebula(nebula)
+
+# (2.3) Prepare KDE distance dictionary
+if os.path.exists(KDE_DIST_PATH):
+  kde_dist_dict_repo = io.load_file(KDE_DIST_PATH)
+  console.show_status(f'KDE distance dictionary loaded from `{KDE_DIST_PATH}`')
+else:
+  kde_dist_dict_repo = {}
+  console.show_status(f'KDE distance dictionary initialized')
 
 # -----------------------------------------------------------------------------
 # (3) Calculate joint KDE distance matrix of each CHANNEL-PK combination
@@ -56,8 +67,8 @@ hm = HypnoModel1()
 for ck, pk in CHNL_PROB_KEYS:
   # (3.1.1) Get KDE distance dictionary for (ck, pk, CONDITION)
   mat_key = (ck, pk, CONDITIONAL)
-  kde_dist_dict = nebula.get_from_pocket(
-    mat_key, initializer=lambda: {}, local=True)
+  if mat_key not in kde_dist_dict_repo: kde_dist_dict_repo[mat_key] = {}
+  kde_dist_dict = kde_dist_dict_repo[mat_key]
 
   if len(kde_dist_dict) == N * N:
     console.show_status(f'Joint KDE distance matrix `{mat_key}` already estimated')
@@ -92,10 +103,10 @@ for ck, pk in CHNL_PROB_KEYS:
 
       # (3.1.2.-1) Save nebula at three equinoxes
       if any([index == int(total * p) for p in [0.33, 0.66]]):
-        nebula.save(NEB_PATH)
+        io.save_file(kde_dist_dict_repo, KDE_DIST_PATH)
 
   # (3.1.3) Save nebula
-  nebula.save(NEB_PATH)
+  io.save_file(kde_dist_dict_repo, KDE_DIST_PATH, verbose=True)
   console.show_status(f'Time elapsed: {time.time() - tic:.3f}s')
 
 console.show_status('KDE distance matrix calculation done !')

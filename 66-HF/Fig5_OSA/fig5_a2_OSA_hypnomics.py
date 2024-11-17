@@ -8,13 +8,14 @@ import os
 # (1) Configuration
 # -----------------------------------------------------------------------------
 # (1.1) Nebula configuration
-WORK_DIR = r'../data'  # contains cloud files
+SRC_DIR = r'../../31-OSA-XU/data'  # contains cloud files
 
 # (1.2) Set path
 OMIX_FN = '125samples-6channels-ABD-30s.omix'
-OMIX_PATH = os.path.join(WORK_DIR, OMIX_FN)
+OMIX_PATH = os.path.join(SRC_DIR, OMIX_FN)
 
 OVERWRITE = 0
+INCLUDE_WAKE = 1     # w Wake = 6083, wo Wake = 4774
 TARGET = [
   'AHI',      # 0
   'age',      # 1
@@ -42,8 +43,9 @@ SAMPLE_TO_EXCLUDE = [
 assert os.path.exists(OMIX_PATH)
 
 omix = Omix.load(OMIX_PATH)
-
 omix = omix.set_targets(TARGET, return_new_omix=True)
+
+if not INCLUDE_WAKE: omix = omix.filter_by_name('W', include=False)
 
 if len(SAMPLE_TO_EXCLUDE) > 0:
   sample_labels = [sl for sl in omix.sample_labels
@@ -52,9 +54,8 @@ if len(SAMPLE_TO_EXCLUDE) > 0:
 
 
 
-
 if __name__ == '__main__':
-  omix = omix.select_features('pval', k=1000)
+  # omix = omix.select_features('pval', k=1000)
   omix.show_in_explorer()
 
 

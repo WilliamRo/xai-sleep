@@ -1,4 +1,5 @@
 from pictor.xomics.omix import Omix
+from pictor.xomics.evaluation.pipeline import Pipeline, FitPackage
 
 import os
 
@@ -8,61 +9,75 @@ import os
 # (1) Configuration
 # -----------------------------------------------------------------------------
 # (1.1) Nebula configuration
-WORK_DIR = r'../data'  # contains cloud files
+SRC_DIR = r'../../31-OSA-XU/data'  # contains cloud files
+SAVE_DIR = r'data'
 
-# (1.2) Set path
-OMIX_FN = '125samples-6channels-ABD-30s.omix'
-OMIX_PATH = os.path.join(WORK_DIR, OMIX_FN)
-
+# (1.2) TODO
 OVERWRITE = 0
-TARGET = [
-  'AHI',      # 0
-  'age',      # 1
-  'gender',   # 2
-  'MMSE',     # 3
-  'cog_imp',  # 4
-  'dep',      # 5
-  'anx',      # 6
-  'som',      # 7
-][5]
+TARGET = 'dep'
+M = 2
+N = 2
+ks = [25, 50, 100, 150]
+ts = [0.6, 0.7, 0.8, 0.9]
+n_folds = 5
 
-SAMPLE_TO_EXCLUDE = [
-  # bad channels >= 3
+# TODO XXXXXXXX
+ks = [150, 200]
+ts = [0.6, 0.7]
+n_folds = 2
 
-  # 0 < bad channels < 3
-  # '3',
-  # '4',
-  # '40',
-  # '142',
-  # '229',
-]
+NESTED = 1
+PLOT_MAT = 1
+SUFFIX = '_X'
+
+# (1.3) Set path
+OMIX_FN = '125samples-6channels-ABD-30s.omix'
+OMIX_PATH = os.path.join(SRC_DIR, OMIX_FN)
+
+NESTED_SUFFIX = 'nested' if NESTED else 'xnested'
+PKG_FN = f'125samples-6channels-ABD-30s-dep87-{NESTED_SUFFIX}{SUFFIX}.omix'
+PKG_PATH = os.path.join(SAVE_DIR, PKG_FN)
+
 # -----------------------------------------------------------------------------
-# (2) Load omix
+# (2) Pipeline
 # -----------------------------------------------------------------------------
-assert os.path.exists(OMIX_PATH)
-
-omix = Omix.load(OMIX_PATH)
-
-omix = omix.set_targets(TARGET, return_new_omix=True)
-
-if len(SAMPLE_TO_EXCLUDE) > 0:
-  sample_labels = [sl for sl in omix.sample_labels
-                   if sl not in SAMPLE_TO_EXCLUDE]
-  omix = omix.select_samples(sample_labels)
-
-
-
-
-if __name__ == '__main__':
+if OVERWRITE or not os.path.exists(PKG_PATH):
+  omix = Omix.load(OMIX_PATH)
+  omix = omix.set_targets(TARGET, return_new_omix=True)
   omix = omix.select_features('pval', k=1000)
-  omix.show_in_explorer()
+
+  # (2.1) Initialize pipeline
+  pi = Pipeline(omix, ignore_warnings=1, save_models=1)
+
+  # (2.2) Create subspaces
+  for k, t in [(_k, _t) for _k in ks for _t in ts]: pi.create_sub_space(
+    'ucp', k=k, threshold=t, repeats=M, nested=NESTED, show_progress=1)
+
+  # (2.3) Traverse all subspaces
+  pi.fit_traverse_spaces('lr', repeats=N, nested=NESTED, show_progress=1,
+                         verbose=0, n_splits=n_folds)
+  pi.fit_traverse_spaces('svm', repeats=N, nested=NESTED, show_progress=1,
+                         verbose=0, n_splits=n_folds)
+
+  omix.save(PKG_PATH, verbose=True)
+else:
+  # (2.a) Load omix
+  omix = Omix.load(PKG_PATH)
+
+  # (2.b) Initialize pipeline using macro omix which has been fit
+  pi = Pipeline(omix, ignore_warnings=1, save_models=1)
+
+# -----------------------------------------------------------------------------
+# (3) Result analysis
+# -----------------------------------------------------------------------------
+# (3.1) Report results
+pi.report()
+if PLOT_MAT: pi.plot_matrix()
+
+
 
 
 """
-[AGE]
-sf_ucp 100 0.7: 
-  - MAE = 6.45, R2 = 0.82
-  
 [dep] 41 (-) and 46 (+)
 (1) sf_pval 1000; (2) sf_ucp 100 0.8; 
     - ml svm, AUC=0.946, F1=0.885

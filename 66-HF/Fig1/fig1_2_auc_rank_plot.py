@@ -4,14 +4,11 @@ Y-axis, ranking of (wo upsilon) -> (w upsilon), sorted by difference
 
 Data for plotting is in 66-HF/
 """
-from hf.sc_tools import get_dual_nebula
 from hf.probe_tools import get_probe_keys
-from hypnomics.freud.nebula import Nebula
-from pictor.xomics.omix import Omix
-from x_dual_view import PAIRED_LABELS
+from roma import io
 
+import matplotlib.pyplot as plt
 import os
-import numpy as np
 
 
 
@@ -19,7 +16,8 @@ import numpy as np
 # (1) Configuration
 # -----------------------------------------------------------------------------
 # (1.1) Target nebula file path
-WORK_DIR = r'../data/sleepedfx_sc'
+WORK_DIR = r'./data'
+SAVE_PATH = os.path.join(WORK_DIR, 'c_nc_auc.od')
 # [ 2(x), 5(x), 10(x), 30, ]
 TIME_RESOLUTION = 30
 NEB_FN = f'SC-{TIME_RESOLUTION}s-KDE-39-probes.nebula'
@@ -28,51 +26,64 @@ neb_file_path = os.path.join(WORK_DIR, NEB_FN)
 # (1.2) Set channels
 CHANNELS = [
   'EEG Fpz-Cz',
-  # 'EEG Pz-Oz'
+  'EEG Pz-Oz'
 ]
 
 # (1.3) Set probe keys
 PROBE_CONFIG = 'ABD'
 PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 
-CHNL_PROB_KEYS = [(ck, pk) for ck in CHANNELS for pk in PROBE_KEYS]
-
-MAT_SUFFIX = ['KDE-DISTS', 'KDE-DISTS-NC'][0]
+# -----------------------------------------------------------------------------
+# (2) Read data
+# -----------------------------------------------------------------------------
+od = io.load_file(SAVE_PATH)
 
 # -----------------------------------------------------------------------------
-# (2) Load paired nebula
+# (3) Plot
 # -----------------------------------------------------------------------------
-assert os.path.exists(neb_file_path)
-nebula: Nebula = Nebula.load(neb_file_path)
+# (3.1) Generate orders
+def probe_score(pk):
+  return max(od[(CHANNELS[0], pk, 1)], od[(CHANNELS[1], pk, 1)])
 
-nebula.set_labels(PAIRED_LABELS)
-neb_1, neb_2 = get_dual_nebula(nebula)
-N = len(neb_1.labels)
+probe_keys = sorted(PROBE_KEYS, key=probe_score)
 
-# -----------------------------------------------------------------------------
-# (3) Construct omix
-# -----------------------------------------------------------------------------
-CHNL_PROB_PRODUCTS = [(ck, pk) for ck in CHANNELS for pk in PROBE_KEYS]
-features = np.zeros((N * N, len(CHNL_PROB_PRODUCTS)), dtype=np.float32)
+# (3.3) Configuration
+delta = 0.1
+ms = 8
+colors = ['#af4141', '#3b6ea9']
 
-targets, feature_labels, sample_labels = [], [], []
-IJs = [(i, j) for i in range(N) for j in range(N)]
-for i, j in IJs:
-  targets.append(1 if i == j else 0)
-  sample_labels.append(f'({neb_1.labels[i]}, {neb_2.labels[j]})')
-target_labels = ['Not Same', 'Same']
+# (3.3) Generate orders
+fig = plt.figure(figsize=(9, 6))
+ax: plt.Axes = fig.add_subplot(1, 1, 1)
+for i, pk in enumerate(probe_keys):
+  y = i
 
-for col, (ck, pk) in enumerate(CHNL_PROB_PRODUCTS):
-  mat_key = f'{ck}-{pk}-{MAT_SUFFIX}'
+  for j, ck in enumerate(CHANNELS):
+    yj = y - (j - 0.5) * 2 * delta
+    auc_nc = od[(ck, pk, 0)]
+    auc_c = od[(ck, pk, 1)]
 
-  feature_labels.append(mat_key)
+    color = colors[j]
 
-  kde_dist_dict = nebula.get_from_pocket(mat_key, key_should_exist=True)
-  for row, (i, j) in enumerate(IJs):
-    label_1, label_2 = neb_1.labels[i], neb_2.labels[j]
-    k = (label_1, label_2)
-    features[row, col] = kde_dist_dict[k]
+    label = f'{ck}' if i == 0 else None
+    ax.plot([auc_nc, auc_c], [yj, yj], color=color, label=label)
 
-omix = Omix(features, targets, feature_labels, sample_labels, target_labels,
-            data_name=MAT_SUFFIX)
-omix.show_in_explorer()
+    ax.plot(auc_nc, yj, 'o', markeredgecolor=color, markersize=ms,
+            markerfacecolor='white')
+    ax.plot(auc_c, yj, 'o', markeredgecolor=color, markersize=ms,
+            markerfacecolor=color)
+
+# Draw split lines
+x0, x1 = ax.get_xlim()
+for i, pk in enumerate(probe_keys):
+  if i == 0: continue
+  # Get current limits
+  ax.plot([x0, x1], [i - 0.5, i - 0.5], color='grey', linestyle=':')
+
+ax.set_xlabel('AUC')
+ax.set_yticks(list(range(len(probe_keys))), probe_keys)
+ax.set_xlim([x0, x1])
+ax.legend()
+
+plt.tight_layout()
+plt.show()

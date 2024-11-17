@@ -12,20 +12,27 @@ import numpy as np
 
 class MatchLab(Nomear):
 
-  def __init__(self, F1: dict, F2: dict, N=999, normalize=1,
-               neb_1=None, neb_2=None, nebula=None):
-    self.F1, self.F2 = F1, F2
-    self.V1, self.V2 = self._get_V(F1, N), self._get_V(F2, N)
+  def __init__(self, F1: dict = None, F2: dict = None, N=999, normalize=1,
+               neb_1=None, neb_2=None, nebula=None, kde_dist_dict=None):
+    self.kde_dist_dict: OrderedDict = kde_dist_dict
 
-    self.nebula: Nebula = nebula
-    self.neb_1: Nebula = neb_1
-    self.neb_2: Nebula = neb_2
+    if not self.with_KDE:
+      # Case I: Vectors are provided
+      self.F1, self.F2 = F1, F2
+      self.V1, self.V2 = self._get_V(F1, N), self._get_V(F2, N)
 
-    if normalize:
-      V = np.concatenate([self.V1, self.V2], axis=0)
-      mu, sigma = np.mean(V, axis=0), np.std(V, axis=0)
-      self.V1 = (self.V1 - mu) / sigma
-      self.V2 = (self.V2 - mu) / sigma
+      self.nebula: Nebula = nebula
+      self.neb_1: Nebula = neb_1
+      self.neb_2: Nebula = neb_2
+
+      if normalize:
+        V = np.concatenate([self.V1, self.V2], axis=0)
+        mu, sigma = np.mean(V, axis=0), np.std(V, axis=0)
+        self.V1 = (self.V1 - mu) / (sigma + 1e-6)
+        self.V2 = (self.V2 - mu) / (sigma + 1e-6)
+    else:
+      # Case II: KDEs are provided
+      pass
 
     # Lab variables
     self.feature_coef = 1.0
@@ -35,27 +42,40 @@ class MatchLab(Nomear):
   # region: Properties
 
   @property
-  def N(self): return self.V1.shape[0]
+  def with_KDE(self): return getattr(self, 'kde_dist_dict', None) is not None
 
   @property
-  def D(self): return self.V1.shape[1]
+  def N(self):
+    if self.with_KDE: return list(self.kde_dist_dict.values())[0].shape[0]
+    return self.V1.shape[0]
+
+  @property
+  def D(self):
+    if self.with_KDE: return len(self.kde_dist_dict)
+    return self.V1.shape[1]
 
   @property
   def delta_brick(self):
     """DB.shape = [N, N, D]"""
-    C = self.feature_coef
-    if isinstance(C, np.ndarray):
-      assert len(C) == self.D
-      C = np.reshape(C, (1, 1, self.D))
-    return np.abs(self._get_brick(self.V1, 1) - self._get_brick(self.V2, 2)) * C
+    if not self.with_KDE:
+      C = self.feature_coef
+      if isinstance(C, np.ndarray):
+        assert len(C) == self.D
+        C = np.reshape(C, (1, 1, self.D))
+      return np.abs(self._get_brick(self.V1, 1) - self._get_brick(self.V2, 2)) * C
+    else:
+      return np.stack(list(self.kde_dist_dict.values()), axis=-1)
 
   @property
   def feature_names(self):
-    if self._selected_feature_names is not None:
-      return self._selected_feature_names
+    if not self.with_KDE:
+      if self._selected_feature_names is not None:
+        return self._selected_feature_names
 
-    sample: dict = list(self.F1.values())[0]
-    return list(sample.keys())
+      sample: dict = list(self.F1.values())[0]
+      return list(sample.keys())
+    else:
+      return list(self.kde_dist_dict.keys())
 
   @property
   def distance_matrix(self):
@@ -78,10 +98,14 @@ class MatchLab(Nomear):
               'Measurement': [1] * self.N + [2] * self.N,
               'Value': values})
 
-      icc = pg.intraclass_corr(
-        data, targets='Subject', raters='Measurement', ratings='Value')
+      try:
+        icc = pg.intraclass_corr(
+          data, targets='Subject', raters='Measurement', ratings='Value')
 
-      od[feature_name] = icc[icc['Type'] == 'ICC3']['ICC'].values[0]
+        od[feature_name] = icc[icc['Type'] == 'ICC3']['ICC'].values[0]
+      except:
+        raise ValueError(f'Error in calculating ICC for {feature_name}')
+        od[feature_name] = -1
 
     return od
 
@@ -202,8 +226,9 @@ class MatchLab(Nomear):
     argsort_DM = np.argsort(self.distance_matrix, axis=1)
 
     features, targets, sample_labels = [], [], []
-    feature_names = [f'{name} (ICC = {self.ICC3_dict[name]:.3f})'
-                     for name in self.feature_names]
+    if self.with_KDE: feature_names = self.feature_names
+    else: feature_names = [f'{name} (ICC = {self.ICC3_dict[name]:.3f})'
+                           for name in self.feature_names]
 
     # Include distance matrix if required
     if include_dm:
@@ -233,29 +258,43 @@ class MatchLab(Nomear):
                 target_labels=['Match', 'Not Match'])
     return omix
 
-  def fit_pipeline(self, omix: Omix, M=5, N=5, **kwargs):
-    # Get configs
-    threshold = kwargs.get('threshold', 0.7)
-
-    # Fit pipeline
+  def fit_pipeline(self, omix: Omix, M=5, N=5, nested=False, **kwargs):
+    # (0) Instantiate pipeline
     pi = Pipeline(omix, ignore_warnings=1, save_models=1)
 
+    # (1) Create sub-spaces
+    # (1.1) Create UCP-spaces
+    if omix.n_features > 50:
+      ks = [
+        # 50, 100,
+        200, 300, 400]
+      thresholds = [0.7, 0.9]
+    else:
+      ks = [20, 25]
+      thresholds = [0.7, 0.8, 0.9]
+
+    for k in ks:
+      for threshold in thresholds:
+        pi.create_sub_space('ucp', k=k, threshold=threshold,
+                            repeats=M, nested=nested, show_progress=1)
+
+    # (1.2) Candidate spaces
     # pi.create_sub_space('lasso', repeats=M, show_progress=1)
     # pi.create_sub_space('pca', n_components=k, repeats=M, show_progress=1)
     # pi.create_sub_space('mrmr', k=k, repeats=M, show_progress=1)
-
     # pi.create_sub_space('pval', k=10, repeats=M, nested=True, show_progress=1)
-    pi.create_sub_space('ucp', k=5, threshold=threshold,
-                        repeats=M, nested=True, show_progress=1)
-    # pi.create_sub_space('ucp', k=10, threshold=threshold,
-    #                     repeats=M, nested=True, show_progress=1)
-    pi.create_sub_space('ucp', k=15, threshold=threshold,
-                        repeats=M, nested=True, show_progress=1)
 
-    pi.fit_traverse_spaces('lr', repeats=N, nested=True,
-                           show_progress=1)
+    # (3) Traverse through sub-spaces
+    # (3.1) Logistic Regression
+    lr_hp_space = None
+    # lr_hp_space = {'C': [0.1, 1.0], 'lr_ratio': 0.0, 'penalty': 'elasticnet',
+    #                'solver': 'saga'}
+    pi.fit_traverse_spaces('lr', repeats=N, nested=nested,
+                           show_progress=1, hp_space=lr_hp_space)
+
+    # (3.2) Candidate models
     # pi.fit_traverse_spaces('svm', repeats=N, show_progress=1)
-    pi.fit_traverse_spaces('dt', repeats=N, show_progress=1)
+    # pi.fit_traverse_spaces('dt', repeats=N, show_progress=1)
     # pi.fit_traverse_spaces('rf', repeats=N, show_progress=1)
     # pi.fit_traverse_spaces('xgb', repeats=N, show_progress=1)
 
@@ -371,31 +410,41 @@ class MatchLab(Nomear):
 
   # region: Efficacy Estimation
 
-  def estimate_efficacy_v1(self, pi_key=None):
+  def estimate_efficacy_v1(self, pi_key=None, plot_matrix=0, nested=False,
+    fig_size=(5, 5), overwrite=0):
     """Estimate the efficacy of the feature vector in the task of individual
     matching.
     """
     # (0) Set keys
     OMIX_KEY = 'PAIR_OMIX'
 
-    # (1) Construct or load omix
-    if self.in_pocket(OMIX_KEY):
-      omix = self.get_from_pocket(OMIX_KEY)
-      console.show_status('Pair-omix loaded.')
-    else:
-      omix = self.get_pair_omix(k=99999)
-      self.put_into_pocket(OMIX_KEY, omix, local=True)
-      console.show_status('Pair-omix created.')
-
-    # (2) Fit pipeline
-    if isinstance(pi_key, str) and self.in_pocket(pi_key):
+    # (1) Fit pipeline
+    if isinstance(pi_key, str) and self.in_pocket(pi_key) and not overwrite:
       pi: Pipeline = self.get_from_pocket(pi_key)
     else:
-      pi: Pipeline = self.fit_pipeline(omix, M=3, N=3)
-      if isinstance(pi_key, str): self.put_into_pocket(pi_key, pi, local=True)
+      # (1.2) Load or create omix
+      if self.in_pocket(OMIX_KEY) and not overwrite:
+        omix = self.get_from_pocket(OMIX_KEY)
+        console.show_status('Pair-omix loaded.')
+      else:
+        omix = self.get_pair_omix(k=99999)
+        self.put_into_pocket(OMIX_KEY, omix, local=True,
+                             exclusive=not overwrite)
+        console.show_status('Pair-omix created.')
 
-    # (3) Report
+      # (1.3) Fit pipeline
+      omix = omix.duplicate()
+      pi: Pipeline = self.fit_pipeline(omix, M=2, N=2, nested=nested)
+
+      if isinstance(pi_key, str):
+        self.put_into_pocket(pi_key, pi, local=True, exclusive=not overwrite)
+
+    # (2) Report
     from pictor.xomics.stat_analyzers import calc_CI
+
+    # This is for plotting matrix, see pipeline -> line 328 plot_matrix
+    matrices = OrderedDict()
+    value_dict = OrderedDict()
 
     def _report_mu_CI95(values, key, n_pkg):
       mu = np.mean(values)
@@ -406,9 +455,18 @@ class MatchLab(Nomear):
 
     console.section('Pipeline Report')
     row_labels, col_labels, matrix_dict = pi.get_pkg_matrix()
-    for sf_key in row_labels:
+
+    # Initialize stuff for each metric
+    for key in ('AUC', 'F1', 'Top1-Acc', 'Top5-Acc', 'TAR % FAR = 1%'):
+      matrices[key] = np.zeros((len(row_labels), len(col_labels)))
+      value_dict[key] = OrderedDict()
+
+      for r, sf_key in enumerate(row_labels):
+        value_dict[key][r] = OrderedDict()
+
+    for r, sf_key in enumerate(row_labels):
       console.show_info(f'Feature selection method: {sf_key}')
-      for ml_key in col_labels:
+      for c, ml_key in enumerate(col_labels):
         console.supplement(f'Model: {ml_key}', level=3)
         pkg_list = matrix_dict[(sf_key, ml_key)]
         n_pkg = len(pkg_list)
@@ -416,10 +474,14 @@ class MatchLab(Nomear):
         # (3.1) Report AUC & F1
         key = 'AUC'
         values = [p[key] for p in pkg_list]
+        matrices[key][r, c] = np.mean(values)
+        value_dict[key][r][c] = values
         _report_mu_CI95(values, key, n_pkg)
 
         key = 'F1'
         values = [p[key] for p in pkg_list]
+        matrices[key][r, c] = np.mean(values)
+        value_dict[key][r][c] = values
         _report_mu_CI95(values, key, n_pkg)
 
         # (3.2) Report Top-k acc
@@ -438,8 +500,17 @@ class MatchLab(Nomear):
           values_top1.append(self._top_k_acc([y], k=1)[0])
           values_top5.append(self._top_k_acc([y], k=5)[0])
 
-        _report_mu_CI95(values_top1, 'Top1-Acc', n_pkg)
-        _report_mu_CI95(values_top5, 'Top5-Acc', n_pkg)
+        key = 'Top1-Acc'
+        values = values_top1
+        matrices[key][r, c] = np.mean(values)
+        value_dict[key][r][c] = values
+        _report_mu_CI95(values_top1, key, n_pkg)
+
+        key = 'Top5-Acc'
+        values = values_top5
+        matrices[key][r, c] = np.mean(values)
+        value_dict[key][r][c] = values
+        _report_mu_CI95(values_top5, key, n_pkg)
 
         # (3.3) Report TAR @ FAR
         values = []
@@ -451,9 +522,20 @@ class MatchLab(Nomear):
           tar = self.calculate_TAR_at_FAR(p, y, target_FAR=0.01)
           values.append(tar)
 
-        _report_mu_CI95(values, 'TAR % FAR = 1%', n_pkg)
+        key = 'TAR % FAR = 1%'
+        matrices[key][r, c] = np.mean(values)
+        value_dict[key][r][c] = values
+        _report_mu_CI95(values, key, n_pkg)
 
     print('-' * 79)
+
+    # (-1) Show matrix if required
+    if not plot_matrix: return
+
+    from pictor.plotters.matrix_viewer import MatrixViewer
+
+    MatrixViewer.show_matrices(matrices, row_labels, col_labels, fig_size,
+                               values=value_dict, cmap='Blues', n_digit=3)
 
 
   @staticmethod
@@ -484,4 +566,3 @@ class MatchLab(Nomear):
     return TAR
 
   # endregion: Efficacy Estimation
-

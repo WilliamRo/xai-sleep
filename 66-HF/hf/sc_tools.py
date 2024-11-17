@@ -82,6 +82,8 @@ CK_MAP = {
 PK_MAP = {
   'FREQ-20': 'F', 'AMP-1': 'A', 'P-TOTAL': 'P', 'RP-DELTA': 'RD',
   'RP-THETA': 'RT', 'RP-ALPHA': 'RA', 'RP-BETA': 'RB',
+  'KURT': 'KU', 'RPS-DELTA_THETA_AVG': 'RDT',
+  'RPS-DELTA_ALPHA_AVG': 'RDA', 'RPS-THETA_ALPHA_AVG': 'RTA',
 }
 
 def get_joint_key(ck1, pk1, ck2, pk2):

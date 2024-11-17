@@ -27,7 +27,7 @@ CHANNELS = [
 
 # (1.2) TODO: Configure here !
 CONDITIONAL = 1
-PROBE_CONFIG = 'AB'
+PROBE_CONFIG = 'ABD'
 INCLUDE_MACRO = 0
 OVERWRITE = 0
 
@@ -37,6 +37,7 @@ C_SUFFIX = f'{"c" if CONDITIONAL else "nc"}'
 PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 PROBE_SUFFIX = f'{PROBE_CONFIG}{len(PROBE_KEYS)}'
 MACRO_SUFFIX = f'-MACRO' if INCLUDE_MACRO else ''
+OMIX_FN = f'SC-30s-{PROBE_SUFFIX}-{C_SUFFIX}{MACRO_SUFFIX}-PAT.omix'
 # -----------------------------------------------------------------------------
 # (2) Load macro omix
 # -----------------------------------------------------------------------------
@@ -45,43 +46,50 @@ macro_omix = Omix.load(MACRO_PATH)
 # -----------------------------------------------------------------------------
 # (3) Load Omix
 # -----------------------------------------------------------------------------
-from hypnomics.freud.nebula import Nebula
+OMIX_PATH = os.path.join(WORK_DIR, OMIX_FN)
+if os.path.exists(OMIX_PATH) and not OVERWRITE:
+  omix = Omix.load(OMIX_PATH)
+else:
+  from hypnomics.freud.nebula import Nebula
 
-# (3.1) Load Nebula
-nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
-nebula.set_probe_keys(PROBE_KEYS)
+  # (3.1) Load Nebula
+  nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
+  nebula.set_probe_keys(PROBE_KEYS)
 
-# (2.2) Extract features
-E_SETTINGS = {
-  'include_statistical_features': 1,
-  'include_inter_stage_features': 1,
-  'include_inter_channel_features': 1,
+  # (2.2) Extract features
+  E_SETTINGS = {
+    'include_statistical_features': 1,
+    'include_inter_stage_features': 1,
+    'include_inter_channel_features': 1,
 
-  'include_proportion': 0,
-  'include_stage_shift': 0,
-  'include_channel_shift': 0,
-  'include_stage_wise_covariance': 0,
-  'include_stage_mean': 0,
-  'include_all_mean_std': 0,
-}
+    'include_proportion': 0,
+    'include_stage_shift': 0,
+    'include_channel_shift': 0,
+    'include_stage_wise_covariance': 0,
+    'include_stage_mean': 0,
+    'include_all_mean_std': 0,
+  }
 
-extractor = Extractor(**E_SETTINGS)
-feature_dict = extractor.extract(nebula, return_dict=True)
-features = np.stack([np.array(list(v.values()))
-                     for v in feature_dict.values()], axis=0)
-feature_names = list(list(feature_dict.values())[0].keys())
+  extractor = Extractor(**E_SETTINGS)
+  feature_dict = extractor.extract(nebula, return_dict=True)
+  features = np.stack([np.array(list(v.values()))
+                       for v in feature_dict.values()], axis=0)
+  feature_names = list(list(feature_dict.values())[0].keys())
 
-target_labels = ['Age']
-targets = [nebula.meta[pid]['age'] for pid in nebula.labels]
+  target_labels = ['Age']
+  targets = [nebula.meta[pid]['age'] for pid in nebula.labels]
 
-data_name = 'Omix for Patent'
-omix = Omix(features, targets, feature_names, nebula.labels, target_labels,
-            data_name=f'SC-age-153-{TIME_RESOLUTION}s')
+  data_name = 'Omix for Patent'
+  omix = Omix(features, targets, feature_names, nebula.labels, target_labels,
+              data_name=f'SC-age-153-{TIME_RESOLUTION}s')
 
-if INCLUDE_MACRO: omix = omix * macro_omix
+  omix = omix.filter_by_name('W', include=False)
+  if INCLUDE_MACRO: omix = omix * macro_omix
+
+  # (2.3) Save omix
+  omix.save(OMIX_PATH)
 
 # -----------------------------------------------------------------------------
 # (4) Visualization
 # -----------------------------------------------------------------------------
-omix = omix.filter_by_name('W', include=False)
 omix.show_in_explorer()

@@ -20,11 +20,13 @@ XLSX_PATH = r'../../data/sleep-edf-database-expanded-1.0.0/SC-subjects.xls'
 
 MACRO_DIST_OMIX_FN = 'macro_dist_30.omix'
 MACRO_DIST_OMIX_PATH = os.path.join(WORK_DIR, MACRO_DIST_OMIX_FN)
+
+OVERWRITE = 0
 # -----------------------------------------------------------------------------
 # (2) Macro-distance omix generation
 # -----------------------------------------------------------------------------
 
-if os.path.exists(MACRO_DIST_OMIX_PATH):
+if os.path.exists(MACRO_DIST_OMIX_PATH) and not OVERWRITE:
   macro_dist_omix = Omix.load(MACRO_DIST_OMIX_PATH)
 else:
   # (2.1) Read nebula, the content is not important

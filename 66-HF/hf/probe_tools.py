@@ -27,4 +27,12 @@ def get_probe_keys(PROBE_CONFIG):
     for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']:
       PROBE_KEYS.append(f'BKURT-{b}')
 
+  # (1.4.4) Part D (a useful part of sun2017)
+  if 'D' in PROBE_CONFIG:
+    assert 'C' not in PROBE_CONFIG
+    PROBE_KEYS.extend(['KURT'])
+
+    for b1, b2 in [('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
+      PROBE_KEYS.append(f'RPS-{b1}_{b2}_AVG')
+
   return PROBE_KEYS

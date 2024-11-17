@@ -1,7 +1,5 @@
-"""
-
-"""
 from collections import OrderedDict
+
 from hf.sc_tools import load_macro_and_meta_from_workdir
 from hf.match_lab import MatchLab
 from roma import finder, io
@@ -20,10 +18,12 @@ XLSX_PATH = r'../../data/sleep-edf-database-expanded-1.0.0/SC-subjects.xls'
 
 MATLAB_FN = 'macro_dist_30.matlab'
 MATLAB_PATH = os.path.join(WORK_DIR, MATLAB_FN)
+
+OVERWRITE = 1
 # -----------------------------------------------------------------------------
 # (2) Macro-distance omix generation
 # -----------------------------------------------------------------------------
-if os.path.exists(MATLAB_PATH):
+if os.path.exists(MATLAB_PATH) and not OVERWRITE:
   mat_lab = io.load_file(MATLAB_PATH)
 else:
   # (2.1) Read nebula, the content is not important
@@ -62,7 +62,10 @@ if __name__ == '__main__':
   # mat_lab.select_feature(min_ICC=0.5, verbose=1, set_C=1)
   # mat_lab.analyze()
 
-  PI_KEY = 'pi_test_1024'
-  mat_lab.estimate_efficacy_v1(pi_key=PI_KEY)
+  PI_KEY = '1105v1'
+  nested = 1
+  if not nested: PI_KEY += '_not_nested'
+  mat_lab.estimate_efficacy_v1(pi_key=PI_KEY, plot_matrix=1,
+                               nested=nested, overwrite=1)
 
-  # io.save_file(mat_lab, MATLAB_PATH)
+  io.save_file(mat_lab, MATLAB_PATH)
