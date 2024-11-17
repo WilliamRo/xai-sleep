@@ -9,7 +9,6 @@ from roma.console.console import console
 # (1) Configuration
 # -----------------------------------------------------------------------------
 ACCESS_POINT_NAME = 's3://arn:aws:s3:us-east-1:[5f5s51]438910517:accesspoint'
-ACCESS_POINT_NAME = 's3://arn:aws:s3:us-east-1:184438910517:accesspoint'
 DATA_DIR = '../../data/hsp'
 META_DIR = '../../data/hsp'
 
