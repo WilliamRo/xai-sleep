@@ -182,9 +182,7 @@ class HSPAgent(Nomear):
     return_code = process.poll()
 
     # Print any remaining stderr
-    for line in process.stderr:
-      sys.stderr.write(line)
-      sys.stderr.flush()
+    for line in process.stderr: console.warning(line)
 
     console.clear_line()
 
@@ -196,7 +194,7 @@ class HSPAgent(Nomear):
     local_path = os.path.abspath(local_path)
     if os.path.exists(local_path):
       console.show_status(f'Folder already exists: {local_path}')
-      return
+      return 'exist'
 
     # (1) Download data
     # Define the command and its arguments
@@ -206,14 +204,27 @@ class HSPAgent(Nomear):
 
     if return_code != 0:
       console.warning(f"Command failed with return code {return_code}")
-    else: console.show_status(f'Downloaded data to: {local_path}')
+      return 'error'
+    else:
+      console.show_status(f'Downloaded data to: {local_path}')
+      return 'success'
 
   def download_folders(self, folder_list: list):
     N = len(folder_list)
+    n_success, n_exist, n_error = 0, 0, 0
     for i, path in enumerate(folder_list):
       console.show_status(f'Progress: {i}/{N} ...')
-      self.copy_a_folder(path)
-    console.show_status(f'Successfully downloaded {N} folders.')
+      ret = self.copy_a_folder(path)
+
+      if ret == 'exist': n_exist += 1
+      elif ret == 'success': n_success += 1
+      elif ret == 'error': n_error += 1
+      else: raise KeyError(f'!! unknown return code `{ret}`')
+
+    console.show_info('Summary:')
+    console.supplement(f'{n_exist} folders already exist.', level=2)
+    console.supplement(f'Successfully downloaded {n_success} folders.', level=2)
+    console.supplement(f'Failed to downloaded {n_error} folders.', level=2)
 
   # endregion: AWS Commands
 
