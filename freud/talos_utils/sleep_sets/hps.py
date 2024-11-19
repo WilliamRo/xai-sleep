@@ -167,16 +167,23 @@ class HSPAgent(Nomear):
       bufsize=1
     )
 
-    # Read stdout and stderr in real-time
-    while True:
-      # Read one character at a time
-      output = process.stdout.readline()
-      if output == '' and process.poll() is not None:
-        break
-      if output:
-        console.clear_line()
-        sys.stdout.write(output[:-1])
-        sys.stdout.flush()
+    try:
+      # Read stdout and stderr in real-time
+      while True:
+        # Read one line at a time
+        output = process.stdout.readline()
+        if output == '' and process.poll() is not None:
+          break
+        if output:
+          console.clear_line()
+          sys.stdout.write(output[:-1])
+          sys.stdout.flush()
+
+    except KeyboardInterrupt:
+      # If interrupted, terminate the subprocess
+      process.terminate()
+      print("\nProcess terminated.")
+      return None  # or return an appropriate code
 
     # Get the return code
     return_code = process.poll()
