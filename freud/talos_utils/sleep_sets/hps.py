@@ -1,7 +1,9 @@
 from collections import OrderedDict
-
 from freud.talos_utils.slp_set import SleepSet
 from roma import console, io, Nomear
+from pictor.objects.signals.signal_group import Annotation
+from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
+from typing import List
 
 import os
 
@@ -35,6 +37,57 @@ class HSPSet(SleepSet):
 				└── sub-Id_ses-1_task-psg_pre.csv
   """
 
+  @classmethod
+  def load_as_signal_groups(cls, src_dir, max_sfreq=128,
+                            **kwargs) -> List[SignalGroup]:
+
+    # (0) Get configs
+    JUST_CONVERSION = kwargs.get('just_conversion', False)
+    PREPROCESS = kwargs.get('preprocess', '')
+
+    # (1) Find patient IDs
+    ss_path = os.path.join(data_dir, f'mass{ssid}')
+    pids = [fn[3:10] for fn in walk(
+      ss_path, 'file', '*Base.edf', return_basename=True)]
+    n_patients = len(pids)
+
+    # (2) Load signal groups
+    signal_groups: List[SignalGroup] = []
+
+    for i, pid in enumerate(pids):
+      # (2.1) Create a function to load raw signal group
+      load_raw_sg = lambda: cls.load_as_raw_sg(
+        data_dir, pid, n_patients=n_patients, i=i,
+        max_sfreq=max_sfreq, **kwargs)
+
+      # (2.2) Parse pre-process configs
+      pp_configs, suffix = cls.parse_preprocess_configs(PREPROCESS)
+      # TODO: currently we don't support suffix
+      assert suffix == ''
+
+      # (2.3) Try to load raw signal group
+      if suffix == '':
+        try:
+          sg = load_raw_sg()
+        except Exception as e:
+          import traceback
+          console.warning(f'Failed to load {pid}. Error: {e}')
+          traceback.print_exc()
+          continue
+
+        if not JUST_CONVERSION: signal_groups.append(sg)
+        continue
+
+      # (2.4) TODO
+
+
+      # This is for 00-data-conversion scripts
+      if JUST_CONVERSION: signal_groups.clear()
+
+    # (-1) Show status
+    console.show_status(f'Successfully read {n_patients} files.')
+    return signal_groups
+
 
 
 
@@ -65,10 +118,16 @@ class HSPAgent(Nomear):
   # region: Public Methods
 
   # TODO: BETA
-  def filter_patients(self, min_n_sessions=1, return_folder_names=False):
+  def filter_patients(self, min_n_sessions=1, should_have_annotation=True,
+                      return_folder_names=False):
     filtered_dict = OrderedDict()
     for pid, sess_dict in self.patient_dict.items():
-      if len(sess_dict) >= min_n_sessions: filtered_dict[pid] = sess_dict
+      # Check annotation if required
+      if should_have_annotation:
+        sess_dict = {k: v for k, v in sess_dict.items() if v['has_annotations']}
+      # Check session number
+      if len(sess_dict) >= min_n_sessions:
+        filtered_dict[pid] = sess_dict
     if return_folder_names: return self.convert_to_folder_names(filtered_dict)
     return filtered_dict
 
@@ -195,11 +254,41 @@ class HSPAgent(Nomear):
 
     return return_code
 
+  def check_folder_complete(self, folder_path):
+    # Check level 0
+    if not os.path.exists(folder_path): return False
+
+    # Get session and subject names
+    sess_name = os.path.basename(folder_path)
+    sub_name = os.path.basename(os.path.dirname(folder_path))
+    prefix = f'{sub_name}_{sess_name}'
+
+    # Check level 1
+    eeg_path = os.path.join(folder_path, 'eeg')
+    tsv_path = os.path.join(folder_path, f'{prefix}_scans.tsv')
+    paths = [eeg_path, tsv_path]
+    if not all([os.path.exists(p) for p in paths]): return False
+
+    # Check level 2
+    prefix = f'{sub_name}_{sess_name}_task-psg'
+    anno_path = os.path.join(eeg_path, f'{prefix}_annotations.csv')
+    channel_path = os.path.join(eeg_path, f'{prefix}_channels.tsv')
+    edf_path = os.path.join(eeg_path, f'{prefix}_eeg.edf')
+    json_path = os.path.join(eeg_path, f'{prefix}_eeg.json')
+    pre_path = os.path.join(eeg_path, f'{prefix}_pre.csv')
+
+    paths = [channel_path, edf_path]
+
+    if not all([os.path.exists(p) for p in paths]): return False
+    return True
+
   def copy_a_folder(self, project_folder):
     # (0) Check if the folder already exists
+    #  e.g. local_path = 'F:\\data\\hsp\\sub-S0001111190905/ses-1/'
     local_path = os.path.join(self.data_dir, project_folder.split('bids/')[-1])
     local_path = os.path.abspath(local_path)
-    if os.path.exists(local_path):
+
+    if self.check_folder_complete(local_path):
       console.show_status(f'Folder already exists: {local_path}')
       return 'exist'
 
