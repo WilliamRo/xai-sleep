@@ -21,8 +21,12 @@ WORK_DIR = r'../data/sleepedfx_sc'
 # (1.2) TODO: Configure this part
 CONDITIONAL = 1
 PROBE_CONFIG = 'ABD'
-OVERWRITE = 1
+OVERWRITE = 0
 INCLUDE_WAKE = 0
+
+N_PATIENT = [71, 75][1]
+assert N_PATIENT in (71, 75)
+NP_SUFFIX = '' if N_PATIENT == 71 else '-75'
 
 # (1.3) File names and MISC
 C_SUFFIX = f'{"c" if CONDITIONAL else "nc"}'
@@ -31,9 +35,11 @@ W_SUFFIX = '' if INCLUDE_WAKE else '-NW'
 PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 PROBE_SUFFIX = f'{PROBE_CONFIG}{len(PROBE_KEYS)}'
 
+# This nebula file includes all subjects' info
 NEB_FN = f'SC-30s-ABC38.nebula'
-MAT_FN = f'SC-30s-{PROBE_SUFFIX}-{C_SUFFIX}{W_SUFFIX}.matlab'
-DIST_OMIX_FN = f'SC-30s-{PROBE_SUFFIX}-{C_SUFFIX}{W_SUFFIX}-Dist.omix'
+
+MAT_FN = f'SC-30s-{PROBE_SUFFIX}-{C_SUFFIX}{W_SUFFIX}{NP_SUFFIX}.matlab'
+DIST_OMIX_FN = f'SC-30s-{PROBE_SUFFIX}-{C_SUFFIX}{W_SUFFIX}{NP_SUFFIX}-Dist.omix'
 # -----------------------------------------------------------------------------
 # (2) Macro-distance omix generation
 # -----------------------------------------------------------------------------
@@ -49,7 +55,7 @@ else:
     # (2.1) Read nebula
     from hf.sc_tools import get_dual_nebula
     from hypnomics.freud.nebula import Nebula
-    from x_dual_view import PAIRED_LABELS
+    from x_dual_view import PAIRED_LABELS, PAIRED_LABELS_ALL
 
     nebula: Nebula = Nebula.load(os.path.join(WORK_DIR, NEB_FN))
     nebula.set_probe_keys(PROBE_KEYS)

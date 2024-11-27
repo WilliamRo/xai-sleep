@@ -265,10 +265,8 @@ class MatchLab(Nomear):
     # (1) Create sub-spaces
     # (1.1) Create UCP-spaces
     if omix.n_features > 50:
-      ks = [
-        # 50, 100,
-        200, 300, 400]
-      thresholds = [0.7, 0.9]
+      ks = kwargs.get('ks', [50, 100, 400])
+      thresholds = kwargs.get('ts', [0.7, 0.9])
     else:
       ks = [20, 25]
       thresholds = [0.7, 0.8, 0.9]
@@ -411,7 +409,7 @@ class MatchLab(Nomear):
   # region: Efficacy Estimation
 
   def estimate_efficacy_v1(self, pi_key=None, plot_matrix=0, nested=False,
-    fig_size=(5, 5), overwrite=0):
+    fig_size=(5, 5), overwrite=0, M=2, N=2, **kwargs):
     """Estimate the efficacy of the feature vector in the task of individual
     matching.
     """
@@ -434,7 +432,7 @@ class MatchLab(Nomear):
 
       # (1.3) Fit pipeline
       omix = omix.duplicate()
-      pi: Pipeline = self.fit_pipeline(omix, M=2, N=2, nested=nested)
+      pi: Pipeline = self.fit_pipeline(omix, M=M, N=N, nested=nested, **kwargs)
 
       if isinstance(pi_key, str):
         self.put_into_pocket(pi_key, pi, local=True, exclusive=not overwrite)

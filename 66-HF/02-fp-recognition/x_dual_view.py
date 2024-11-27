@@ -29,6 +29,7 @@ PK2 = 'AMP-1'
 SG_LABELS = finder.walk(WORK_DIR, type_filter='dir', return_basename=True)[:999]
 EXCLUDES = ('422', '459', '476', '411')
 PAIRED_LABELS = get_paired_sg_labels(SG_LABELS, excludes=EXCLUDES)
+PAIRED_LABELS_ALL = get_paired_sg_labels(SG_LABELS)
 
 # [ 2, 5, 10, 30, ]
 TIME_RESOLUTION = 30

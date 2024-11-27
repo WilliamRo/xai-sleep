@@ -10,7 +10,7 @@ DATA_DIR = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette'
 PATTERN = f'*(trim1800;128).sg'
 CHANNELS = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 
-N = 10
+N = 1
 
 # Select .sg files
 sg_file_list = finder.walk(DATA_DIR, pattern=PATTERN)

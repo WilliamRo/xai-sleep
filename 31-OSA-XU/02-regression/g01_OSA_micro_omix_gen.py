@@ -1,5 +1,9 @@
+"""See g03_OSA_hypno_omix_gen.py
+
+"""
 from hypnomics.freud.nebula import Nebula
 from hypnomics.hypnoprints.extractor import Extractor
+from osaxu.osa_tools import set_target_collection_for_omix
 from pictor.xomics.omix import Omix
 from roma import finder
 
@@ -44,12 +48,7 @@ else:
   omix = Omix(features, targets, feature_names, nebula.labels, target_labels,
               data_name=f'OSA-N125-C6-P39-30s')
 
-  for key in nebula.meta[SG_LABELS[0]].keys():
-    if key == 'gender': tl = ['Female', 'Male']
-    elif key in ('cog_imp', 'dep', 'anx', 'som'): tl = ['0', '1']
-    else: tl = [key]
-    omix.add_to_target_collection(
-      key, [nebula.meta[pid][key] for pid in nebula.labels], target_labels=tl)
+  set_target_collection_for_omix(omix, nebula)
 
   omix.save(OMIX_PATH)
 

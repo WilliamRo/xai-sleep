@@ -96,8 +96,8 @@ else:
   omix = Omix(features, targets, feature_names, nebula.labels, target_labels,
               data_name=f'SC-age-153-{TIME_RESOLUTION}s')
 
-  if INCLUDE_MACRO: omix = omix * macro_omix
   if not INCLUDE_WAKE: omix = omix.filter_by_name('W', include=False)
+  if INCLUDE_MACRO: omix = omix * macro_omix
 
   # (2.3) Save omix
   omix.save(OMIX_PATH)

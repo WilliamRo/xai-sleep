@@ -4,6 +4,8 @@ Y-axis, ranking of (wo upsilon) -> (w upsilon), sorted by difference
 
 Data for plotting is in 66-HF/
 """
+from scipy.optimize import linprog
+
 from hf.probe_tools import get_probe_keys
 from roma import io
 
@@ -48,12 +50,12 @@ def probe_score(pk):
 probe_keys = sorted(PROBE_KEYS, key=probe_score)
 
 # (3.3) Configuration
-delta = 0.1
+delta = 0.15
 ms = 8
 colors = ['#af4141', '#3b6ea9']
 
 # (3.3) Generate orders
-fig = plt.figure(figsize=(9, 6))
+fig = plt.figure(figsize=(5, 5))
 ax: plt.Axes = fig.add_subplot(1, 1, 1)
 for i, pk in enumerate(probe_keys):
   y = i
@@ -80,10 +82,31 @@ for i, pk in enumerate(probe_keys):
   # Get current limits
   ax.plot([x0, x1], [i - 0.5, i - 0.5], color='grey', linestyle=':')
 
-ax.set_xlabel('AUC')
+auc_macro = 0.784
+ax.plot([auc_macro, auc_macro], [-0.5, 10.5], linestyle='--',
+        color='green', zorder=-99)
+ax.set_ylim([-0.5, 10.5])
+
+# Rename probe keys
+KEY_MAP = {
+  'FREQ-20': 'Frequency',
+  'RP-BETA': 'Beta/Total',
+  'RP-ALPHA': 'Alpha/Total',
+  'RPS-THETA_ALPHA_AVG': 'Theta/Alpha',
+  'RP-THETA': 'Theta/Total',
+  'KURT': 'Kurtosis',
+  'RP-DELTA': 'Delta/Total',
+  'AMP-1': 'Amplitude',
+  'RPS-DELTA_ALPHA_AVG': 'Delta/Alpha',
+  'RPS-DELTA_THETA_AVG': 'Delta/Theta',
+  'P-TOTAL': 'Total Power',
+}
+probe_keys = [KEY_MAP[pk] for pk in probe_keys]
+
+ax.set_xlabel('Authentication AUC')
 ax.set_yticks(list(range(len(probe_keys))), probe_keys)
 ax.set_xlim([x0, x1])
-ax.legend()
+ax.legend(loc='upper left', bbox_to_anchor=(0, 0.8))
 
 plt.tight_layout()
 plt.show()

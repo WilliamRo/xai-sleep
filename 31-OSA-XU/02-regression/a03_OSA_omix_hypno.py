@@ -11,9 +11,8 @@ import os
 WORK_DIR = r'../data'  # contains cloud files
 
 # (1.2) Set path
-NEB_FN = f'125samples-6channels-39probes-30s.nebula'
-NEB_PATH = os.path.join(WORK_DIR, NEB_FN)
-OMIX_PATH = NEB_PATH.replace('.nebula', '.omix')
+OMIX_FN = '125samples-6channels-ABD-30s.omix'
+OMIX_PATH = os.path.join(WORK_DIR, OMIX_FN)
 
 OVERWRITE = 0
 TARGET = [
@@ -25,22 +24,50 @@ TARGET = [
   'dep',      # 5
   'anx',      # 6
   'som',      # 7
-][0]
+][1]
+
+SAMPLE_TO_EXCLUDE = [
+  # bad channels >= 3
+
+  # 0 < bad channels < 3
+  # '3',
+  # '4',
+  # '40',
+  # '142',
+  # '229',
+]
 # -----------------------------------------------------------------------------
 # (2) Load omix
 # -----------------------------------------------------------------------------
 assert os.path.exists(OMIX_PATH)
 
 omix = Omix.load(OMIX_PATH)
+
 omix = omix.set_targets(TARGET, return_new_omix=True)
+
+if len(SAMPLE_TO_EXCLUDE) > 0:
+  sample_labels = [sl for sl in omix.sample_labels
+                   if sl not in SAMPLE_TO_EXCLUDE]
+  omix = omix.select_samples(sample_labels)
 
 
 
 if __name__ == '__main__':
+  # omix = omix.select_features('pval', k=1000)
   omix.show_in_explorer()
 
 
 """
+[AGE]
+sf_ucp 100 0.7: 
+  - MAE = 6.45, R2 = 0.82
+  
+[dep] 41 (-) and 46 (+)
+(1) sf_pval 1000; (2) sf_ucp 100 0.8; 
+    - ml svm, AUC=0.946, F1=0.885
+
+
+Baseline:
 Note: 
 [AGE]
 I. omix exploration pipeline
