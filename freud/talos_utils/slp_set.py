@@ -736,6 +736,7 @@ class SleepSet(DataSet):
       file_path: str,
       groups=None,
       dtype=np.float32,
+      max_sfreq=None,
       **kwargs
   ) -> List[DigitalSignal]:
     """Read .edf file using `mne` package.
@@ -747,7 +748,8 @@ class SleepSet(DataSet):
            not .edf.
     """
     from freud import read_digital_signals_mne
-    return read_digital_signals_mne(file_path, groups, dtype, **kwargs)
+    return read_digital_signals_mne(
+      file_path, groups, dtype, max_sfreq, **kwargs)
 
   @staticmethod
   def read_annotations_mne(file_path: str, labels=None) -> Annotation:

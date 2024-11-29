@@ -2,13 +2,13 @@ import os
 import sys
 
 
-from freud.talos_utils.sleep_sets.hps import HSPAgent
+from freud.talos_utils.sleep_sets.hsp import HSPAgent
 from roma.console.console import console
 
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
-ACCESS_POINT_NAME = 's3://arn:aws:s3:us-east-1:[5f5s51]438910517:accesspoint'
+ACCESS_POINT_NAME = 's3://arn:aws:s3:us-east-1:184438910517:accesspoint'
 DATA_DIR = '../../data/hsp'
 META_DIR = '../../data/hsp'
 
@@ -25,7 +25,7 @@ folder_list = ha.convert_to_folder_names(patient_dict)
 
 console.show_status(f'There are {len(patient_dict)} patients with at least 2 sessions.')
 
-ha.download_folders(folder_list[:10])
+ha.download_folders(folder_list[:8])
 
 
 

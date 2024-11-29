@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from datetime import datetime
 from freud.talos_utils.slp_set import SleepSet
 from roma import console, io, Nomear
 from pictor.objects.signals.signal_group import Annotation
@@ -6,6 +7,8 @@ from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
 from typing import List
 
 import os
+import numpy as np
+import re
 
 
 
@@ -37,6 +40,110 @@ class HSPSet(SleepSet):
 				└── sub-Id_ses-1_task-psg_pre.csv
   """
 
+  ANNO_LABELS = ['Sleep_stage_W', 'Sleep_stage_N1', 'Sleep_stage_N2',
+                 'Sleep_stage_N3', 'Sleep_stage_R',  'Sleep_stage_?']
+
+  EEG_EOG = ['F3-M2', 'F4-M1', 'C3-M2', 'C4-M1', 'O1-M2', 'O2-M1',
+             'E1-M[12]', 'E2-M[12]']
+
+  GROUPS = [('EEG F3-M2', 'EEG C3-M2', 'EEG O1-M2',
+             'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1'),
+            ('EOG E1-M2', 'EOG E2-M1',
+             'EOG E1-M1', 'EOG E2-M2', )]
+
+
+  @staticmethod
+  def channel_map(edf_ck):
+    """Map EDF channel names to standard channel names. Used in reading raw data
+    """
+    # For edf_ck match 'F3-M2', 'F4-M1', 'C3-M2', 'C4-M1', 'O1-M2', 'O2-M1'
+    # Using regular expression
+    if re.match(r'^[FCO][1234][\-]M[12]$', edf_ck):
+      return f'EEG {edf_ck}'
+
+    # In some cases, two EOG channels may use the same reference electrode
+    # e.g., E1-M2, E2-M2 (sub-S0001111190905_ses-1)
+    #       E1-M2, E2-M1 (sub-S0001111190905_ses-4)
+    if re.match(r'^E[12][\-]M[12]$', edf_ck):
+      return f'EOG {edf_ck}'
+
+    return edf_ck
+
+
+  @classmethod
+  def load_sg_from_raw_files(cls, ses_dir, dtype=np.float16, max_sfreq=128,
+                             **kwargs):
+    """Convert an `.edf` file into a SignalGroup.
+
+    Arg
+    ---
+    ses_dir: str, session directory
+             e.g., ...\hsp_raw\sub-S0001111190905\ses-1
+    """
+
+    # (0) Check file completeness
+    ho = HSPOrganization(ses_dir)
+    assert os.path.exists(ho.edf_path) and os.path.exists(ho.anno_path)
+
+    # (1) Read annotations
+    annotation = cls.load_hsp_annotation(ho.anno_path)
+
+    # (2) Read psg data as digital signals
+    digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
+      ho.edf_path, dtype=dtype, max_sfreq=max_sfreq,
+      chn_map=cls.channel_map, groups=cls.GROUPS)
+
+    # (3) Wrap data into signal group
+    sg = SignalGroup(digital_signals, label=ho.sg_label)
+    assert len(sg.channel_names) == 8
+
+    sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
+
+    # (4) Sanity check and return
+    record_minus_anno = sg.total_duration - annotation.intervals[-1][1]
+    sg.put_into_pocket('edf_duration-anno_duration',
+                       record_minus_anno, local=True)
+    return sg
+
+
+  @classmethod
+  def load_hsp_annotation(cls, anno_path):
+    import pandas as pd
+
+    # Read intervals and annotations
+    intervals, annotations = [], []
+    label2int = {lb: i for i, lb in enumerate(cls.ANNO_LABELS)}
+
+    df = pd.read_csv(anno_path)
+    last_epoch, start_time, end_time = None, None, None
+    # Traverse rows
+    for _, row in df.iterrows():
+      epoch, duration, evt = row['epoch'], row['duration'], row['event']
+      if evt not in cls.ANNO_LABELS: continue
+
+      # Convert epoch and duration from string to int/float
+      epoch, duration = int(epoch), float(duration)
+
+      # Record epoch and first/last time
+      if len(intervals) == 0: start_time = row['time']
+      end_time, last_epoch = row['time'], epoch
+
+      # Append interval and annotation
+      onset = (epoch - 1) * duration
+      intervals.append((onset, onset + duration))
+      annotations.append(label2int[evt])
+
+    # Sanity check
+    time_fmt = '%Y-%m-%d %H:%M:%S'
+    tic = datetime.strptime("2024-11-29 " + start_time, time_fmt)
+    toc = datetime.strptime("2024-11-30 " + end_time, time_fmt)
+    total_duration = (toc - tic).total_seconds()
+
+    assert last_epoch * 30 == total_duration + 30
+
+    return Annotation(intervals, annotations, labels=cls.ANNO_LABELS)
+
+
   @classmethod
   def load_as_signal_groups(cls, src_dir, max_sfreq=128,
                             **kwargs) -> List[SignalGroup]:
@@ -44,6 +151,10 @@ class HSPSet(SleepSet):
     # (0) Get configs
     JUST_CONVERSION = kwargs.get('just_conversion', False)
     PREPROCESS = kwargs.get('preprocess', '')
+
+    # TODO: Implement this
+
+    return
 
     # (1) Find patient IDs
     ss_path = os.path.join(data_dir, f'mass{ssid}')
@@ -111,7 +222,14 @@ class HSPAgent(Nomear):
     return _meta_path
 
   @Nomear.property()
-  def patient_dict(self): return self.generate_patient_dict(self.meta_path)
+  def patient_dict(self):
+    patient_dict_path = self.meta_path.replace('.csv', '.od')
+    if os.path.exists(patient_dict_path):
+      return io.load_file(patient_dict_path, verbose=True)
+
+    od = self.generate_patient_dict(self.meta_path)
+    io.save_file(od, patient_dict_path, verbose=True)
+    return od
 
   # endregion: Properties
 
@@ -131,12 +249,16 @@ class HSPAgent(Nomear):
     if return_folder_names: return self.convert_to_folder_names(filtered_dict)
     return filtered_dict
 
-  def convert_to_folder_names(self, patient_dict: OrderedDict):
+  def convert_to_folder_names(self, patient_dict: OrderedDict, local=False):
     """e.g., <APN>/bdsp-psg-access-point/PSG/bids/sub-S0001111190905/ses-1/"""
+    if local: src_path = self.data_dir
+    else: src_path = f'{self.access_point_name}/bdsp-psg-access-point/PSG/bids'
+
     folder_list = []
     for pid, sess_dict in patient_dict.items():
       for sess_id, sess_info in sess_dict.items():
-        folder_name = f'{self.access_point_name}/bdsp-psg-access-point/PSG/bids/sub-{sess_info["site_id"]}{pid}/ses-{sess_id}/'
+        folder_name = os.path.join(
+          src_path, f'sub-{sess_info["site_id"]}{pid}/ses-{sess_id}')
         folder_list.append(folder_name)
     return folder_list
 
@@ -258,28 +380,16 @@ class HSPAgent(Nomear):
     # Check level 0
     if not os.path.exists(folder_path): return False
 
-    # Get session and subject names
-    sess_name = os.path.basename(folder_path)
-    sub_name = os.path.basename(os.path.dirname(folder_path))
-    prefix = f'{sub_name}_{sess_name}'
+    ho = HSPOrganization(folder_path)
 
     # Check level 1
-    eeg_path = os.path.join(folder_path, 'eeg')
-    tsv_path = os.path.join(folder_path, f'{prefix}_scans.tsv')
-    paths = [eeg_path, tsv_path]
+    paths = [ho.eeg_path, ho.tsv_path]
     if not all([os.path.exists(p) for p in paths]): return False
 
     # Check level 2
-    prefix = f'{sub_name}_{sess_name}_task-psg'
-    anno_path = os.path.join(eeg_path, f'{prefix}_annotations.csv')
-    channel_path = os.path.join(eeg_path, f'{prefix}_channels.tsv')
-    edf_path = os.path.join(eeg_path, f'{prefix}_eeg.edf')
-    json_path = os.path.join(eeg_path, f'{prefix}_eeg.json')
-    pre_path = os.path.join(eeg_path, f'{prefix}_pre.csv')
-
-    paths = [channel_path, edf_path]
-
+    paths = [ho.channel_path, ho.edf_path]
     if not all([os.path.exists(p) for p in paths]): return False
+
     return True
 
   def copy_a_folder(self, project_folder):
@@ -325,6 +435,47 @@ class HSPAgent(Nomear):
   # endregion: AWS Commands
 
   # endregion: Public Methods
+
+
+class HSPOrganization(object):
+  """ Bids-root-folder/
+      └── dataset_description.json
+      └── participants.json
+      └── participants.tsv
+      └── README
+      └── sub-Id/
+        └── ses-01/
+          └── sub-SiteIdPatientId_ses-01_scans.tsv
+          └── eeg
+            └── sub-Id_ses-1_task-psg_annotations.tsv
+            └── sub-Id_ses-1_task-psg_channels.tsv
+            └── sub-Id_ses-1_task-psg_eeg.edf
+            └── sub-Id_ses-1_task-psg_eeg.json
+            └── sub-Id_ses-1_task-psg_pre.csv
+  """
+
+  def __init__(self, ses_path):
+    self.ses_path = ses_path
+
+    self.ses_id = os.path.basename(ses_path)
+    self.sub_id = os.path.basename(os.path.dirname(ses_path))
+
+    prefix = f'{self.ses_id}_{self.sub_id}'
+
+    # Level 1
+    self.eeg_path = os.path.join(ses_path, 'eeg')
+    self.tsv_path = os.path.join(ses_path, f'{prefix}_scans.tsv')
+
+    # Level 2
+    prefix = f'{self.sub_id}_{self.ses_id}_task-psg'
+    self.anno_path = os.path.join(self.eeg_path, f'{prefix}_annotations.csv')
+    self.channel_path = os.path.join(self.eeg_path, f'{prefix}_channels.tsv')
+    self.edf_path = os.path.join(self.eeg_path, f'{prefix}_eeg.edf')
+    self.json_path = os.path.join(self.eeg_path, f'{prefix}_eeg.json')
+    self.pre_path = os.path.join(self.eeg_path, f'{prefix}_pre.csv')
+
+  @property
+  def sg_label(self): return f'{self.sub_id}_{self.ses_id}'
 
 
 
