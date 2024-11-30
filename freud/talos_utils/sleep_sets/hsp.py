@@ -8,7 +8,9 @@ from typing import List
 
 import os
 import numpy as np
+import math
 import re
+import traceback
 
 
 
@@ -83,7 +85,8 @@ class HSPSet(SleepSet):
 
     # (0) Check file completeness
     ho = HSPOrganization(ses_dir)
-    assert os.path.exists(ho.edf_path) and os.path.exists(ho.anno_path)
+    if not os.path.exists(ho.edf_path) or not os.path.exists(ho.anno_path):
+      raise FileNotFoundError(f'File not found: {ho.edf_path} or {ho.anno_path}')
 
     # (1) Read annotations
     annotation = cls.load_hsp_annotation(ho.anno_path)
@@ -108,40 +111,122 @@ class HSPSet(SleepSet):
 
   @classmethod
   def load_hsp_annotation(cls, anno_path):
+    """
+    Notes:
+    (1) first/last epoch in csv file may not have sleep stage annotation !
+    """
     import pandas as pd
 
     # Read intervals and annotations
-    intervals, annotations = [], []
     label2int = {lb: i for i, lb in enumerate(cls.ANNO_LABELS)}
+    # PITFALL: 'Sleep_stage_R' and 'Sleep_stage_REM' both exist
+    label2int['Sleep_stage_REM'] = label2int['Sleep_stage_R']
+
+    intervals, annotations = [], []
+    a_epochs = []
 
     df = pd.read_csv(anno_path)
-    last_epoch, start_time, end_time = None, None, None
+    # PITFALL: ' 22:49:31.00' does not match format '%H:%M:%S' (sub-S0001111531526/ses-4)
+    time_fmt = '%H:%M:%S'
+    global_tic, anno_tic, anno_toc = None, None, None
     # Traverse rows
-    for _, row in df.iterrows():
+    for i, row in df.iterrows():
       epoch, duration, evt = row['epoch'], row['duration'], row['event']
-      if evt not in cls.ANNO_LABELS: continue
+      time_stamp = row['time']
+
+      # global tic !
+      if i == 0: global_tic = datetime.strptime(time_stamp, time_fmt)
+      toc = datetime.strptime(time_stamp, time_fmt)
+
+      # Calculate onset
+      onset = (toc - global_tic).total_seconds()
+      if onset < 0: onset += 24 * 3600
+
+      # Only sleep stage event is supported for now
+      if evt not in label2int:
+        # if duration == 30:
+        #   print(evt)   # For debug
+        continue
 
       # Convert epoch and duration from string to int/float
-      epoch, duration = int(epoch), float(duration)
+      duration = float(duration)
+      assert math.isclose(duration, 30, abs_tol=1e-6)
 
-      # Record epoch and first/last time
-      if len(intervals) == 0: start_time = row['time']
-      end_time, last_epoch = row['time'], epoch
+      # Record first/last time stamp and epoch with stage annotation
+      if len(intervals) == 0: anno_tic = toc
+      anno_toc = toc
 
       # Append interval and annotation
-      onset = (epoch - 1) * duration
       intervals.append((onset, onset + duration))
       annotations.append(label2int[evt])
 
-    # Sanity check
-    time_fmt = '%Y-%m-%d %H:%M:%S'
-    tic = datetime.strptime("2024-11-29 " + start_time, time_fmt)
-    toc = datetime.strptime("2024-11-30 " + end_time, time_fmt)
-    total_duration = (toc - tic).total_seconds()
+      a_epochs.append(int(epoch))
 
-    assert last_epoch * 30 == total_duration + 30
+    # Sanity check
+    # tic_toc_duration = (anno_toc - anno_tic).total_seconds()
+    # if tic_toc_duration < 0: tic_toc_duration += 24 * 3600
+    anno_duration = sum([itv[1] - itv[0] for itv in intervals])
+
+    # PITFALL: Subject going to bathroom may cause missing epochs
+    # if a_epochs[-1] - a_epochs[0] != len(a_epochs) - 1:
+    #   missings = [i for i in range(a_epochs[0], a_epochs[-1] + 1)
+    #               if i not in a_epochs]
+    #   raise ValueError(f'Epochs are not continuous: {missings}')
+    #
+    # if not math.isclose(anno_duration, tic_toc_duration + 30, abs_tol=1e-6):
+    #   raise ValueError(f'anno_duration ({anno_duration}) != tic_toc_duration ({tic_toc_duration})')
 
     return Annotation(intervals, annotations, labels=cls.ANNO_LABELS)
+
+
+  @classmethod
+  def convert_rawdata_to_signal_groups(
+      cls, ses_folder_list: list, tgt_dir, dtype=np.float16, max_sfreq=128,
+      **kwargs):
+    # (0) Check target directory
+    if not os.path.exists(tgt_dir): os.makedirs(tgt_dir)
+    console.show_status(f'Target directory set to `{tgt_dir}` ...')
+
+    # (0.1) Report number of files to be converted
+    ho_list = [HSPOrganization(ses_folder) for ses_folder in ses_folder_list]
+    sg_file_paths = [
+      os.path.join(tgt_dir, ho.get_sg_file_name(dtype, max_sfreq))
+      for ho in ho_list]
+    convert_list = [(sg_p, ses_p)
+                    for sg_p, ses_p in zip(sg_file_paths, ses_folder_list)
+                    if not os.path.exists(sg_p)]
+    n_total = len(ses_folder_list)
+    n_convert = len(convert_list)
+
+    console.show_status(f'{n_total - n_convert} files already converted.')
+    console.show_status(f'Converting {n_convert}/{n_total} files ...')
+
+    # (1) Convert files
+    n_success = 0
+    sg_job_list = [sg_p for sg_p, _ in convert_list]
+    success_sg_path_list = [p for p in sg_file_paths if p not in sg_job_list]
+    for i, (sg_path, ses_path) in enumerate(convert_list):
+      console.show_status(f'Converting {i + 1}/{n_convert} {ses_path} ...')
+      console.print_progress(i, n_convert)
+
+      try:
+        sg: SignalGroup = cls.load_sg_from_raw_files(
+          ses_dir=ses_path, dtype=dtype, max_sfreq=max_sfreq)
+        io.save_file(sg, sg_path, verbose=True)
+        success_sg_path_list.append(sg_path)
+        n_success += 1
+      except Exception as e:
+        # Print error message
+        console.warning(
+          f"Failed to convert `{ses_path}`. Full error traceback:")
+        # Or traceback.print_exc() for direct output
+        console.warning(traceback.format_exc())
+        continue
+
+    console.show_status(f'Successfully converted {n_success}/{n_convert} files.')
+
+    # Return available sg paths
+    return success_sg_path_list
 
 
   @classmethod
@@ -254,11 +339,12 @@ class HSPAgent(Nomear):
     if local: src_path = self.data_dir
     else: src_path = f'{self.access_point_name}/bdsp-psg-access-point/PSG/bids'
 
+    assert src_path[-1] != '/'
+
     folder_list = []
     for pid, sess_dict in patient_dict.items():
       for sess_id, sess_info in sess_dict.items():
-        folder_name = os.path.join(
-          src_path, f'sub-{sess_info["site_id"]}{pid}/ses-{sess_id}')
+        folder_name = f'{src_path}/sub-{sess_info["site_id"]}{pid}/ses-{sess_id}'
         folder_list.append(folder_name)
     return folder_list
 
@@ -460,7 +546,7 @@ class HSPOrganization(object):
     self.ses_id = os.path.basename(ses_path)
     self.sub_id = os.path.basename(os.path.dirname(ses_path))
 
-    prefix = f'{self.ses_id}_{self.sub_id}'
+    prefix = f'{self.sub_id}_{self.ses_id}'
 
     # Level 1
     self.eeg_path = os.path.join(ses_path, 'eeg')
@@ -477,6 +563,10 @@ class HSPOrganization(object):
   @property
   def sg_label(self): return f'{self.sub_id}_{self.ses_id}'
 
+  def get_sg_file_name(self, dtype, max_sfreq):
+    dtype_str = str(dtype).split('.')[-1].replace('>', '')
+    dtype_str = dtype_str.replace("'", '')
+    return f'{self.sg_label}({dtype_str},{max_sfreq}Hz).sg'
 
 
 if __name__ == '__main__':
