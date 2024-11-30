@@ -10,30 +10,33 @@ PATH_LIST = ['26-HSP', '26-HSP/01-sg-conversion', 'xai-kit',
 sys.path.append(SOLUTION_DIR)
 for p in PATH_LIST: sys.path.append(os.path.join(SOLUTION_DIR, p))
 
-# Import anything here
-from freud.talos_utils.sleep_sets.hsp import HSPAgent, HSPSet
-from roma import console
+import os
 
 
+from freud.talos_utils.sleep_sets.hsp import HSPAgent
+from roma.console.console import console
 
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
-SRC_PATH = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_raw')
-TGT_PATH = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_sg')
-
+ACCESS_POINT_NAME = 's3://arn:aws:s3:us-east-1:184438910517:accesspoint'
+DATA_DIR = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_raw')
 META_DIR = os.path.join(SOLUTION_DIR, 'data/hsp')
+
 META_TIME_STAMP = '20231101'
+META_PATH = os.path.join(
+  META_DIR, DATA_DIR, f'bdsp_psg_master_{META_TIME_STAMP}.csv')
 
 # -----------------------------------------------------------------------------
-# (2) Conversion
+# (2) Select folders
 # -----------------------------------------------------------------------------
-ha = HSPAgent(META_DIR, data_dir=SRC_PATH, meta_time_stamp=META_TIME_STAMP)
+ha = HSPAgent(META_DIR, DATA_DIR, META_TIME_STAMP, ACCESS_POINT_NAME)
+patient_dict = ha.filter_patients(min_n_sessions=2, should_have_annotation=True)
+folder_list = ha.convert_to_folder_names(patient_dict)
 
-patient_dict = ha.filter_patients(min_n_sessions=2, should_have_annotation=1)
-folder_list = ha.convert_to_folder_names(patient_dict, local=True)
+console.show_status(f'There are {len(patient_dict)} patients with at least 2 sessions.')
 
-console.show_status(f'{len(folder_list)} .edf files should be converted.')
+ha.download_folders(folder_list)
 
-sg_list = HSPSet.convert_rawdata_to_signal_groups(
-  ses_folder_list=folder_list, tgt_dir=TGT_PATH)
+
+

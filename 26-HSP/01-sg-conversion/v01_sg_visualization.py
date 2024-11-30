@@ -1,6 +1,8 @@
 # Add path in order to be compatible with Linux
 import sys, os
 
+import numpy as np
+
 SOLUTION_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
 print(f'Solution dir = {SOLUTION_DIR}')
 
@@ -11,8 +13,9 @@ sys.path.append(SOLUTION_DIR)
 for p in PATH_LIST: sys.path.append(os.path.join(SOLUTION_DIR, p))
 
 # Import anything here
-from freud.talos_utils.sleep_sets.hsp import HSPAgent, HSPSet
-from roma import console
+from freud.gui.freud_gui import Freud
+from freud.talos_utils.sleep_sets.hsp import HSPAgent, HSPSet, HSPOrganization
+from roma import console, io
 
 
 
@@ -25,15 +28,22 @@ TGT_PATH = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_sg')
 META_DIR = os.path.join(SOLUTION_DIR, 'data/hsp')
 META_TIME_STAMP = '20231101'
 
+# Number of .sg files to visualize
+N = 10
+
 # -----------------------------------------------------------------------------
-# (2) Conversion
+# (2) Get folder list
 # -----------------------------------------------------------------------------
-ha = HSPAgent(META_DIR, data_dir=SRC_PATH, meta_time_stamp=META_TIME_STAMP)
+ha = HSPAgent(META_DIR, data_dir=SRC_PATH)
 
 patient_dict = ha.filter_patients(min_n_sessions=2, should_have_annotation=1)
-folder_list = ha.convert_to_folder_names(patient_dict, local=True)
+folder_list = ha.convert_to_folder_names(patient_dict, local=True)[:N]
 
-console.show_status(f'{len(folder_list)} .edf files should be converted.')
+sg_path_list = [os.path.join(TGT_PATH, HSPOrganization(p).get_sg_file_name(
+  dtype=np.float16, max_sfreq=128)) for p in folder_list]
 
-sg_list = HSPSet.convert_rawdata_to_signal_groups(
-  ses_folder_list=folder_list, tgt_dir=TGT_PATH)
+signal_groups = [io.load_file(p) for p in sg_path_list]
+
+Freud.visualize_signal_groups(
+  signal_groups, title='HSP', default_win_duration=9999999,
+)
