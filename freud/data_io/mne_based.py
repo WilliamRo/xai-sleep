@@ -25,6 +25,7 @@ def read_digital_signals_mne(
   import mne.io
 
   chn_map = kwargs.get('chn_map', None)
+  n_channels = kwargs.get('n_channels', None)
 
   # (1) Read file using mne.io
   # (1.1) Since mne.io only support .edf file, rename file if necessary
@@ -66,6 +67,10 @@ def read_digital_signals_mne(
   # TODO: group can include channels not in edf_channel_names
   include_lists = [[chn_rev_map[chn] for chn in g if chn in chn_rev_map]
                    for g in groups]
+
+  n_include = sum([len(g) for g in include_lists])
+  if n_channels is not None and n_include != n_channels:
+    raise AssertionError(f'!! n_include = {n_include} != {n_channels}')
 
   # TODO: Deprecated, the line below is used in early mne version where
   #   `include` argument is not supported.

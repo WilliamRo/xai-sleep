@@ -32,7 +32,7 @@ META_PATH = os.path.join(
 # (2) Select folders
 # -----------------------------------------------------------------------------
 ha = HSPAgent(META_DIR, DATA_DIR, META_TIME_STAMP, ACCESS_POINT_NAME)
-patient_dict = ha.filter_patients(min_n_sessions=2, should_have_annotation=True)
+patient_dict = ha.filter_patients_meta(min_n_sessions=2, should_have_annotation=True)
 folder_list = ha.convert_to_folder_names(patient_dict)
 
 console.show_status(f'There are {len(patient_dict)} patients with at least 2 sessions.')

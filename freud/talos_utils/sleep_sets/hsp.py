@@ -94,7 +94,7 @@ class HSPSet(SleepSet):
     # (2) Read psg data as digital signals
     digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
       ho.edf_path, dtype=dtype, max_sfreq=max_sfreq,
-      chn_map=cls.channel_map, groups=cls.GROUPS)
+      chn_map=cls.channel_map, groups=cls.GROUPS, n_channels=8)
 
     # (3) Wrap data into signal group
     sg = SignalGroup(digital_signals, label=ho.sg_label)
@@ -122,11 +122,14 @@ class HSPSet(SleepSet):
     # PITFALL: 'Sleep_stage_R' and 'Sleep_stage_REM' both exist
     label2int['Sleep_stage_REM'] = label2int['Sleep_stage_R']
 
+    # PITFALL: 'Stage - W/R/N1/N2/N3' format exists
+    for s in ('W', 'N1', 'N2', 'N3', 'R'):
+      label2int[f'Stage - {s}'] = label2int[f'Sleep_stage_{s}']
+
     intervals, annotations = [], []
     a_epochs = []
 
     df = pd.read_csv(anno_path)
-    # PITFALL: ' 22:49:31.00' does not match format '%H:%M:%S' (sub-S0001111531526/ses-4)
     time_fmt = '%H:%M:%S'
     global_tic, anno_tic, anno_toc = None, None, None
     # Traverse rows
@@ -134,9 +137,17 @@ class HSPSet(SleepSet):
       epoch, duration, evt = row['epoch'], row['duration'], row['event']
       time_stamp = row['time']
 
+      # PITFALL: ' 22:49:31.00' does not match format '%H:%M:%S' (sub-S0001111531526/ses-4)
+      if not isinstance(time_stamp, str) and np.isnan(time_stamp): continue
+
       # global tic !
-      if i == 0: global_tic = datetime.strptime(time_stamp, time_fmt)
-      toc = datetime.strptime(time_stamp, time_fmt)
+      assert isinstance(time_stamp, str), f'!! `{time_stamp}` is not a string'
+
+      if '.' in time_stamp: _time_fmt = time_fmt + '.%f'
+      else: _time_fmt = time_fmt
+
+      toc = datetime.strptime(time_stamp.strip(), _time_fmt)
+      if i == 0: global_tic = toc
 
       # Calculate onset
       onset = (toc - global_tic).total_seconds()
@@ -176,6 +187,8 @@ class HSPSet(SleepSet):
     # if not math.isclose(anno_duration, tic_toc_duration + 30, abs_tol=1e-6):
     #   raise ValueError(f'anno_duration ({anno_duration}) != tic_toc_duration ({tic_toc_duration})')
 
+    assert len(intervals) > 0, f'No stage annotation found in {anno_path}'
+
     return Annotation(intervals, annotations, labels=cls.ANNO_LABELS)
 
 
@@ -189,6 +202,11 @@ class HSPSet(SleepSet):
 
     # (0.1) Report number of files to be converted
     ho_list = [HSPOrganization(ses_folder) for ses_folder in ses_folder_list]
+
+    # PITFALL: Some .edf files do not exist (ses folder in online database
+    #          is empty)
+    ho_list = [ho for ho in ho_list if os.path.exists(ho.edf_path)]
+
     sg_file_paths = [
       os.path.join(tgt_dir, ho.get_sg_file_name(dtype, max_sfreq))
       for ho in ho_list]
@@ -289,7 +307,7 @@ class HSPSet(SleepSet):
 
 class HSPAgent(Nomear):
 
-  def __init__(self, meta_dir, data_dir, meta_time_stamp='20231101',
+  def __init__(self, meta_dir, data_dir=None, meta_time_stamp='20231101',
                access_point_name=None):
     self.meta_dir = meta_dir
     self.meta_time_stamp = meta_time_stamp
@@ -321,17 +339,101 @@ class HSPAgent(Nomear):
   # region: Public Methods
 
   # TODO: BETA
-  def filter_patients(self, min_n_sessions=1, should_have_annotation=True,
-                      return_folder_names=False):
+  def filter_patients_meta(self, min_n_sessions=1, should_have_annotation=True,
+                           return_folder_names=False):
+    """Filter subjects based on meta description, which might be incorrect.
+    E.g., data folder of some sessions listed in meta is empty in AWS
+    """
     filtered_dict = OrderedDict()
     for pid, sess_dict in self.patient_dict.items():
       # Check annotation if required
       if should_have_annotation:
-        sess_dict = {k: v for k, v in sess_dict.items() if v['has_annotations']}
+        sess_dict = {k: v for k, v in sess_dict.items() if v['has_annotations'] and v['has_staging']}
       # Check session number
       if len(sess_dict) >= min_n_sessions:
         filtered_dict[pid] = sess_dict
     if return_folder_names: return self.convert_to_folder_names(filtered_dict)
+    return filtered_dict
+
+  def filter_patients_local(self, patient_dict: dict, min_n_sessions=1,
+                            should_have_annotation=False, verbose=False):
+    """Filter patients based on AWS database downloaded to local."""
+    filtered_dict = OrderedDict()
+
+    if verbose: console.show_status('Scanning local directory ...')
+    N = len(patient_dict)
+    n_missing_anno = 0
+    for i, (pid, sess_dict) in enumerate(patient_dict.items()):
+      if verbose and i % 10 == 0: console.print_progress(i, N)
+
+      folder_list = self.convert_to_folder_names({pid: sess_dict}, local=True)
+      path_ho_tuples = [(path, HSPOrganization(path)) for path in folder_list]
+
+      # Check edf file
+      path_ho_tuples = [(p, ho) for (p, ho) in path_ho_tuples
+                        if os.path.exists(ho.edf_path)]
+
+      # Check annotation if required
+      if should_have_annotation:
+        _path_ho_tuples = [(p, ho) for (p, ho) in path_ho_tuples
+                          if os.path.exists(ho.anno_path)]
+        n_missing_anno += len(path_ho_tuples) - len(_path_ho_tuples)
+        path_ho_tuples = _path_ho_tuples
+
+      # Check session number
+      if len(path_ho_tuples) >= min_n_sessions:
+        _sess_dict = OrderedDict()
+        for (p, ho) in path_ho_tuples:
+          ses_id_int = int(ho.ses_id.split('-')[-1])
+          _sess_dict[ses_id_int] = sess_dict[ses_id_int]
+        filtered_dict[pid] = _sess_dict
+
+    if verbose:
+      console.show_status('Filtered dict generated.')
+      console.show_info('Details:')
+      N0, N1 = len(patient_dict), len(filtered_dict)
+      console.supplement(f'n_subjects: {N0} -> {N1} (-{N0 - N1})')
+      console.supplement(f'Missing annotations: {n_missing_anno}', level=2)
+
+    return filtered_dict
+
+  def filter_patients_sg(self, patient_dict: dict, sg_dir, min_n_sessions=1,
+                         verbose=False, dtype=np.float16, max_sfreq=128):
+    """Filter patients based on sg with at least 8 channels (6 EEG + 2 EOG)"""
+    filtered_dict = OrderedDict()
+
+    if verbose: console.show_status('Scanning SG directory ...')
+    N = len(patient_dict)
+    n_missing_sg = 0
+    for i, (pid, sess_dict) in enumerate(patient_dict.items()):
+      if verbose and i % 10 == 0: console.print_progress(i, N)
+
+      folder_list = self.convert_to_folder_names({pid: sess_dict}, local=True)
+      path_ho_tuples = [(path, HSPOrganization(path)) for path in folder_list]
+
+      # Check .sg file
+      _path_ho_tuples = [
+        (p, ho) for (p, ho) in path_ho_tuples if os.path.exists(
+          os.path.join(sg_dir, ho.get_sg_file_name(dtype, max_sfreq)))]
+
+      n_missing_sg += len(path_ho_tuples) - len(_path_ho_tuples)
+      path_ho_tuples = _path_ho_tuples
+
+      # Check session number
+      if len(path_ho_tuples) >= min_n_sessions:
+        _sess_dict = OrderedDict()
+        for (p, ho) in path_ho_tuples:
+          ses_id_int = int(ho.ses_id.split('-')[-1])
+          _sess_dict[ses_id_int] = sess_dict[ses_id_int]
+        filtered_dict[pid] = _sess_dict
+
+    if verbose:
+      console.show_status('Filtered dict generated.')
+      console.show_info('Details:')
+      N0, N1 = len(patient_dict), len(filtered_dict)
+      console.supplement(f'n_subjects: {N0} -> {N1} (-{N0 - N1})')
+      console.supplement(f'Missing sg files: {n_missing_sg}', level=2)
+
     return filtered_dict
 
   def convert_to_folder_names(self, patient_dict: OrderedDict, local=False):

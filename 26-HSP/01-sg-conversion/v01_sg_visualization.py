@@ -14,8 +14,8 @@ for p in PATH_LIST: sys.path.append(os.path.join(SOLUTION_DIR, p))
 
 # Import anything here
 from freud.gui.freud_gui import Freud
-from freud.talos_utils.sleep_sets.hsp import HSPAgent, HSPSet, HSPOrganization
-from roma import console, io
+from freud.talos_utils.sleep_sets.hsp import HSPAgent, HSPOrganization
+from roma import io
 
 
 
@@ -36,13 +36,13 @@ N = 10
 # -----------------------------------------------------------------------------
 ha = HSPAgent(META_DIR, data_dir=SRC_PATH)
 
-patient_dict = ha.filter_patients(min_n_sessions=2, should_have_annotation=1)
+patient_dict = ha.filter_patients_meta(min_n_sessions=2, should_have_annotation=1)
 folder_list = ha.convert_to_folder_names(patient_dict, local=True)[:N]
 
 sg_path_list = [os.path.join(TGT_PATH, HSPOrganization(p).get_sg_file_name(
   dtype=np.float16, max_sfreq=128)) for p in folder_list]
 
-signal_groups = [io.load_file(p) for p in sg_path_list]
+signal_groups = [io.load_file(p, verbose=True) for p in sg_path_list]
 
 Freud.visualize_signal_groups(
   signal_groups, title='HSP', default_win_duration=9999999,
