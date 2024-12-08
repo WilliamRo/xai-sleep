@@ -48,10 +48,13 @@ class HSPSet(SleepSet):
   EEG_EOG = ['F3-M2', 'F4-M1', 'C3-M2', 'C4-M1', 'O1-M2', 'O2-M1',
              'E1-M[12]', 'E2-M[12]']
 
+  # GROUPS = [('EEG F3-M2', 'EEG C3-M2', 'EEG O1-M2',
+  #            'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1'),
+  #           ('EOG E1-M2', 'EOG E2-M1',
+  #            'EOG E1-M1', 'EOG E2-M2', )]
+
   GROUPS = [('EEG F3-M2', 'EEG C3-M2', 'EEG O1-M2',
-             'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1'),
-            ('EOG E1-M2', 'EOG E2-M1',
-             'EOG E1-M1', 'EOG E2-M2', )]
+             'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1')]
 
 
   @staticmethod
@@ -94,11 +97,11 @@ class HSPSet(SleepSet):
     # (2) Read psg data as digital signals
     digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
       ho.edf_path, dtype=dtype, max_sfreq=max_sfreq,
-      chn_map=cls.channel_map, groups=cls.GROUPS, n_channels=8)
+      chn_map=cls.channel_map, groups=cls.GROUPS, n_channels=6)
 
     # (3) Wrap data into signal group
     sg = SignalGroup(digital_signals, label=ho.sg_label)
-    assert len(sg.channel_names) == 8
+    assert len(sg.channel_names) == 6
 
     sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
 
@@ -230,6 +233,8 @@ class HSPSet(SleepSet):
       try:
         sg: SignalGroup = cls.load_sg_from_raw_files(
           ses_dir=ses_path, dtype=dtype, max_sfreq=max_sfreq)
+
+        # TODO: sg.label does not match sg_path ?????
         io.save_file(sg, sg_path, verbose=True)
         success_sg_path_list.append(sg_path)
         n_success += 1
@@ -348,7 +353,8 @@ class HSPAgent(Nomear):
     for pid, sess_dict in self.patient_dict.items():
       # Check annotation if required
       if should_have_annotation:
-        sess_dict = {k: v for k, v in sess_dict.items() if v['has_annotations'] and v['has_staging']}
+        sess_dict = {k: v for k, v in sess_dict.items()
+                     if v['has_annotations'] and v['has_staging']}
       # Check session number
       if len(sess_dict) >= min_n_sessions:
         filtered_dict[pid] = sess_dict
@@ -582,10 +588,10 @@ class HSPAgent(Nomear):
 
   def copy_a_folder(self, project_folder):
     # (0) Check if the folder already exists
-    #  e.g. local_path = 'F:\\data\\hsp\\sub-S0001111190905/ses-1/'
     local_path = os.path.join(self.data_dir, project_folder.split('bids/')[-1])
     local_path = os.path.abspath(local_path)
 
+    #  e.g. local_path = 'F:\\data\\hsp\\sub-S0001111190905/ses-1/'
     if self.check_folder_complete(local_path):
       console.show_status(f'Folder already exists: {local_path}')
       return 'exist'
@@ -619,6 +625,22 @@ class HSPAgent(Nomear):
     console.supplement(f'{n_exist} folders already exist.', level=2)
     console.supplement(f'Successfully downloaded {n_success} folders.', level=2)
     console.supplement(f'Failed to downloaded {n_error} folders.', level=2)
+
+  def download_metadata(self):
+    src_path = f'{self.access_point_name}/bdsp-psg-access-point/PSG/metadata/'
+
+    local_path = os.path.join(self.meta_dir, 'metadata')
+    local_path = os.path.abspath(local_path)
+
+    command = ['aws', 's3', 'cp', src_path, local_path, '--recursive']
+
+    return_code = self.run_command_realtime(command)
+    if return_code != 0:
+      console.warning(f"Command failed with return code {return_code}")
+      return 'error'
+    else:
+      console.show_status(f'Downloaded data to: {local_path}')
+      return 'success'
 
   # endregion: AWS Commands
 

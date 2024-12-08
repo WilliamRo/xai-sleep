@@ -14,11 +14,19 @@ for p in PATH_LIST: sys.path.append(os.path.join(SOLUTION_DIR, p))
 from freud.talos_utils.sleep_sets.hsp import HSPAgent, HSPSet
 from roma import console
 
+# For 'Segmentation fault (core dumped)' error
+import faulthandler
+faulthandler.enable()
+
+# Handle numba error
+# os.environ['NUMBA_DISABLE_INTEL_SVML'] = '1'  # not work
 
 
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
+if os.name == 'nt': SOLUTION_DIR = r'\\192.168.5.100\xai-beta\xai-sleep'
+
 SRC_PATH = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_raw')
 TGT_PATH = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_sg')
 

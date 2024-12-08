@@ -409,7 +409,7 @@ class MatchLab(Nomear):
   # region: Efficacy Estimation
 
   def estimate_efficacy_v1(self, pi_key=None, plot_matrix=0, nested=False,
-    fig_size=(5, 5), overwrite=0, M=2, N=2, **kwargs):
+    fig_size=(5, 5), overwrite=0, M=2, N=2, omix=None, **kwargs):
     """Estimate the efficacy of the feature vector in the task of individual
     matching.
     """
@@ -417,11 +417,14 @@ class MatchLab(Nomear):
     OMIX_KEY = 'PAIR_OMIX'
 
     # (1) Fit pipeline
-    if isinstance(pi_key, str) and self.in_pocket(pi_key) and not overwrite:
+    if isinstance(pi_key, Pipeline): pi = pi_key
+    elif isinstance(pi_key, str) and self.in_pocket(pi_key) and not overwrite:
       pi: Pipeline = self.get_from_pocket(pi_key)
     else:
       # (1.2) Load or create omix
-      if self.in_pocket(OMIX_KEY) and not overwrite:
+      if omix is not None:
+        console.show_status('Omix has been provided')
+      elif self.in_pocket(OMIX_KEY) and not overwrite:
         omix = self.get_from_pocket(OMIX_KEY)
         console.show_status('Pair-omix loaded.')
       else:
@@ -432,6 +435,24 @@ class MatchLab(Nomear):
 
       # (1.3) Fit pipeline
       omix = omix.duplicate()
+      omix.report()
+
+      # Filter features if required
+      fbn = kwargs.get('fbn', None)
+      if fbn is not None:
+        console.show_status(f'Filtering features with `{fbn}`...')
+
+        if fbn == 'ST':
+          omix = omix.filter_by_name('IS_', include=False)
+          omix = omix.filter_by_name('IC_', include=False)
+        elif fbn == 'IS':
+          omix = omix.filter_by_name('IS_', include=True)
+        elif fbn == 'IC':
+          omix = omix.filter_by_name('IC_', include=True)
+        else: raise ValueError(f'Unknown fbn: {fbn}')
+
+        omix.report()
+
       pi: Pipeline = self.fit_pipeline(omix, M=M, N=N, nested=nested, **kwargs)
 
       if isinstance(pi_key, str):
@@ -528,12 +549,14 @@ class MatchLab(Nomear):
     print('-' * 79)
 
     # (-1) Show matrix if required
-    if not plot_matrix: return
+    if not plot_matrix: return pi
 
     from pictor.plotters.matrix_viewer import MatrixViewer
 
     MatrixViewer.show_matrices(matrices, row_labels, col_labels, fig_size,
                                values=value_dict, cmap='Blues', n_digit=3)
+
+    return pi
 
 
   @staticmethod

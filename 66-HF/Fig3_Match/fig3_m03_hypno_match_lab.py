@@ -56,7 +56,8 @@ if __name__ == '__main__':
 
   if not nested: PI_KEY += '_not_nested'
 
-  mat_lab.estimate_efficacy_v1(pi_key=PI_KEY, nested=nested, plot_matrix=1,
+
+  mat_lab.estimate_efficacy_v1(pi_key=PI_KEY, nested=nested, plot_matrix=os.name == 'nt',
                                overwrite=0, ks=ks, ts=ts, M=M, N=N)
 
   io.save_file(mat_lab, MAT_PATH)

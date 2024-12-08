@@ -11,23 +11,23 @@ def get_extractor_dict(keys, **kwargs):
     else: name, arg = key, None
 
     if name == 'AMP':
-      fs = kwargs.get('fs')
-      ws = float(arg)
-      od[key] = lambda s, fs=fs, ws=ws: ProbeLibrary.amplitude(
+      _fs = kwargs.get('fs')
+      _ws = float(arg)
+      od[key] = lambda s, fs=_fs, ws=_ws: ProbeLibrary.amplitude(
         s, fs=fs, window_size=ws)
     elif name == 'FREQ':
-      fs = kwargs.get('fs')
-      fmax = float(arg)
-      od[key] = lambda s, fs=fs, fmax=fmax: ProbeLibrary.frequency_stft(
+      _fs = kwargs.get('fs')
+      _fmax = float(arg)
+      od[key] = lambda s, fs=_fs, fmax=_fmax: ProbeLibrary.frequency_stft(
         s, fs=fs, fmax=fmax)
     elif name == 'GFREQ':
-      fs = kwargs.get('fs')
-      fmax = float(arg)
-      od[key] = lambda s, fs=fs, fmax=fmax: ProbeLibrary.frequency_st(
+      _fs = kwargs.get('fs')
+      _fmax = float(arg)
+      od[key] = lambda s, fs=_fs, fmax=_fmax: ProbeLibrary.frequency_st(
         s, fs=fs, fmax=fmax)
     elif name in ('P', 'RP'):
-      fs = kwargs.get('fs')
-      od[key] = lambda s, fs=fs, band=arg: ProbeLibrary.total_power(
+      _fs = kwargs.get('fs')
+      od[key] = lambda s, fs=_fs, band=arg: ProbeLibrary.total_power(
         s, fs=fs, band=band)
     elif name == 'MAG':
       od[key] = lambda s: ProbeLibrary.mean_absolute_gradient(s)
@@ -36,16 +36,19 @@ def get_extractor_dict(keys, **kwargs):
     elif name == 'ENTROPY':
       od[key] = lambda s: ProbeLibrary.sample_entropy(s)
     elif name == 'RPS':
-      fs = kwargs.get('fs')
-      b1, b2, st = arg.split('_')
-      st = {'95': '95th percentile', 'MIN': 'min',
-            'AVG': 'mean', 'STD': 'std'}[st]
-      od[key] = lambda s, fs=fs, b1=b1, b2=b2, st=st: ProbeLibrary.relative_power_stats(
+      _fs = kwargs.get('fs')
+      _b1, _b2, _st = arg.split('_')
+      _st = {'95': '95th percentile', 'MIN': 'min',
+            'AVG': 'mean', 'STD': 'std'}[_st]
+      od[key] = lambda s, fs=_fs, b1=_b1, b2=_b2, st=_st: ProbeLibrary.relative_power_stats(
         s, fs=fs, band1=b1, band2=b2, stat_key=st)
     elif name == 'BKURT':
-      fs = kwargs.get('fs')
-      od[key] = lambda s, fs=fs, band=arg: ProbeLibrary.band_kurtosis(
+      _fs = kwargs.get('fs')
+      od[key] = lambda s, fs=_fs, band=arg: ProbeLibrary.band_kurtosis(
         s, fs=fs, band=band)
+    elif name == 'power_group':
+      _fs = kwargs.get('fs')
+      od[key] = ProbeLibrary.class_power_group(_fs)
     else: raise KeyError(f'Unknown key: {key}')
 
   return od
@@ -61,6 +64,8 @@ def get_probe_keys(PROBE_CONFIG):
   # (1.4.2) Part B
   if 'B' in PROBE_CONFIG: PROBE_KEYS.extend(
     ['P-TOTAL', 'RP-DELTA', 'RP-THETA', 'RP-ALPHA', 'RP-BETA'])
+
+  if 'b' in PROBE_CONFIG: PROBE_KEYS.append('power_group')
 
   # (1.4.3) Part C (sun2017)
   if 'C' in PROBE_CONFIG:
