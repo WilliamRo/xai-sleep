@@ -1,4 +1,4 @@
-"""
+"""Consider PCA and RFE
 """
 import sys, os
 
@@ -35,15 +35,10 @@ else:
 
 # (1.3) TODO: Configure 2: pipeline settings
 n_splits = 5
-M = 5
-N = 5
-ks = [50, 100, 200]
-ts = [0.7, 0.9]
-
-# M = 2
-# N = 2
-# ks = [5, 10]
-# ts = [0.5]
+M = 3
+N = 3
+ks = [20, 50, 70]
+dr_keys = ['pca', 'rfe']
 
 OVERWRITE = 0
 
@@ -62,9 +57,9 @@ TARGET = [
 
 OMIX_PREFIX = OMIX_FN.split('.')[0]
 k_str = ','.join([str(k) for k in ks])
-t_str = ','.join([str(t) for t in ts])
+dr_str = ','.join(dr_keys)
 n_str = '' if n_splits == 5 else f'_ns{n_splits}'
-PI_FN = f'{OMIX_PREFIX}_{TARGET}_M{M}N{N}_k({k_str})_t({t_str}){n_str}.pi'
+PI_FN = f'{OMIX_PREFIX}_{TARGET}_dr({dr_str})_M{M}N{N}_k({k_str}){n_str}.pi'
 PI_PATH = os.path.join(PI_DIR, PI_FN)
 
 # -----------------------------------------------------------------------------
@@ -82,19 +77,20 @@ if OVERWRITE or not os.path.exists(PI_PATH):
   assert omix.n_features == 4774
 
   # For hypnomic features, select top 1000 features
-  omix = omix.select_features('pval', k=1000)
+  omix = omix.select_features('pval', k=4000)
 
   # (2.1) Initialize pipeline using macro omix
   pi = Pipeline(omix, ignore_warnings=1, save_models=1)
 
   # (2.2) Create subspaces
-  for k, t in [(_k, _t) for _k in ks for _t in ts]: pi.create_sub_space(
-    'ucp', k=k, threshold=t, repeats=M, nested=True, show_progress=1)
+  for _key in dr_keys:
+    for _k in ks: pi.create_sub_space(_key, k=_k, nested=1, repeats=M)
 
   # (2.3) Traverse all subspaces
   pi.fit_traverse_spaces('lr', repeats=N, nested=1, show_progress=1,
                          n_splits=n_splits)
-  # pi.fit_traverse_spaces('svm', repeats=N, nested=1, show_progress=1)
+  # pi.fit_traverse_spaces('svm', repeats=N, nested=1, show_progress=1,
+  #                        n_splits=n_splits)
 
   # (2.4) Save packages if required
   io.save_file(pi, PI_PATH, verbose=True)
@@ -106,3 +102,4 @@ else:
 # (3) Plot matrix
 # -----------------------------------------------------------------------------
 if not IN_LINUX: pi.plot_matrix(title=PI_FN)
+else: pi.report()

@@ -53,7 +53,7 @@ if __name__ == '__main__':
   N = 10
 
   # Select .sg files
-  data_dir = r'../../../data/rrsh-osa'
+  data_dir = r'../../../data/rrsh-osa/rrsh_osa_sg'
   pattern = f'*(trim;simple;100).sg'
 
   sg_file_list = finder.walk(data_dir, pattern=pattern)[:N]
@@ -62,8 +62,8 @@ if __name__ == '__main__':
   # Plot
   fig: plt.Figure = plt.figure(figsize=(6, 1))
   ax = fig.subplots()
-  # plot_sleep_graph(ax, sg)
-  plot_sleep_graph_clean(ax, sg)
+  plot_sleep_graph(ax, sg)
+  # plot_sleep_graph_clean(ax, sg)
   plt.tight_layout()
   plt.show()
 

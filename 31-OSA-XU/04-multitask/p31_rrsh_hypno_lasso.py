@@ -1,5 +1,6 @@
 """
-LASSO
+LASSO tends to fail when the number of features is much larger than the number
+  of samples.
 """
 import sys, os
 

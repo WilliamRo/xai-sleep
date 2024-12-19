@@ -25,7 +25,7 @@ TARGET = [
   'dep',      # 5
   'anx',      # 6
   'som',      # 7
-][5]
+][0]
 
 SAMPLE_TO_EXCLUDE = [
   # bad channels >= 3

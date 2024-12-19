@@ -1,3 +1,4 @@
+from hypnomics.freud.nebula import Nebula
 from pictor.xomics.omix import Omix
 from pictor.xomics.evaluation.pipeline import Pipeline, FitPackage
 from pictor.xomics.evaluation.reg_ana import RegressionAnalysis
@@ -48,7 +49,7 @@ console.show_status(f'MAEs = [{", ".join(MAE_str)}]')
 
 # Get sorted targets and probabilities
 ca_list, ba_list = [], []
-for pkg in pkg_list:
+for pkg in pkg_list[:1]:
   sorted_targets, sorted_probs = pkg.ordered_targets_and_probs
   ca_list.append(sorted_targets)
   ba_list.append(sorted_probs)
@@ -57,6 +58,30 @@ ca = ca_list[0]
 assert all([np.allclose(ca, _ca) for _ca in ca_list])
 ba = np.average(ba_list, axis=0)
 
+# Get sorted sample labels
+sample_labels = pkg_list[0].get_from_pocket('sample_labels', key_should_exist=True)
+sample_labels = sorted(list(sample_labels))
+
+# Get values from nebula
+NEB_FN = f'125samples-6channels-39probes-30s.nebula'
+NEB_PATH = os.path.join('../data', NEB_FN)
+
+nebula = Nebula.load(NEB_PATH)
+TARGET = [
+  'AHI',      # 0
+  'age',      # 1
+  'gender',   # 2
+  'MMSE',     # 3
+  'cog_imp',  # 4
+  'dep',      # 5
+  'anx',      # 6
+  'som',      # 7
+  'REM_AHI',  # 8
+  'PHQ9',     # 9
+  'GAD7',     # 10
+  'ESS',      # 11
+][10]
+targets = [nebula.meta[pid][TARGET] for pid in sample_labels]
 # -----------------------------------------------------------------------------
 # (4) Plot
 # -----------------------------------------------------------------------------
@@ -65,34 +90,46 @@ import matplotlib.pyplot as plt
 LEGEND_FONT_SIZE = 10
 FIG_SIZE = (4.5, 3.5)
 
-# Instantiate an ra
-ra = RegressionAnalysis(ca, ba)
-
 fig = plt.figure(figsize=FIG_SIZE)
 ax: plt.Axes = fig.add_subplot(1, 1, 1)
 
-# Plot ideal line
-min_y, max_y = min(ra.true_y), max(ra.true_y)
-ax.plot([min_y, max_y], [min_y, max_y], 'r--', label='Identity line')
+if 0:
+  # Instantiate an ra
+  ra = RegressionAnalysis(ca, ba)
 
-# Plot data
-label = f'MAE = {ra.mae:.2f}'
-lo, hi = ra.r_CI95
-label += f'\nr = {ra.r:.2f} (CI95% = [{lo:.2f}, {hi:.2f}])'
-ax.plot(ra.true_y, ra.pred_y, 'o', label=label, alpha=0.8)
+  # Plot ideal line
+  min_y, max_y = min(ra.true_y), max(ra.true_y)
+  ax.plot([min_y, max_y], [min_y, max_y], 'r--', label='Identity line')
 
-# Set x, y labels
-xlabel = 'Chronological Age (yr)',
-ylabel = 'Estimated Age (yr)',
-ax.set_xlabel(xlabel), ax.set_ylabel(ylabel)
+  # Plot data
+  label = f'MAE = {ra.mae:.2f}'
+  lo, hi = ra.r_CI95
+  label += f'\nr = {ra.r:.2f} (CI95% = [{lo:.2f}, {hi:.2f}])'
+  ax.plot(ra.true_y, ra.pred_y, 'o', label=label, alpha=0.8)
 
-ax.legend(fontsize=LEGEND_FONT_SIZE)
-ax.grid(True)
+  # Set x, y labels
+  xlabel = 'Chronological Age (yr)',
+  ylabel = 'Estimated Age (yr)',
+  ax.set_xlabel(xlabel), ax.set_ylabel(ylabel)
 
-# Upper left symbol
-symbol = 'B'
-ax.text( -0.13, 1.0, symbol, transform=ax.transAxes, fontsize=16,
-         fontweight='bold', va='top', ha='left')
+  ax.legend(fontsize=LEGEND_FONT_SIZE)
+  ax.grid(True)
+
+  # Upper left symbol
+  symbol = 'B'
+  ax.text( -0.13, 1.0, symbol, transform=ax.transAxes, fontsize=16,
+           fontweight='bold', va='top', ha='left')
+else:
+  AEE = ba - ca
+
+  ax.plot(targets, AEE, 'o', alpha=0.8)
+
+  # Set x, y labels
+  xlabel = TARGET
+  ylabel = 'AE - CA'
+  ax.set_xlabel(xlabel), ax.set_ylabel(ylabel)
+
+  ax.grid(True)
 
 plt.tight_layout()
 plt.show()

@@ -24,7 +24,7 @@ TARGET = [
   'dep',      # 5
   'anx',      # 6
   'som',      # 7
-][1]
+][0]
 
 SAMPLE_TO_EXCLUDE = [
   # bad channels >= 3
@@ -44,6 +44,7 @@ assert os.path.exists(OMIX_PATH)
 omix = Omix.load(OMIX_PATH)
 
 omix = omix.set_targets(TARGET, return_new_omix=True)
+omix.data_name += f' ({TARGET})'
 
 if len(SAMPLE_TO_EXCLUDE) > 0:
   sample_labels = [sl for sl in omix.sample_labels

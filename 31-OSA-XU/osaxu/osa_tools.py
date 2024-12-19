@@ -75,7 +75,7 @@ def set_target_collection_for_omix(omix, nebula):
   SG_LABELS = nebula.labels
   for key in nebula.meta[SG_LABELS[0]].keys():
     if key == 'gender': tl = ['Female', 'Male']
-    elif key in ('cog_imp', 'dep', 'anx', 'som'): tl = ['0', '1']
+    elif key in ('cog_imp', 'dep', 'anx', 'som'): tl = ['Negative', 'Positive']
     else: tl = [key]
     omix.add_to_target_collection(
       key, [nebula.meta[pid][key] for pid in nebula.labels], target_labels=tl)

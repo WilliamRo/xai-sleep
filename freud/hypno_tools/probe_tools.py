@@ -55,7 +55,7 @@ def get_extractor_dict(keys, **kwargs):
 
 
 
-def get_probe_keys(PROBE_CONFIG):
+def get_probe_keys(PROBE_CONFIG, expand_group=False):
   PROBE_KEYS = []
 
   # (1.4.1) Part A
@@ -65,7 +65,12 @@ def get_probe_keys(PROBE_CONFIG):
   if 'B' in PROBE_CONFIG: PROBE_KEYS.extend(
     ['P-TOTAL', 'RP-DELTA', 'RP-THETA', 'RP-ALPHA', 'RP-BETA'])
 
-  if 'b' in PROBE_CONFIG: PROBE_KEYS.append('power_group')
+  if 'b' in PROBE_CONFIG:
+    if expand_group:
+      from hypnomics.hypnoprints.probes.wavestats.power_probes import PowerProbes
+      PROBE_KEYS.extend(PowerProbes.probe_keys)
+    else: PROBE_KEYS.append('power_group')
+
 
   # (1.4.3) Part C (sun2017)
   if 'C' in PROBE_CONFIG:

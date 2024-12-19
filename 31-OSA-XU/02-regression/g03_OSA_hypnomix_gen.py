@@ -23,7 +23,7 @@ NEB_FN = f'125samples-6channels-39probes-30s.nebula'
 NEB_PATH = os.path.join(WORK_DIR, NEB_FN)
 
 # (1.3) Set default target
-SUN = 1
+SUN = 0
 SUN_SUFFIX = '-SUN' if SUN else ''
 if SUN:
   PROBE_CONFIG = 'C'
@@ -36,7 +36,7 @@ TARGET = 'age'
 PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
 
 W_SUFFIX = 'W' if INCLUDE_WAKE else 'NW'
-OVERWRITE = 0
+OVERWRITE = 1
 # -----------------------------------------------------------------------------
 # (2)
 # -----------------------------------------------------------------------------
@@ -87,9 +87,9 @@ else:
   omix = Omix(features, targets, feature_names, nebula.labels, target_labels,
               data_name=OMIX_FN)
 
+  if not INCLUDE_WAKE: omix = omix.filter_by_name('W', include=False)
   set_target_collection_for_omix(omix, nebula)
 
-  if not INCLUDE_WAKE: omix = omix.filter_by_name('W', include=False)
   omix.save(OMIX_PATH)
 
 omix.show_in_explorer()

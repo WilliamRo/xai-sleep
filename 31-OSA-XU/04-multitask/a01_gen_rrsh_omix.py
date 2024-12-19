@@ -1,7 +1,7 @@
 """This is for generating .omix files for
    (1) macro-features, D=30;
-   (2) micro-features, D=;
-   (3) hypnomic features, D=;
+   (2) micro-features, D=930;
+   (3) hypnomic features, D=4774;
 
 This module should be executed in Windows systems.
 
@@ -20,25 +20,30 @@ import os
 # (1.1) Paths
 SOLUTION_DIR = '../../'
 OMIX_DIR = os.path.join(SOLUTION_DIR, r'data/rrsh-osa/rrsh_osa_omix')
-NEB_FN = '125samples-6channels-39probes-30s.nebula'
-NEB_PATH = os.path.join(SOLUTION_DIR, f'data/rrsh-osa/rrsh_osa_neb/{NEB_FN}')
+# NEB_FN = '125samples-6channels-39probes-30s.nebula'
+# NEB_PATH = os.path.join(SOLUTION_DIR, f'data/rrsh-osa/rrsh_osa_neb/{NEB_FN}')
 
 # (1.2) Specify feature set and target
-FEATURE_SET_ID = 1
-TARGET_ID = 6
+FEATURE_SET_ID = 0
+TARGET_ID = 11
 
 # (*)
 FEATURE_SET = ['macro', 'micro', 'hypno'][FEATURE_SET_ID]
 TARGET = [
   'AHI',  # 0
   'age',  # 1
-  'gender',  # 2
+  'gender',  # 2: n=125 (38 female, 87 male)
   'MMSE',  # 3
-  'cog_imp',  # 4
-  'dep',  # 5
-  'anx',  # 6
-  'som',  # 7
+  'cog_imp',  # 4: n=97 (82 negative, 15 positive)
+  'dep',  # 5: n=87 (41 negative, 46 positive)
+  'anx',  # 6: n=90 (60 negative, 30 positive)
+  'som',  # 7: n=92 (65 negative, 27 positive)
+  'PHQ9', # 8: depression score -> 5
+  'GAD7', # 9: anxiety score -> 6
+  'ESS', # 10: daytime sleepiness -> 7
+  'OSA_MM/S', # 11: (73 Mil/Mod, 52 Severe) -> 0
 ][TARGET_ID]
+
 # -----------------------------------------------------------------------------
 # (2) Generate and save .omix file if not exist
 # -----------------------------------------------------------------------------
@@ -49,12 +54,12 @@ if FEATURE_SET == 'macro':
   OMIX_PATH = os.path.join(OMIX_DIR, OMIX_FN)
 
 elif FEATURE_SET == 'micro':
-  # (2.1) Micro-feature
+  # (2.2) Micro-feature
   OMIX_FN = 'RRSH125_micro_D930.omix'
   OMIX_PATH = os.path.join(OMIX_DIR, OMIX_FN)
 
 elif FEATURE_SET == 'hypno':
-  # (2.1) Micro-feature
+  # (2.3) Hypno-feature
   OMIX_FN = 'RRSH125_hypno_D4774.omix'
   OMIX_PATH = os.path.join(OMIX_DIR, OMIX_FN)
 

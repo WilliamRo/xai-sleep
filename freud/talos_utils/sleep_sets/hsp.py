@@ -215,7 +215,7 @@ class HSPSet(SleepSet):
       for ho in ho_list]
     convert_list = [(sg_p, ses_p)
                     for sg_p, ses_p in zip(sg_file_paths, ses_folder_list)
-                    if not os.path.exists(sg_p)]
+                    if not os.path.exists(sg_p) or kwargs.get('overwrite', False)]
     n_total = len(ses_folder_list)
     n_convert = len(convert_list)
 
