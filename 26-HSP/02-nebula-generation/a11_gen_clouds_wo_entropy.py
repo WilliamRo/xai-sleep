@@ -1,3 +1,4 @@
+# Generate nebula without antropy
 # Add path in order to be compatible with Linux
 import sys, os
 

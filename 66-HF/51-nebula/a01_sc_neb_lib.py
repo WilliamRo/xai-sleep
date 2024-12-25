@@ -62,7 +62,7 @@ PK1, PK2 = 'FREQ-20', 'AMP-1'
 # PK1, PK2 = 'FREQ-20', 'PR-THETA_TOTAL'
 # PK1, PK2 = 'FREQ-20', 'PR-ALPHA_TOTAL'
 
-viewer_class = [Telescope, PopGlass][0]
+viewer_class = [Telescope, PopGlass][1]
 if viewer_class is Telescope:
   configs = {
     'show_kde': 0,
@@ -72,4 +72,4 @@ if viewer_class is Telescope:
   nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class,
                    viewer_configs={'plotters': 'HA'}, **configs)
 else:
-  nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class)
+ nebula.dual_view(x_key=PK1, y_key=PK2, viewer_class=viewer_class)

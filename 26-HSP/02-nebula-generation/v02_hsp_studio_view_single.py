@@ -1,7 +1,18 @@
-import os.path
+# Add path in order to be compatible with Linux
+import sys, os
 
+SOLUTION_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+
+PATH_LIST = ['26-HSP', '26-HSP/99-data-probe', 'xai-kit', 'hypnomics',
+             'xai-kit/roma', 'xai-kit/pictor', 'xai-kit/tframe']
+
+if __name__ == '__main__':
+  print(f'Solution dir = {SOLUTION_DIR}')
+  sys.path.append(SOLUTION_DIR)
+  for p in PATH_LIST: sys.path.append(os.path.join(SOLUTION_DIR, p))
+
+from a00_common import ha, console, SubsetDicts, SG_DIR, CLOUD_DIR, IN_LINUX
 from hypnomics.freud import HypnoStudio
-from hypnomics.freud.nebula import Nebula
 from roma import console, finder, io
 
 
@@ -9,20 +20,6 @@ from roma import console, finder, io
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
-IN_LINUX = os.name != 'nt'
-
-# (1.1) Working directory & patient inclusion
-SG_PATTERN = r'sub-S*_ses-?(float16,128Hz).sg'
-if IN_LINUX:
-  SG_DIR = r'\\192.168.5.100\xai-beta\xai-sleep\data\hsp\hsp_sg'
-  NEB_DIR = r'\\192.168.5.100\xai-beta\xai-sleep\data\hsp\hsp_nebula'
-  STUDIO_DIR = r'\\192.168.5.100\xai-beta\xai-sleep\data\hsp\hsp_studio'
-else:
-  SG_DIR = r'../../data/hsp/hsp_sg'
-  NEB_DIR = r'../../data/hsp/hsp_nebula'
-  STUDIO_DIR = r'../../data/hsp/hsp_studio'
-
-# (1.2) Photo configuration
 TIME_RESOLUTION = 30
 CHANNELS = ['EEG F3-M2', 'EEG C3-M2', 'EEG O1-M2',
             'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1']
@@ -40,23 +37,23 @@ PROBE_KEYS = [
 PK1 = PROBE_KEYS[0]
 PK2 = PROBE_KEYS[1]
 
+STUDIO_DIR = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_studio')
 # -----------------------------------------------------------------------------
 # (2) Construct a HypnoStudio
 # -----------------------------------------------------------------------------
-hs = HypnoStudio(work_dir=STUDIO_DIR, sg_dir=SG_DIR, neb_dir=NEB_DIR)
+hs = HypnoStudio(work_dir=STUDIO_DIR, sg_dir=SG_DIR, neb_dir=CLOUD_DIR)
 
 # -----------------------------------------------------------------------------
 # (3) Generate a testing photo
 # -----------------------------------------------------------------------------
-# print(hs.get_photo_filename('SC4001EC', 'AMP', 'FREQ'))
-sg_file_list = finder.walk(SG_DIR, pattern=SG_PATTERN)
+sg_pattern = f'sub-S*111239185_ses-2(float16,128Hz).sg'
+sg_file_list = finder.walk(SG_DIR, pattern=sg_pattern)
+sg_path = sg_file_list[0]
 
-sg_path = sg_file_list[12]
 neb_fn = os.path.basename(sg_path).split('(')[0]
-neb_path = os.path.join(NEB_DIR, neb_fn)
-
-properties = {'age': '?'}
+neb_path = os.path.join(CLOUD_DIR, neb_fn)
 
 hs.take_one_photo(sg_path, neb_path, CHANNELS, TIME_RESOLUTION, PK1, PK2,
-                  show_figure=True, properties=properties, fig_size=(9, 8))
+                  show_figure=not IN_LINUX, properties={}, fig_size=(9, 8),
+                  save=True)
 
