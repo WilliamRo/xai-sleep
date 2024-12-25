@@ -74,6 +74,7 @@ class HSPSet(SleepSet):
 
     return edf_ck
 
+  # region: Data Conversion
 
   @classmethod
   def load_sg_from_raw_files(cls, ses_dir, dtype=np.float16, max_sfreq=128,
@@ -307,10 +308,20 @@ class HSPSet(SleepSet):
     console.show_status(f'Successfully read {n_patients} files.')
     return signal_groups
 
+  # endregion: Data Conversion
 
 
 
 class HSPAgent(Nomear):
+  """
+      patient_dict[pid][session_id].keys = {
+        'site_id', 'bids_folder', 'pre_sleep_questionnaire',
+        'has_annotations', 'has_staging', 'study_type',
+        'age', 'gender'
+      }
+  """
+
+  VALID_STUDY_TYPES = ''
 
   def __init__(self, meta_dir, data_dir=None, meta_time_stamp='20231101',
                access_point_name=None):
@@ -332,19 +343,114 @@ class HSPAgent(Nomear):
   @Nomear.property()
   def patient_dict(self):
     patient_dict_path = self.meta_path.replace('.csv', '.od')
-    if os.path.exists(patient_dict_path):
+    if os.path.exists(patient_dict_path) and not self.in_pocket('OVERWRITE_PD'):
       return io.load_file(patient_dict_path, verbose=True)
 
     od = self.generate_patient_dict(self.meta_path)
     io.save_file(od, patient_dict_path, verbose=True)
     return od
 
+  @Nomear.property()
+  def pre_sleep_questionnaire_dict(self):
+    psq_dict_path = self.meta_path.replace('.csv', '.psq')
+    if os.path.exists(psq_dict_path) and not self.in_pocket('OVERWRITE_PSQ'):
+      return io.load_file(psq_dict_path, verbose=True)
+
+    od = self.generate_pre_sleep_questionnaire_dict()
+    io.save_file(od, psq_dict_path, verbose=True)
+    return od
+
+  @Nomear.property()
+  def pre_sleep_questionnaire_dataframe(self):
+    import pandas as pd
+
+    od = OrderedDict()
+    for pid, sess_dict in self.pre_sleep_questionnaire_dict.items():
+      for ses_id, psq_dict in sess_dict.items():
+        od[f'{pid}-{ses_id}'] = psq_dict
+
+    return pd.DataFrame.from_dict(od, orient="index")
+
   # endregion: Properties
 
   # region: Public Methods
 
+  # region: - Match Logic
+
+  @staticmethod
+  def get_dual_nebula(nebula, max_age_diff=1):
+    night_1, buffer_1 = [], []
+    night_2, buffer_2 = [], []
+
+    for label in nebula.labels:
+      pid = label.split('-')[1].split('_')[0]
+      if pid not in buffer_1:
+        buffer_1.append(pid)
+        night_1.append(label)
+      else:
+        if pid in buffer_2: continue
+        # assert pid not in buffer_2
+        buffer_2.append(pid)
+        night_2.append(label)
+
+    # Filter by age diff
+    _night_1, _night_2 = [], []
+    for lb1, lb2 in zip(night_1, night_2):
+      if abs(nebula.meta[lb1]['age'] - nebula.meta[lb2]['age']) <= max_age_diff:
+        _night_1.append(lb1)
+        _night_2.append(lb2)
+
+    console.show_status(f'Found {len(_night_1)} pairs within age_diff={max_age_diff}.')
+    return nebula[_night_1], nebula[_night_2]
+
+  # endregion: - Match Logic
+
+  # region: - Data Conversion
+
+  def load_nebula_from_clouds(self, sub_dict, cloud_path, channels,
+                              time_resolution, probe_keys):
+    from hypnomics.freud.freud import Freud
+
+    ho_list = [HSPOrganization(p)
+               for p in self.convert_to_folder_names(sub_dict, local=True)]
+
+    # (1) Get sg_labels
+    sg_labels = [ho.sg_label for ho in ho_list]
+
+    freud = Freud(cloud_path)
+    nebula = freud.load_nebula(sg_labels=sg_labels,
+                               channels=channels,
+                               time_resolution=time_resolution,
+                               probe_keys=probe_keys, verbose=True)
+
+    # (2) Set metadata
+    for ho in ho_list:
+      nebula.meta[ho.sg_label] = {}
+      nebula.meta[ho.sg_label]['age'] = sub_dict[ho.sub_id][ho.ses_id]['age']
+      acq_time = self.get_acq_time(ho.ses_path, return_str=True)
+      nebula.meta[ho.sg_label]['acq_time'] = acq_time
+
+      nebula.meta[ho.sg_label]['gender'] = sub_dict[ho.sub_id][ho.ses_id]['gender']
+      nebula.meta[ho.sg_label]['study_type'] = sub_dict[ho.sub_id][ho.ses_id]['study_type']
+
+    return nebula
+
+  # endregion: - Data Conversion
+
+  # region: - Filters
+
+  @staticmethod
+  def filter_by_min_sessions(_patient_dict: dict, min_n_sessions=2):
+    filtered_dict = OrderedDict()
+    for pid, sess_dict in _patient_dict.items():
+      # Check session number
+      if len(sess_dict) >= min_n_sessions:
+        filtered_dict[pid] = sess_dict
+    return filtered_dict
+
   # TODO: BETA
   def filter_patients_meta(self, min_n_sessions=1, should_have_annotation=True,
+                           should_have_psq=False, study_types=None,
                            return_folder_names=False):
     """Filter subjects based on meta description, which might be incorrect.
     E.g., data folder of some sessions listed in meta is empty in AWS
@@ -355,6 +461,14 @@ class HSPAgent(Nomear):
       if should_have_annotation:
         sess_dict = {k: v for k, v in sess_dict.items()
                      if v['has_annotations'] and v['has_staging']}
+      # Check study types
+      if study_types is not None:
+        sess_dict = {k: v for k, v in sess_dict.items()
+                     if v['study_type'] in study_types}
+      # Check pre-sleep questionnaire
+      if should_have_psq:
+        sess_dict = {k: v for k, v in sess_dict.items()
+                     if v['pre_sleep_questionnaire']}
       # Check session number
       if len(sess_dict) >= min_n_sessions:
         filtered_dict[pid] = sess_dict
@@ -390,8 +504,7 @@ class HSPAgent(Nomear):
       if len(path_ho_tuples) >= min_n_sessions:
         _sess_dict = OrderedDict()
         for (p, ho) in path_ho_tuples:
-          ses_id_int = int(ho.ses_id.split('-')[-1])
-          _sess_dict[ses_id_int] = sess_dict[ses_id_int]
+          _sess_dict[ho.ses_id] = sess_dict[ho.ses_id]
         filtered_dict[pid] = _sess_dict
 
     if verbose:
@@ -429,8 +542,7 @@ class HSPAgent(Nomear):
       if len(path_ho_tuples) >= min_n_sessions:
         _sess_dict = OrderedDict()
         for (p, ho) in path_ho_tuples:
-          ses_id_int = int(ho.ses_id.split('-')[-1])
-          _sess_dict[ses_id_int] = sess_dict[ses_id_int]
+          _sess_dict[ho.ses_id] = sess_dict[ho.ses_id]
         filtered_dict[pid] = _sess_dict
 
     if verbose:
@@ -442,6 +554,75 @@ class HSPAgent(Nomear):
 
     return filtered_dict
 
+  def filter_patients_neb(self, patient_dict: dict, neb_dir, min_n_sessions=1,
+                          verbose=True, time_resolution=30, pk='AMP-1',
+                          ck='EEG C3-M2', min_hours=2):
+    """Filter patients based on nebula:
+       (1) .clouds file exists
+       (2) sleep time >= min_hours (a typical sleep cycle usually contains upto 110 mins)
+       (3) have N2 stage
+    """
+    filtered_dict = OrderedDict()
+
+    if verbose: console.show_status('Scanning nebula directory ...')
+    N = len(patient_dict)
+    n_invalid_clouds = 0
+    for i, (pid, sess_dict) in enumerate(patient_dict.items()):
+      if verbose and i % 10 == 0: console.print_progress(i, N)
+
+      folder_list = self.convert_to_folder_names({pid: sess_dict}, local=True)
+      path_ho_tuples = [(path, HSPOrganization(path)) for path in folder_list]
+
+      # Check each .cloud file
+      _path_ho_tuples = []
+      for p, ho in path_ho_tuples:
+        # (1) Make sure file exist
+        cloud_path = os.path.join(
+          neb_dir, ho.sg_label, ck, f'{time_resolution}s', f'{pk}.clouds')
+
+        if not os.path.exists(cloud_path):
+          console.warning(f'{cloud_path} not found.')
+          continue
+
+        # (2) Make sure file exist
+        cloud: dict = io.load_file(cloud_path)
+        hours = sum([len(cloud[k]) for k in ['N1', 'N2', 'N3', 'R']]) * time_resolution / 3600
+
+        if hours < min_hours:
+          console.warning(f'Total sleep time of {ho.sg_label} = {hours} hours < minimal ({min_hours} hours)')
+          continue
+
+        # (3) Make sure N2 exists
+        if len(cloud['N2']) == 0:
+          console.warning(f'No N2 stage found in {ho.sg_label}')
+          continue
+
+        # (-1) append
+        _path_ho_tuples.append((p, ho))
+
+      n_invalid_clouds += len(path_ho_tuples) - len(_path_ho_tuples)
+      path_ho_tuples = _path_ho_tuples
+
+      # Check session number
+      if len(path_ho_tuples) >= min_n_sessions:
+        _sess_dict = OrderedDict()
+        for (p, ho) in path_ho_tuples:
+          _sess_dict[ho.ses_id] = sess_dict[ho.ses_id]
+        filtered_dict[pid] = _sess_dict
+
+    if verbose:
+      console.show_status('Filtered dict generated.')
+      console.show_info('Details:')
+      N0, N1 = len(patient_dict), len(filtered_dict)
+      console.supplement(f'n_subjects: {N0} -> {N1} (-{N0 - N1})')
+      console.supplement(f'Missing sg files: {n_invalid_clouds}', level=2)
+
+    return filtered_dict
+
+  # endregion: - Filters
+
+  # region: - IO Methods
+
   def convert_to_folder_names(self, patient_dict: OrderedDict, local=False):
     """e.g., <APN>/bdsp-psg-access-point/PSG/bids/sub-S0001111190905/ses-1/"""
     if local: src_path = self.data_dir
@@ -452,7 +633,7 @@ class HSPAgent(Nomear):
     folder_list = []
     for pid, sess_dict in patient_dict.items():
       for sess_id, sess_info in sess_dict.items():
-        folder_name = f'{src_path}/sub-{sess_info["site_id"]}{pid}/ses-{sess_id}'
+        folder_name = f'{src_path}/{pid}/{sess_id}'
         folder_list.append(folder_name)
     return folder_list
 
@@ -477,7 +658,7 @@ class HSPAgent(Nomear):
 
       bids_folder = row['BidsFolder']
       site_id = row['SiteID']
-      pre_sleep_questionnaire = row['PreSleepQuestionnaire']
+      pre_sleep_questionnaire = to_boolean[row['PreSleepQuestionnaire']]
       has_annotations = to_boolean[row['HasAnnotations']]
       has_staging = to_boolean[row['HasStaging']]
       study_type = row['StudyType']
@@ -485,9 +666,13 @@ class HSPAgent(Nomear):
       gender = row['SexDSC']
 
       # (1.2) Create patient slot if not exists
-      if pid not in patient_dict: patient_dict[pid] = OrderedDict()
-      assert session_id not in patient_dict[pid]
-      patient_dict[pid][session_id] = {
+      _patient_label = f'sub-{site_id}{pid}'
+      _session_label = f'ses-{session_id}'
+
+      if _patient_label not in patient_dict:
+        patient_dict[_patient_label] = OrderedDict()
+      assert _session_label not in patient_dict[_patient_label]
+      patient_dict[_patient_label][_session_label] = {
         'site_id': site_id,
         'bids_folder': bids_folder,
         'pre_sleep_questionnaire': pre_sleep_questionnaire,
@@ -503,7 +688,100 @@ class HSPAgent(Nomear):
                         f' {meta_path}')
     return patient_dict
 
-  # region: AWS Commands
+  @staticmethod
+  def get_acq_time(ses_path, return_str=False):
+    import pandas as pd
+
+    ho = HSPOrganization(ses_path)
+    if not os.path.exists(ho.tsv_path): return None
+    df = pd.read_csv(ho.tsv_path, sep='\t')
+    date_str = df['acq_time'].str.split('T').str[0].iloc[0]
+
+    # Check data_str format
+    try:
+      if ':' in date_str: date_str = date_str.split(' ')[0]
+      if return_str: return date_str
+      return datetime.strptime(date_str, '%Y-%m-%d')
+    except:
+      raise AssertionError(f'Invalid date string: {date_str}')
+
+  def generate_pre_sleep_questionnaire_dict(self) -> OrderedDict:
+    import pandas as pd
+
+    def _is_float(x):
+      try:
+        float(x)
+        return True
+      except:
+        return False
+
+    od = OrderedDict()
+    N = len(self.patient_dict)
+    attr_list = None
+    # Traverse all subjects
+    suspicious_pids = []
+    for i, (pid, ses_dict) in enumerate(self.patient_dict.items()):
+      if i % 10 == 0: console.print_progress(i, N)
+
+      # Traverse all sessions of subject `pid`
+      for ses_id, ses_info in ses_dict.items():
+        if not ses_info['pre_sleep_questionnaire']: continue
+
+        # Get PSQ file path
+        ses_path = f'{self.data_dir}/{pid}/{ses_id}'
+        ho = HSPOrganization(ses_path)
+        pre_path = ho.pre_path
+        if not os.path.exists(pre_path):
+          suspicious_pids.append(pid)
+          console.warning(f'{pre_path} not found.')
+          continue
+
+        # Create slot for pid if not exists
+        if pid not in od: od[pid] = OrderedDict()
+
+        # Read PSQ data
+        _od = OrderedDict()
+        od[pid][ses_id] = _od
+
+        # (1) Insert meta data
+        _od.update(ses_info)
+
+        # (2) Insert tsv data
+        if os.path.exists(ho.tsv_path):
+          # df = pd.read_csv(ho.tsv_path, sep='\t')
+          # acq_time = df['acq_time'].str.split('T').str[0].iloc[0]
+          # _od['acq_time'] = acq_time
+          _od['acq_time'] = self.get_acq_time(ses_path, return_str=True)
+
+        # (3) Insert questionnaire data
+        df = pd.read_csv(pre_path)
+        if attr_list is None: attr_list = list(df.iloc[:, 0])
+
+        # Make sure all subjects have the same attributes
+        assert attr_list == list(df.iloc[:, 0])
+
+        for key in attr_list:
+          value = df.loc[df.iloc[:, 0] == key].iloc[0, 1]
+
+          if value == 'missingData':
+            value = None
+          elif value == '':
+            value = None
+          elif value in ('0', '1'):
+            value = bool(int(value))
+          elif _is_float(value):
+            value = float(value)
+            if np.isnan(value): value = None
+
+          _od[key] = value
+
+    console.show_status(f'PSQ dict with {len(od)} subjects created.',
+                        prompt='[HSPAgent]')
+    return od
+
+  # endregion: - IO Methods
+
+  # region: - AWS Commands
 
   def list_folders(self, project_folder, recursive=True):
     import subprocess
@@ -647,6 +925,7 @@ class HSPAgent(Nomear):
   # endregion: Public Methods
 
 
+
 class HSPOrganization(object):
   """ Bids-root-folder/
       └── dataset_description.json
@@ -662,22 +941,28 @@ class HSPOrganization(object):
             └── sub-Id_ses-1_task-psg_eeg.edf
             └── sub-Id_ses-1_task-psg_eeg.json
             └── sub-Id_ses-1_task-psg_pre.csv
+
+      example session path = '<path>\hsp_raw\sub-S0001118501829\ses-1'
   """
 
-  def __init__(self, ses_path):
-    self.ses_path = ses_path
+  def __init__(self, ses_path=None, ses_id=None, sub_id=None, data_dir=None):
+    if ses_path is None:
+      assert os.path.exists(data_dir)
+      self.ses_path = os.path.join(data_dir, f'{sub_id}/{ses_id}')
+    else:
+      self.ses_path = ses_path
 
-    self.ses_id = os.path.basename(ses_path)
-    self.sub_id = os.path.basename(os.path.dirname(ses_path))
+      self.ses_id = os.path.basename(ses_path)
+      self.sub_id = os.path.basename(os.path.dirname(ses_path))
 
-    prefix = f'{self.sub_id}_{self.ses_id}'
+    prefix = self.sg_label
 
     # Level 1
     self.eeg_path = os.path.join(ses_path, 'eeg')
     self.tsv_path = os.path.join(ses_path, f'{prefix}_scans.tsv')
 
     # Level 2
-    prefix = f'{self.sub_id}_{self.ses_id}_task-psg'
+    prefix = f'{self.sg_label}_task-psg'
     self.anno_path = os.path.join(self.eeg_path, f'{prefix}_annotations.csv')
     self.channel_path = os.path.join(self.eeg_path, f'{prefix}_channels.tsv')
     self.edf_path = os.path.join(self.eeg_path, f'{prefix}_eeg.edf')
