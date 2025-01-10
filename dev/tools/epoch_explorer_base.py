@@ -240,12 +240,16 @@ class RhythmPlotter(Plotter):
                            'Option to toggle summit visualization')
     self.new_settable_attr('stft', True, bool,
                            'Option to plot STFT instead of FT spectrum')
+    self.new_settable_attr('welch', True, bool,
+                           "Option to plot Welch's periodogram")
 
     self.new_settable_attr('dev_arg', '32', str, 'Developer mode argument')
 
     self.new_settable_attr('filter', False, bool, 'Whether to filter signal')
     self.new_settable_attr('filter_arg', '0.3,35', str,
                            'Arguments for filtering signals')
+
+    self.new_settable_attr('ymax', None, float, 'ymax in Welch plot')
 
     # Set configs
     self.configs = kwargs
@@ -267,6 +271,44 @@ class RhythmPlotter(Plotter):
     title = f'[{stage}] {channel_name} {suffix}'
     ax.set_title(title)
 
+  @staticmethod
+  def welch_spectrogram(x, fs, window_size, overlap, nperseg=None):
+    """TODO
+    Calculate spectrogram using Welch's method
+
+    Parameters:
+    - x: input signal
+    - fs: sampling frequency
+    - window_size: size of sliding window
+    - overlap: overlap between windows
+    - nperseg: segment length for Welch's method (default: window_size//8)
+    """
+    from scipy import signal
+
+    if nperseg is None:
+      nperseg = window_size // 8
+
+      # Calculate step size
+    step = window_size - overlap
+
+    # Initialize time and frequency arrays
+    num_windows = (len(x) - window_size) // step + 1
+    frequencies, _ = signal.welch(x[:window_size], fs, nperseg=nperseg)
+    times = np.arange(num_windows) * step / fs
+
+    # Initialize spectrogram array
+    spectrogram = np.zeros((len(frequencies), num_windows))
+
+    # Calculate PSD for each window
+    for i in range(num_windows):
+      start = i * step
+      end = start + window_size
+      segment = x[start:end]
+      frequencies, psd = signal.welch(segment, fs, nperseg=nperseg)
+      spectrogram[:, i] = psd
+
+    return frequencies, times, spectrogram
+
   def _get_spectrum(self, s, ymin=None, ymax=None):
     from scipy.signal import stft
 
@@ -278,7 +320,14 @@ class RhythmPlotter(Plotter):
 
     # Compute the Short Time Fourier Transform (STFT)
     fs = self.explorer.selected_signal_group.digital_signals[0].sfreq
-    f, t, Zxx = stft(s, fs=fs, nperseg=256)
+
+    if self.get('welch'):
+      f, t, Zxx = stft(s, fs=fs, nperseg=256)
+      # TODO
+      # f, t, Zxx = self.welch_spectrogram(
+      #   s, fs, 256, 128, 256)
+    else:
+      f, t, Zxx = stft(s, fs=fs, nperseg=256)
 
     # Plot STFT result
     spectrum = np.abs((Zxx))
@@ -331,37 +380,72 @@ class RhythmPlotter(Plotter):
         ax.plot([0, 30], [8, 8], 'r:')
         ax.plot([0, 30], [13, 13], 'r:')
 
+        # Plot sigma band
+        ax.plot([0, 30], [11, 11], 'y:')
+        ax.plot([0, 30], [16, 16], 'y:')
+
         ax2 = ax.twinx()
         ax2.set_yticks([(ymin + 4) / 2, 6, 10.5, (13 + ymax) / 2],
                        [r'$\delta$', r'$\theta$', r'$\alpha$', r'$\beta$'])
         ax2.set_ylim(ymin, ymax)
     else:
-      s = self.explorer.selected_signal
-      if self.get('filter'): s = self._butter_filt(s)
+      from scipy.integrate import simps
 
+      # Ref: https://raphaelvallat.com/bandpower.html
+      s = self.explorer.selected_signal
       fs = self.explorer.selected_signal_group.digital_signals[0].sfreq
-      N = len(s)
-      X = np.fft.fft(s)
-      X_mag = np.abs(X) / N
-      f = np.fft.fftfreq(N, 1 / fs)
-      ax.plot(f[:N // 2], X_mag[:N // 2])
+
+      if self.get('welch'):
+        from scipy import signal
+
+        # TODO: win_len should be determined
+        # win_len is similar to bandwidth in multitaper, the win_len
+        #  corresponding to the default bandwidth in multitaper is '8 * win_len'
+        win_len = 8 * fs
+        freqs, psd = signal.welch(s, fs, nperseg=win_len)
+      else:
+        from mne.time_frequency import psd_array_multitaper
+
+        psd, freqs = psd_array_multitaper(
+          s[np.newaxis, :], fs, adaptive=True, normalization='full', fmax=30,
+          n_jobs=5, verbose=False)
+        psd = psd.ravel()
+
+      psd = psd * 1e12
+      ax.plot(freqs, psd, color='k', lw=2)
+
+      # Calculate total power
+      freq_res = freqs[1] - freqs[0]
+      total_power = simps(psd, dx=freq_res)
+
+      for key, low, high, color in [
+        ('Delta', 0.5, 4, '#4677b0'), ('Theta', 4, 8, '#599d3e'),
+        ('Alpha', 8, 12, '#f1c440'), ('Beta', 12, 30, '#b05555')]:
+        idx = np.logical_and(freqs >= low, freqs <= high)
+
+        band_power = simps(psd[idx], dx=freq_res)
+        label = f'{key} ({low}-{high} Hz), RP = {band_power / total_power:.3f}'
+
+        ax.fill_between(freqs[idx], psd[idx], color=color, alpha=0.5,
+                        label=label)
+      ax.legend()
+
       ax.set_xlabel('Frequency [Hz]')
-      ax.set_ylabel('Magnitude')
+      ax.set_ylabel('PSD [$V^2$/Hz]')
+
+      # ax.set_xlim([0, freqs.max()])
+      ax.set_xlim([0, 30])
+
+      ymax = self.get('ymax', psd.max() * 1.1)
+      ax.set_ylim([0, ymax])
+
+      # Show sigma band using rectangle
+      ax.fill_between([11, 16], [0, 0], [ymax, ymax], color='y',
+                      alpha=0.2, zorder=-999)
+
       ax.grid(True)
 
-      y_lim = ax.get_ylim()
-      for freq in (0.5, 4, 8, 13): ax.plot([freq] * 2, [0, 1], 'r--')
-      ax.set_ylim(y_lim)
-
-      if self.get('filter'): ax.set_xlim(0, 35)
-
-      # Calculate average frequency
-      mask = (f > 0.5) & (f < 35)
-      avg_f = np.sum(f[mask] * X_mag[mask]) / np.sum(X_mag[mask])
-
-      return f'(AVG_F = {avg_f:.2f} Hz)'
-
-    return ''
+      return f'Welch' if self.get('welch') else f'Multitaper'
 
 
   def _low_freq_signal(self, s: np.ndarray):
@@ -505,6 +589,8 @@ class RhythmPlotter(Plotter):
                              'Toggle `filter`')
     self.register_a_shortcut('t', lambda: self.flip('stft'),
                              'Toggle `stft`')
+    self.register_a_shortcut('e', lambda: self.flip('welch'),
+                             'Toggle `welch`')
 
   def zoom(self, multiplier):
     assert multiplier in (0.5, 2)

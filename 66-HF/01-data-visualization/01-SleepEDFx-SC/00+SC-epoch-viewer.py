@@ -1,19 +1,20 @@
-from ee_walker import EpochExplorer, RhythmWalker, SignalGroup
+from ee_walker import EpochExplorer, SignalGroup
 from roma import finder
 from roma import io
+
+import sc as hub
 
 
 
 # Configurations
 # (1) configure raw data
-DATA_DIR = r'../../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette'
 PATTERN = f'*(trim1800;128).sg'
 CHANNELS = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 
-N = 1
+N = 2
 
 # Select .sg files
-sg_file_list = finder.walk(DATA_DIR, pattern=PATTERN)
+sg_file_list = finder.walk(hub.SG_DIR, pattern=PATTERN)
 sg_file_list = sg_file_list[:N]
 
 signal_groups = []

@@ -30,7 +30,8 @@ import numpy as np
 # -----------------------------------------------------------------------------
 OVERWRITE = 0
 
-NEB_FN = f'HSP-100-E-6chn-30s.nebula'
+# NEB_FN = f'HSP-100-E-6chn-30s.nebula'
+NEB_FN = f'HSP-100-Ab-6chn-30s.nebula'
 OMIX_FN = NEB_FN.replace('.nebula', '.omix')
 # -----------------------------------------------------------------------------
 # (1) Load nebula
@@ -57,6 +58,7 @@ else:
   omix = Omix(features, targets, feature_names, nebula.labels, target_labels,
               data_name=f'{OMIX_FN.split(".")[0]}')
 
+  omix = omix.filter_by_name('W', include=False)
   omix.save(OMIX_PATH, verbose=True)
 
 omix.show_in_explorer()

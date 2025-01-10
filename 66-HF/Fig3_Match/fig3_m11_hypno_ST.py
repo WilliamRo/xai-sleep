@@ -23,7 +23,7 @@ WORK_DIR = os.path.join(SOLUTION_DIR, '66-HF/data/match_sc')
 
 # (1.2) TODO: Configure this part
 CONDITIONAL = 1
-PROBE_SUFFIX = 'ABD11'
+PROBE_SUFFIX = 'Ad11'
 INCLUDE_WAKE = 0
 
 N_PATIENT = [71, 75][

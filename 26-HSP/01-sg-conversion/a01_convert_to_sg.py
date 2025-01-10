@@ -38,9 +38,11 @@ META_TIME_STAMP = '20231101'
 # -----------------------------------------------------------------------------
 ha = HSPAgent(META_DIR, data_dir=SRC_PATH, meta_time_stamp=META_TIME_STAMP)
 
-patient_dict = ha.filter_patients_meta(min_n_sessions=2, should_have_annotation=1)
-patient_dict = ha.filter_patients_local(patient_dict, min_n_sessions=2,
-                                        should_have_annotation=1)
+# patient_dict = ha.filter_patients_meta(min_n_sessions=2, should_have_annotation=1)
+patient_dict = ha.filter_patients_local(
+  ha.patient_dict,
+  # min_n_sessions=2,
+  should_have_annotation=1)
 
 folder_list = ha.convert_to_folder_names(patient_dict, local=True)
 

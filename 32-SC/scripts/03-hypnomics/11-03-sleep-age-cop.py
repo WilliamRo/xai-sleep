@@ -54,8 +54,24 @@ targets = [
 ]
 
 omix = Omix(features, targets, feature_names, None, ['Age'])
-print(np.median(omix.targets))
-# omix.show_in_explorer()
+# print(np.median(omix.targets))
+
+sample_indices = []
+key = '<Fpz-Cz|N3|a>coord'
+print(omix.feature_labels)
+index = omix.feature_labels.index(key)
+
+for i, x in enumerate(omix.features):
+  if x[index] != 0: sample_indices.append(i)
+sample_indices = np.array(sample_indices)
+
+features = omix.features[sample_indices]
+targets = omix.targets[sample_indices]
+sample_labels = omix.sample_labels[sample_indices]
+omix = omix.duplicate(features=features, targets=targets,
+                      sample_labels=sample_labels)
+
+omix.show_in_explorer()
 
 
 

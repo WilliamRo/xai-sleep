@@ -79,7 +79,7 @@ else:
   mat_lab = MatchLab(F1, F2)
   omix = mat_lab.get_pair_omix(k=99999)
 
-  # (1.5) Save data
+  # (2.5) Save data
   omix.save(OMIX_PATH, verbose=True)
 
 # -----------------------------------------------------------------------------

@@ -23,11 +23,11 @@ SAVE_PATH_2 = r'../data/pipline_nested.omix'
 # ---------------------------------------------------------------------------
 SAVE_PATH_1 = r'../data/0724-pipline_flat.omix'
 
-omix_flat = Omix.load(SAVE_PATH_1)
+# omix_flat = Omix.load(SAVE_PATH_1)
 
-pi_flat = Pipeline(omix_flat, ignore_warnings=1, save_models=1)
+# pi_flat = Pipeline(omix_flat, ignore_warnings=1, save_models=1)
 # pi_flat.report()
-pi_flat.plot_matrix(omix_test=omix)
+# pi_flat.plot_matrix(omix_test=omix)
 
 # pkg = pi_flat.evaluate_best_pipeline(omix_flat)
 # pkg.report()
@@ -37,7 +37,9 @@ pi_flat.plot_matrix(omix_test=omix)
 # ---------------------------------------------------------------------------
 omix_nested = Omix.load(SAVE_PATH_2)
 pi_nested = Pipeline(omix_nested, ignore_warnings=1, save_models=1)
-pkg = pi_nested.evaluate_best_pipeline(omix, rank=1, omix_refit=omix_refit)
+
+pkg = pi_nested.evaluate_best_pipeline(omix, rank=1)
+# pkg = pi_nested.evaluate_best_pipeline(omix, rank=1, omix_refit=omix_refit)
 pkg.report()
 
 # print()

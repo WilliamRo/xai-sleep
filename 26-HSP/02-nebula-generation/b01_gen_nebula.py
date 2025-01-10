@@ -34,7 +34,7 @@ SUBSET_DICT_FN = hub.SubsetDicts.ss_2ses_3types_378
 
 TIME_RESOLUTION = 30
 CHANNELS = HSPSet.GROUPS[0]
-PROBE_CONFIG = 'E'
+PROBE_CONFIG = 'Ab'
 PROBE_KEYS = get_probe_keys(PROBE_CONFIG, expand_group=True)
 
 # GAMBLE: n_subjects will be different for all subsets
@@ -45,20 +45,8 @@ NEB_PATH = os.path.join(hub.OMIX_DIR, NEB_FN)
 # -----------------------------------------------------------------------------
 # (1) Load subset
 # -----------------------------------------------------------------------------
-subset_dict_path = os.path.join(SOLUTION_DIR, 'data/hsp', SUBSET_DICT_FN)
+subset_dict = hub.ha.load_subset_dict(SUBSET_DICT_FN, max_subjects=m_subjects)
 
-assert os.path.exists(subset_dict_path)
-subset_dict = io.load_file(subset_dict_path, verbose=True)
-n_folders = sum([len(v) for v in subset_dict.values()])
-
-console.show_status(
-  f'There are {len(subset_dict)} patients with at least 2 sessions with '
-  f'annotation, altogether {n_folders} folders.')
-
-# Get sub-subset if required
-assert len(subset_dict) == n_subjects
-if m_subjects < n_subjects:
-  subset_dict = {k: subset_dict[k] for k in list(subset_dict.keys())[:m_subjects]}
 # -----------------------------------------------------------------------------
 # (2) Load nebula, add acq_time and age as properties
 # -----------------------------------------------------------------------------

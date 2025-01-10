@@ -39,11 +39,11 @@ CHANNELS = ['EEG F3-M2', 'EEG C3-M2', 'EEG O1-M2',
             'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1']
 TIME_RESOLUTIONS = [30]
 
-PROBE_CONFIG = 'A'
+PROBE_CONFIG = 'Ab'
 if len(sys.argv) > 1:
   assert len(sys.argv) == 2
   PROBE_CONFIG = sys.argv[1]
-assert PROBE_CONFIG in ('A', 'B', 'C', 'AB', 'ABC', 'Ab')
+assert PROBE_CONFIG in ('A', 'B', 'C', 'AB', 'ABC', 'Abc', 'Ab')
 
 EXTRACTOR_KEYS = get_probe_keys(PROBE_CONFIG)
 extractor_dict = get_extractor_dict(EXTRACTOR_KEYS, fs=128)

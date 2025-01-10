@@ -4,12 +4,14 @@
 *.pptx
 *.png
 *.fp
+*.zip
 
 # PyCharm files
 .idea
 features/
 
 # Customized files
+*_bak.py
 *_loc.py
 beta-*.py
 data

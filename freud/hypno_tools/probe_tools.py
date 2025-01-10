@@ -77,6 +77,8 @@ def get_probe_keys(PROBE_CONFIG, expand_group=False):
       PROBE_KEYS.extend(PowerProbes.probe_keys)
     else: PROBE_KEYS.append('power_group')
 
+    PROBE_KEYS.append('KURT')
+
 
   # (1.4.3) Part C (sun2017)
   if 'C' in PROBE_CONFIG:
@@ -93,6 +95,9 @@ def get_probe_keys(PROBE_CONFIG, expand_group=False):
     for b in ['DELTA', 'THETA', 'ALPHA', 'SIGMA']:
       PROBE_KEYS.append(f'BKURT-{b}')
 
+  if 'c' in PROBE_CONFIG:
+    PROBE_KEYS.extend(['MAG', 'KURT', 'ENTROPY'])
+
   # (1.4.4) Part D (a useful part of sun2017)
   if 'D' in PROBE_CONFIG:
     assert 'C' not in PROBE_CONFIG
@@ -106,4 +111,19 @@ def get_probe_keys(PROBE_CONFIG, expand_group=False):
       [f'PR-{band}_TOTAL' for band in (
         'DELTA', 'THETA', 'ALPHA', 'BETA', 'SIGMA')])
 
+  # (1.4.4.6)
+  if 'd' in PROBE_CONFIG:
+    PROBE_KEYS.extend(['POWER-30', 'PR-DELTA_TOTAL', 'PR-THETA_TOTAL',
+                       'PR-ALPHA_TOTAL', 'PR-BETA_TOTAL'])
+
+    PROBE_KEYS.append('KURT')
+
+    for b1, b2 in [('DELTA', 'THETA'), ('DELTA', 'ALPHA'), ('THETA', 'ALPHA')]:
+      PROBE_KEYS.append(f'PR-{b1}_{b2}')
+
   return PROBE_KEYS
+
+
+def get_probe_suffix(probe_config):
+  probe_keys = get_probe_keys(probe_config, expand_group=True)
+  return f'{probe_config}{len(probe_keys)}'

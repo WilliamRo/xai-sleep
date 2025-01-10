@@ -6,7 +6,7 @@ import sys, os
 
 SOLUTION_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
 
-PATH_LIST = ['26-HSP', '26-HSP/99-data-probe', 'xai-kit', 'hypnomics',
+PATH_LIST = ['26-HSP', '26-HSP/99-data-probe', 'xai-kit', 'hypnomics', '66-HF',
              'xai-kit/roma', 'xai-kit/pictor', 'xai-kit/tframe']
 
 if __name__ == '__main__':
@@ -31,16 +31,20 @@ import numpy as np
 # -----------------------------------------------------------------------------
 OVERWRITE = 0
 
-MAD = 1
+MAD = 0.2
 
-NEB_FN = f'HSP-100-E-6chn-30s.nebula'
-# NEB_FN = f'HSP-378-E-6chn-30s.nebula'
+# NEB_FN = f'HSP-100-Ab-6chn-30s.nebula'
+NEB_FN = f'HSP-378-Ab-6chn-30s.nebula'
+# NEB_FN = f'HSP-218-Ab-2chn-30s.nebula'
 OMIX_FN = NEB_FN.replace('.nebula', f'_match_MAD{MAD}.omix')
+# OMIX_FN = NEB_FN.replace('.nebula', f'_match_MAD{MAD}_.omix')
+MAT_FN = OMIX_FN.replace('.omix', '.matlab')
 
 # -----------------------------------------------------------------------------
 # (1) Generate match omix
 # -----------------------------------------------------------------------------
 OMIX_PATH = os.path.join(hub.OMIX_DIR, OMIX_FN)
+MAT_PATH = os.path.join(hub.MATCH_DIR, MAT_FN)
 
 if os.path.exists(OMIX_PATH) and not OVERWRITE:
   omix: Omix = Omix.load(OMIX_PATH, verbose=True)
@@ -61,12 +65,32 @@ else:
 
   # (1.4) Instantiate a match-lab and save
   mat_lab = MatchLab(F1, F2)
+  io.save_file(mat_lab, MAT_PATH)
 
   omix = mat_lab.get_pair_omix(k=99999)
-  omix = omix.filter_by_name('W', include=False)
+  omix = omix.filter_by_name('W_', include=False)
   omix.save(OMIX_PATH, verbose=True)
 
 
 
 if __name__ == '__main__':
-  if not hub.IN_LINUX: omix.show_in_explorer()
+  SHUFFLE = 0
+  ICC = 0.6
+
+  if not hub.IN_LINUX:
+    # Randomly shuffle targets if required
+    if SHUFFLE:
+      import numpy as np
+      _tgts = list(omix.targets)
+      np.random.shuffle(_tgts)
+      omix.targets = np.array(_tgts)
+
+    if ICC > 0:
+      indices = []
+      for i, fl in enumerate(omix.feature_labels):
+        icc = float(fl.split('=')[1][:-1])
+        if icc > ICC: indices.append(i)
+
+      omix = omix.get_sub_space(indices, start_from_1=False)
+
+    omix.show_in_explorer()

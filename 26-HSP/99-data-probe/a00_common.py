@@ -34,6 +34,9 @@ META_PATH = os.path.join(META_DIR, f'bdsp_psg_master_{META_TIME_STAMP}.csv')
 
 CLOUD_DIR = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_nebula')
 OMIX_DIR = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_omix')
+MATCH_DIR = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_match')
+MATCH_PI = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_pi')
+DIST_DIR = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_dist')
 
 if IN_LINUX:
   console.show_status('Linux system detected.')
@@ -42,9 +45,11 @@ else:
   CLOUD_DIR = r'F:/data/hsp/hsp_nebula'
   SG_DIR = f'F:/data/hsp/hsp_sg'
   # SG_DIR = r'\\192.168.5.100\xai-beta\xai-sleep\data\hsp\hsp_sg'
+  DATA_DIR = f'F:/data/hsp/hsp_raw'
 
 class SubsetDicts:
   ss_2ses_3types_378 = 'subset_2ses_3types_378.od'
+  ss_2ses_3types_bipolar_218 = 'subset_2ses_3types_bipolar_218.od'
 
 # -----------------------------------------------------------------------------
 # (1) Configuration

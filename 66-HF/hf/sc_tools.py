@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from hypnomics.freud.freud import Freud
 from hypnomics.freud.nebula import Nebula
 from roma import io
@@ -8,16 +9,38 @@ import pandas as pd
 
 
 
-def get_paired_sg_labels(sg_labels: list, excludes=()):
+def get_paired_sg_labels(sg_labels: list, excludes=(), return_two_lists=False):
   """e.g., label = `SC4012E`"""
+  # (1) Group by subjects
+  od = OrderedDict()
+  for label in sg_labels:
+    pid = label[2:5]
+    if pid not in od: od[pid] = []
+    od[pid].append(label)
+
+  # Remove single-night subjects
+  for k in list(od.keys()):
+    if len(od[k]) < 2: od.pop(k)
+
+  if return_two_lists:
+    nights_1, nights_2 = [], []
+    for labels in od.values():
+      if labels[0][2:5] not in excludes:
+        nights_1.append(labels[0])
+        nights_2.append(labels[1])
+    return nights_1, nights_2
+
   paired_sg_labels = []
-  pids = [sg_label[2:5] for sg_label in sg_labels]
-  for label, pid in zip(sg_labels, pids):
-    if len([p for p in pids if p == pid]) > 1:
-      if pid not in excludes: paired_sg_labels.append(label)
+  for labels in od.values():
+    if labels[0][2:5] not in excludes:
+      paired_sg_labels.extend(labels)
+
+  # pids = [sg_label[2:5] for sg_label in sg_labels]
+  # for label, pid in zip(sg_labels, pids):
+  #   if len([p for p in pids if p == pid]) > 1:
+  #     if pid not in excludes: paired_sg_labels.append(label)
 
   return paired_sg_labels
-
 
 
 def get_dual_nebula(nebula: Nebula):
@@ -60,6 +83,12 @@ def load_nebula_from_clouds(WORK_DIR, SG_LABELS, CHANNELS, TIME_RESOLUTION,
   meta_dict = load_sc_meta(XLSX_PATH, SG_LABELS)
   for pid in SG_LABELS: nebula.meta[pid] = meta_dict[pid]
 
+  return nebula
+
+
+def set_meta_to_nebula(nebula, XLSX_PATH) -> Nebula:
+  meta_dict = load_sc_meta(XLSX_PATH, nebula.labels)
+  for pid in nebula.labels: nebula.meta[pid] = meta_dict[pid]
   return nebula
 
 

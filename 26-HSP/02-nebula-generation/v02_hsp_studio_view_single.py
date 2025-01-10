@@ -35,7 +35,7 @@ PROBE_KEYS = [
   'PR-ALPHA_TOTAL',  # 9
 ]
 PK1 = PROBE_KEYS[0]
-PK2 = PROBE_KEYS[1]
+PK2 = PROBE_KEYS[8]
 
 STUDIO_DIR = os.path.join(SOLUTION_DIR, 'data/hsp/hsp_studio')
 # -----------------------------------------------------------------------------
@@ -46,7 +46,9 @@ hs = HypnoStudio(work_dir=STUDIO_DIR, sg_dir=SG_DIR, neb_dir=CLOUD_DIR)
 # -----------------------------------------------------------------------------
 # (3) Generate a testing photo
 # -----------------------------------------------------------------------------
-sg_pattern = f'sub-S*111239185_ses-2(float16,128Hz).sg'
+# sg_pattern = f'sub-S*111239185_ses-2(float16,128Hz).sg'
+sg_pattern = f'sub-S0001111236530_ses-2(float16,128Hz).sg'
+
 sg_file_list = finder.walk(SG_DIR, pattern=sg_pattern)
 sg_path = sg_file_list[0]
 

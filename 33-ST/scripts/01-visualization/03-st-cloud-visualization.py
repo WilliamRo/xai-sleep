@@ -28,7 +28,7 @@ clouds = io.load_file(os.path.join(data_dir, file_name), verbose=True)
 cloud_dict = OrderedDict()
 for i, cloud in enumerate(clouds):
 
-  if i // 2 + 1 in (3, 4, 5, 14, 15, 17, 18, 19, 21, 22): continue
+  # if i // 2 + 1 in (3, 4, 5, 14, 15, 17, 18, 19, 21, 22): continue
 
   cloud_key = f'ST-{i // 2 + 1:02d}-'
   if targets[i] == 0: cloud_key += 'P'

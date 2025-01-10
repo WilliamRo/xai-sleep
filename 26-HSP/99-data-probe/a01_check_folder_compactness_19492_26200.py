@@ -1,4 +1,8 @@
-"""Check whether all folders listed in META file exist in the local storage."""
+"""Check whether all folders listed in META file exist in the local storage.
+
+HSP homepage: The Human Sleep Project dataset includes 26,200 PSG studies
+              conducted on 19,492 distinct patients, as outlined below: ...
+"""
 # Add path in order to be compatible with Linux
 import sys, os
 
@@ -20,6 +24,9 @@ from a00_common import ha, console
 # (1) Check compactness
 # -----------------------------------------------------------------------------
 VERBOSE = len(sys.argv) > 1 and int(sys.argv[1]) > 0
+
+console.show_status(f'HSP includes {len(ha.patient_dict)} patients in total.',
+                    prompt='[META]')
 
 path_list = ha.convert_to_folder_names(ha.patient_dict, local=True)
 N = len(path_list)

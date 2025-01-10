@@ -1,43 +1,46 @@
+# Add path in order to be compatible with Linux
+import sys, os
+
+SOLUTION_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+
+PATH_LIST = ['26-HSP', '26-HSP/99-data-probe', 'xai-kit', 'hypnomics', '66-HF',
+             'xai-kit/roma', 'xai-kit/pictor', 'xai-kit/tframe']
+
+if __name__ == '__main__':
+  print(f'Solution dir = {SOLUTION_DIR}')
+  sys.path.append(SOLUTION_DIR)
+  for p in PATH_LIST: sys.path.append(os.path.join(SOLUTION_DIR, p))
+# -----------------------------------------------------------------------------
 from hypnomics.freud.freud import Freud
 from hf.extractors import get_extractor_dict
+from hf.probe_tools import get_probe_keys
 
 
 
 # -----------------------------------------------------------------------------
 # (1) Configuration
 # -----------------------------------------------------------------------------
-WORK_DIR = r'../data/sleepedfx_sc'
+CLOUD_DIR = os.path.join(SOLUTION_DIR, 'data/sleepedfx-sc/sc_clouds')
+SG_DIR = os.path.join(SOLUTION_DIR, 'data/sleepedfx-sc/sc_sg')
 
-SG_DIR = r'../../data/sleep-edf-database-expanded-1.0.0/sleep-cassette'
 SG_PATTERN = f'*(trim1800;128).sg'
 
-CHANNELS = [
-  'EEG Fpz-Cz',
-  'EEG Pz-Oz'
-]
+CHANNELS = ['EEG Fpz-Cz', 'EEG Pz-Oz']
 TIME_RESOLUTIONS = [
-  # 2,
-  # 5,
-  # 10,
-  30,
-]
-EXTRACTOR_KEYS = [
-  # 'AMP-1',
-  # 'FREQ-20',
-  # 'GFREQ-35',
-  # 'P-TOTAL',
-  # 'RP-DELTA',
-  # 'RP-THETA',
-  # 'RP-ALPHA',
-  # 'RP-BETA',
-  'power_group',
+  2,
+  5,
+  10,
+  # 30,
 ]
 
-OVERWRITE = 1
+PROBE_CONFIG = 'Abc'
+EXTRACTOR_KEYS = get_probe_keys(PROBE_CONFIG)
+
+OVERWRITE = 0
 # -----------------------------------------------------------------------------
 # (2) Cloud generation
 # -----------------------------------------------------------------------------
-freud = Freud(WORK_DIR)
+freud = Freud(CLOUD_DIR)
 
 fs = freud.get_sampling_frequency(SG_DIR, SG_PATTERN, CHANNELS)
 assert fs == 128

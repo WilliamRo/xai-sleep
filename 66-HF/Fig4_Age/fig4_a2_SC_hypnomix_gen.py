@@ -36,11 +36,11 @@ OVERWRITE = 1
 C_SUFFIX = f'{"c" if CONDITIONAL else "nc"}'
 W_SUFFIX = '' if INCLUDE_WAKE else '-NW'
 
-PROBE_KEYS = get_probe_keys(PROBE_CONFIG)
+PROBE_KEYS = get_probe_keys(PROBE_CONFIG, expand_group=True)
 PROBE_SUFFIX = f'{PROBE_CONFIG}{len(PROBE_KEYS)}'
 MACRO_SUFFIX = f'-MACRO' if INCLUDE_MACRO else ''
 
-OMIX_FN = f'SC-30s-{PROBE_SUFFIX}-{C_SUFFIX}{MACRO_SUFFIX}{W_SUFFIX}.omix'
+OMIX_FN = f'SC-{TIME_RESOLUTION}s-{PROBE_SUFFIX}-{C_SUFFIX}{MACRO_SUFFIX}{W_SUFFIX}.omix'
 # -----------------------------------------------------------------------------
 # (2) Load macro omix
 # -----------------------------------------------------------------------------

@@ -417,7 +417,9 @@ class MatchLab(Nomear):
     OMIX_KEY = 'PAIR_OMIX'
 
     # (1) Fit pipeline
-    if isinstance(pi_key, Pipeline): pi = pi_key
+    if isinstance(pi_key, Pipeline):
+      # Directly use provided pipeline
+      pi = pi_key
     elif isinstance(pi_key, str) and self.in_pocket(pi_key) and not overwrite:
       pi: Pipeline = self.get_from_pocket(pi_key)
     else:
@@ -458,7 +460,7 @@ class MatchLab(Nomear):
       if isinstance(pi_key, str):
         self.put_into_pocket(pi_key, pi, local=True, exclusive=not overwrite)
 
-    # (2) Report
+    # (2) Report pipeline results
     from pictor.xomics.stat_analyzers import calc_CI
 
     # This is for plotting matrix, see pipeline -> line 328 plot_matrix

@@ -56,6 +56,7 @@ class HSPSet(SleepSet):
   GROUPS = [('EEG F3-M2', 'EEG C3-M2', 'EEG O1-M2',
              'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1')]
 
+  BIPOLAR_GROUPS = [('Fpz', 'Cz', 'Pz', 'Oz')]
 
   @staticmethod
   def channel_map(edf_ck):
@@ -78,7 +79,7 @@ class HSPSet(SleepSet):
 
   @classmethod
   def load_sg_from_raw_files(cls, ses_dir, dtype=np.float16, max_sfreq=128,
-                             **kwargs):
+                             bipolar=False, **kwargs):
     """Convert an `.edf` file into a SignalGroup.
 
     Arg
@@ -96,13 +97,25 @@ class HSPSet(SleepSet):
     annotation = cls.load_hsp_annotation(ho.anno_path)
 
     # (2) Read psg data as digital signals
-    digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
-      ho.edf_path, dtype=dtype, max_sfreq=max_sfreq,
-      chn_map=cls.channel_map, groups=cls.GROUPS, n_channels=6)
+    if bipolar:
+      digital_signals: List[DigitalSignal] = cls.read_bipolar(
+        ho.edf_path, dtype=dtype, max_sfreq=max_sfreq)
+    else:
+      digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
+        ho.edf_path, dtype=dtype, max_sfreq=max_sfreq,
+        chn_map=cls.channel_map, groups=cls.GROUPS, n_channels=6)
+
+    # if bipolar:
+    #   ds: DigitalSignal = digital_signals[0]
+    #   fpz_cz, pz_oz = ds['Fpz'] - ds['Cz'], ds['Pz'] - ds['Oz']
+    #   data = np.stack([fpz_cz, pz_oz], axis=1)
+    #   digital_signals = [DigitalSignal(
+    #     data, channel_names=['EEG Fpz-Cz', 'EEG Pz-Oz'],
+    #     sfreq=ds.sfreq, label='Fpz-Cz,Pz-Oz')]
 
     # (3) Wrap data into signal group
     sg = SignalGroup(digital_signals, label=ho.sg_label)
-    assert len(sg.channel_names) == 6
+    assert len(sg.channel_names) == (2 if bipolar else 6)
 
     sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
 
@@ -111,6 +124,41 @@ class HSPSet(SleepSet):
     sg.put_into_pocket('edf_duration-anno_duration',
                        record_minus_anno, local=True)
     return sg
+
+
+  @classmethod
+  def read_bipolar(cls, file_path, dtype, max_sfreq):
+    import mne.io
+
+    open_file = lambda include=(): mne.io.read_raw_edf(
+      file_path, include=include, preload=False, verbose=False)
+
+    with open_file(include=('Fpz', 'Cz', 'Pz', 'Oz')) as file:
+      sfreq = file.info['sfreq']
+
+      # Resample to `max_sfreq` if necessary
+      if max_sfreq is not None and sfreq > max_sfreq:
+        file.resample(max_sfreq)
+        sfreq = max_sfreq
+
+      # Read signal, group signals with the same sfreq
+      data_tuple = (file.ch_names, file.get_data())
+      signal_dict = {ck: s for ck, s in zip(data_tuple[0], data_tuple[1])}
+
+    # Wrap data into DigitalSignals
+    digital_signals = []
+
+    data = np.stack(
+      [signal_dict['Fpz'] - signal_dict['Cz'],
+       signal_dict['Pz'] - signal_dict['Oz']], axis=1).astype(dtype)
+
+    channel_names = ['EEG Fpz-Cz', 'EEG Pz-Oz']
+
+    digital_signals.append(DigitalSignal(
+      data, channel_names=channel_names, sfreq=sfreq,
+      label=','.join(channel_names)))
+
+    return digital_signals
 
 
   @classmethod
@@ -199,7 +247,7 @@ class HSPSet(SleepSet):
   @classmethod
   def convert_rawdata_to_signal_groups(
       cls, ses_folder_list: list, tgt_dir, dtype=np.float16, max_sfreq=128,
-      **kwargs):
+      bipolar=False, **kwargs):
     # (0) Check target directory
     if not os.path.exists(tgt_dir): os.makedirs(tgt_dir)
     console.show_status(f'Target directory set to `{tgt_dir}` ...')
@@ -212,7 +260,7 @@ class HSPSet(SleepSet):
     ho_list = [ho for ho in ho_list if os.path.exists(ho.edf_path)]
 
     sg_file_paths = [
-      os.path.join(tgt_dir, ho.get_sg_file_name(dtype, max_sfreq))
+      os.path.join(tgt_dir, ho.get_sg_file_name(dtype, max_sfreq, bipolar))
       for ho in ho_list]
     convert_list = [(sg_p, ses_p)
                     for sg_p, ses_p in zip(sg_file_paths, ses_folder_list)
@@ -233,7 +281,7 @@ class HSPSet(SleepSet):
 
       try:
         sg: SignalGroup = cls.load_sg_from_raw_files(
-          ses_dir=ses_path, dtype=dtype, max_sfreq=max_sfreq)
+          ses_dir=ses_path, dtype=dtype, max_sfreq=max_sfreq, bipolar=bipolar)
 
         # TODO: sg.label does not match sg_path ?????
         io.save_file(sg, sg_path, verbose=True)
@@ -322,6 +370,7 @@ class HSPAgent(Nomear):
   """
 
   VALID_STUDY_TYPES = ''
+  ACQ_TIME_KEY = 'acq_time'
 
   def __init__(self, meta_dir, data_dir=None, meta_time_stamp='20231101',
                access_point_name=None):
@@ -396,7 +445,15 @@ class HSPAgent(Nomear):
     # Filter by age diff
     _night_1, _night_2 = [], []
     for lb1, lb2 in zip(night_1, night_2):
-      if abs(nebula.meta[lb1]['age'] - nebula.meta[lb2]['age']) <= max_age_diff:
+      acq_time_1 = datetime.strptime(nebula.meta[lb1][HSPAgent.ACQ_TIME_KEY], '%Y-%m-%d')
+      acq_time_2 = datetime.strptime(nebula.meta[lb2][HSPAgent.ACQ_TIME_KEY], '%Y-%m-%d')
+      delta = (acq_time_2 - acq_time_1).days / 365.25
+      if delta <= 0:
+        print(f'Error: {lb1} and {lb2} have negative age difference: {delta}')
+        continue
+      # assert delta > 0
+      if delta <= max_age_diff:
+      # if abs(nebula.meta[lb1]['age'] - nebula.meta[lb2]['age']) <= max_age_diff:
         _night_1.append(lb1)
         _night_2.append(lb2)
 
@@ -428,7 +485,7 @@ class HSPAgent(Nomear):
       nebula.meta[ho.sg_label] = {}
       nebula.meta[ho.sg_label]['age'] = sub_dict[ho.sub_id][ho.ses_id]['age']
       acq_time = self.get_acq_time(ho.ses_path, return_str=True)
-      nebula.meta[ho.sg_label]['acq_time'] = acq_time
+      nebula.meta[ho.sg_label][self.ACQ_TIME_KEY] = acq_time
 
       nebula.meta[ho.sg_label]['gender'] = sub_dict[ho.sub_id][ho.ses_id]['gender']
       nebula.meta[ho.sg_label]['study_type'] = sub_dict[ho.sub_id][ho.ses_id]['study_type']
@@ -619,9 +676,89 @@ class HSPAgent(Nomear):
 
     return filtered_dict
 
+  def filter_patients_by_channels(
+      self, patient_dict: dict, channels, min_n_sessions=1, verbose=False):
+    filtered_dict = OrderedDict()
+
+    if verbose: console.show_status('Examining channels ...')
+    N = len(patient_dict)
+
+    for i, (pid, sess_dict) in enumerate(patient_dict.items()):
+      if verbose and i % 10 == 0: console.print_progress(i, N)
+
+      for ses_id, infor_dict in sess_dict.items():
+        ho = HSPOrganization(self.get_raw_path(pid, ses_id))
+        if any([ck not in ho.channel_dict for ck in channels]):
+          continue
+
+        if pid not in filtered_dict: filtered_dict[pid] = OrderedDict()
+        filtered_dict[pid][ses_id] = infor_dict
+
+    # Filter by min_sessions
+    filtered_dict = {k: v for k, v in filtered_dict.items()
+                     if len(v) >= min_n_sessions}
+
+    if verbose:
+      console.show_status('Filtered dict generated.')
+      console.show_info('Details:')
+      N0, N1 = len(patient_dict), len(filtered_dict)
+      console.supplement(f'n_subjects: {N0} -> {N1} (-{N0 - N1})')
+
+    return filtered_dict
+
   # endregion: - Filters
 
   # region: - IO Methods
+
+  def load_subset_dict(self, file_name=None, file_path=None, max_subjects=None,
+                       return_ho=False, return_folder_list=False, verbose=True):
+    if file_path is None: file_path = os.path.join(self.meta_dir, file_name)
+    assert os.path.exists(file_path), f'File not found: {file_path}'
+    subset_dict = io.load_file(file_path, verbose=True)
+
+    if verbose:
+      n_folders = sum([len(v) for v in subset_dict.values()])
+      console.show_status(
+        f'Loaded subset containing {len(subset_dict)} subjects ({n_folders} PSGs).',
+        prompt='[HSPAgent]')
+
+    if isinstance(max_subjects, int) and max_subjects < len(subset_dict):
+      subset_dict = {
+        k: subset_dict[k] for k in list(subset_dict.keys())[:max_subjects]}
+      if verbose:
+        n_folders = sum([len(v) for v in subset_dict.values()])
+        console.show_status(
+          f'Loaded subsubset containing {len(subset_dict)} subjects ({n_folders} PSGs).',
+          prompt='[HSPAgent]')
+
+    if return_ho:
+      assert not return_folder_list
+      folder_paths = self.convert_to_folder_names(subset_dict, local=True)
+      return [HSPOrganization(p) for p in folder_paths]
+
+    if return_folder_list:
+      return self.convert_to_folder_names(subset_dict, local=True)
+
+    return subset_dict
+
+  def load_pair_labels(self, ss_file_name):
+    ss_file_path = os.path.join(self.meta_dir, ss_file_name)
+    assert os.path.exists(ss_file_path), f'File not found: {ss_file_path}'
+    subset_dict = io.load_file(ss_file_path, verbose=True)
+
+    nights_1, nights_2 = [], []
+    subject_ids = sorted(list(subset_dict.keys()))
+    for pid in subject_ids:
+      ses_keys = sorted(list(subset_dict[pid].keys()))
+      nights_1.append(f'{pid}_{ses_keys[0]}')
+      nights_2.append(f'{pid}_{ses_keys[1]}')
+
+    return nights_1, nights_2
+
+
+  def get_raw_path(self, pid, ses_id):
+    return f'{self.data_dir}/{pid}/{ses_id}'
+
 
   def convert_to_folder_names(self, patient_dict: OrderedDict, local=False):
     """e.g., <APN>/bdsp-psg-access-point/PSG/bids/sub-S0001111190905/ses-1/"""
@@ -636,6 +773,32 @@ class HSPAgent(Nomear):
         folder_name = f'{src_path}/{pid}/{sess_id}'
         folder_list.append(folder_name)
     return folder_list
+
+
+  def get_longitudinal_pairs(self, patient_dict: dict, return_age_delta=False):
+    label_pairs = []
+    age_delta_dict = OrderedDict()
+    for pid, sess_dict in patient_dict.items():
+      sess_keys = sorted(list(sess_dict.keys()))
+      if len(sess_keys) < 2: continue
+      for i in range(len(sess_keys) - 1):
+        for j in range(i + 1, len(sess_keys)):
+          si, sj = sess_keys[i], sess_keys[j]
+          pair_key = (f'{pid}_{si}', f'{pid}_{sj}')
+          label_pairs.append(pair_key)
+
+          if not return_age_delta: continue
+          assert self.ACQ_TIME_KEY in sess_dict[si]
+
+          ad = (sess_dict[sj][self.ACQ_TIME_KEY] -
+                sess_dict[si][self.ACQ_TIME_KEY]).days / 365.25
+          if ad < 0: ad = sess_dict[sj]['age'] - sess_dict[si]['age']
+
+          age_delta_dict[pair_key] = ad
+
+    if return_age_delta: return label_pairs, age_delta_dict
+    return label_pairs
+
 
   @staticmethod
   def generate_patient_dict(meta_path) -> OrderedDict:
@@ -689,6 +852,15 @@ class HSPAgent(Nomear):
     return patient_dict
 
   @staticmethod
+  def check_acq_time_in_pd(patient_dict: dict):
+    for pid, sess_dict in patient_dict.items():
+      for ses_id, sess_info in sess_dict.items():
+        if HSPAgent.ACQ_TIME_KEY not in sess_info:
+          return False
+
+    return True
+
+  @staticmethod
   def get_acq_time(ses_path, return_str=False):
     import pandas as pd
 
@@ -704,6 +876,9 @@ class HSPAgent(Nomear):
       return datetime.strptime(date_str, '%Y-%m-%d')
     except:
       raise AssertionError(f'Invalid date string: {date_str}')
+
+  def get_ses_path(self, pid, sid):
+    return f'{self.data_dir}/{pid}/{sid}'
 
   def generate_pre_sleep_questionnaire_dict(self) -> OrderedDict:
     import pandas as pd
@@ -728,7 +903,8 @@ class HSPAgent(Nomear):
         if not ses_info['pre_sleep_questionnaire']: continue
 
         # Get PSQ file path
-        ses_path = f'{self.data_dir}/{pid}/{ses_id}'
+        # ses_path = f'{self.data_dir}/{pid}/{ses_id}'
+        ses_path = self.get_ses_path(pid, ses_id)
         ho = HSPOrganization(ses_path)
         pre_path = ho.pre_path
         if not os.path.exists(pre_path):
@@ -926,7 +1102,7 @@ class HSPAgent(Nomear):
 
 
 
-class HSPOrganization(object):
+class HSPOrganization(Nomear):
   """ Bids-root-folder/
       └── dataset_description.json
       └── participants.json
@@ -972,10 +1148,19 @@ class HSPOrganization(object):
   @property
   def sg_label(self): return f'{self.sub_id}_{self.ses_id}'
 
-  def get_sg_file_name(self, dtype, max_sfreq):
+  @Nomear.property()
+  def channel_dict(self):
+    import pandas as pd
+
+    df = pd.read_csv(self.channel_path, sep='\t')
+    cd = {row['name']: row.drop('name').to_dict() for _, row in df.iterrows()}
+    return cd
+
+  def get_sg_file_name(self, dtype, max_sfreq, bipolar=False):
     dtype_str = str(dtype).split('.')[-1].replace('>', '')
     dtype_str = dtype_str.replace("'", '')
-    return f'{self.sg_label}({dtype_str},{max_sfreq}Hz).sg'
+    bipolar_str = ',bipolar' if bipolar else ''
+    return f'{self.sg_label}({dtype_str},{max_sfreq}Hz{bipolar_str}).sg'
 
 
 if __name__ == '__main__':

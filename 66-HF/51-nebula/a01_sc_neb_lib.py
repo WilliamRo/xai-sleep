@@ -57,10 +57,11 @@ else:
 # -----------------------------------------------------------------------------
 # (3) Visualize nebula
 # -----------------------------------------------------------------------------
-PK1, PK2 = 'FREQ-20', 'AMP-1'
+# PK1, PK2 = 'FREQ-20', 'AMP-1'
 # PK1, PK2 = 'PR-ALPHA_TOTAL', 'PR-DELTA_TOTAL'
 # PK1, PK2 = 'FREQ-20', 'PR-THETA_TOTAL'
 # PK1, PK2 = 'FREQ-20', 'PR-ALPHA_TOTAL'
+PK1, PK2 = 'PR-ALPHA_TOTAL', 'PR-THETA_TOTAL'
 
 viewer_class = [Telescope, PopGlass][1]
 if viewer_class is Telescope:

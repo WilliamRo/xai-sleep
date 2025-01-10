@@ -173,7 +173,7 @@ class ProbeScatter(Plotter):
     self.new_settable_attr('show_kde', True, bool,
                            'Option to show KDE for each stage')
     self.new_settable_attr('show_vector', False, bool,
-                           'Option to show KDE for each stage')
+                           'Option to vector KDE for each stage')
 
     self.new_settable_attr('xmin', None, float, 'x-min')
     self.new_settable_attr('xmax', None, float, 'x-max')
@@ -228,8 +228,8 @@ class ProbeScatter(Plotter):
 
       if len(data1) < 2: continue
 
-      # Convert data2 to micro-volt
-      data2 = data2 * 1e6
+      # Convert data2 to micro-volt TODO
+      # data2 = data2 * 1e6
 
       if self.get('show_scatter'):
         alpha = self.get('scatter_alpha')
