@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from datetime import datetime
 from freud.talos_utils.slp_set import SleepSet
+from freud.talos_utils.longitudinal_manager import LongitudinalManager
 from roma import console, io, Nomear
 from pictor.objects.signals.signal_group import Annotation
 from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
@@ -22,48 +23,77 @@ class SHHSet(SleepSet):
   ...
   """
 
-  ANNO_LABELS = ['Sleep_stage_W', 'Sleep_stage_N1', 'Sleep_stage_N2',
-                 'Sleep_stage_N3', 'Sleep_stage_R',  'Sleep_stage_?']
+  ANNO_LABELS = ['Wake|0', 'Stage 1 sleep|1', 'Stage 2 sleep|2',
+                 'Stage 3 sleep|3', 'Stage 4 sleep|4',  'REM sleep|5']
 
-  EEG_EOG = ['F3-M2', 'F4-M1', 'C3-M2', 'C4-M1', 'O1-M2', 'O2-M1',
-             'E1-M[12]', 'E2-M[12]']
-
-  GROUPS = [('EEG F3-M2', 'EEG C3-M2', 'EEG O1-M2',
-             'EEG F4-M1', 'EEG C4-M1', 'EEG O2-M1')]
+  GROUPS = [('EEG C3-A2', 'EEG C4-A1', 'EMG'), ('EOG Left', 'EOG Right')]
 
   @staticmethod
   def channel_map(edf_ck):
     """Map EDF channel names to standard channel names. Used in reading raw data
     """
-    # For edf_ck match 'F3-M2', 'F4-M1', 'C3-M2', 'C4-M1', 'O1-M2', 'O2-M1'
-    # Using regular expression
-    if re.match(r'^[FCO][1234][\-]M[12]$', edf_ck):
-      return f'EEG {edf_ck}'
-
-    # In some cases, two EOG channels may use the same reference electrode
-    # e.g., E1-M2, E2-M2 (sub-S0001111190905_ses-1)
-    #       E1-M2, E2-M1 (sub-S0001111190905_ses-4)
-    if re.match(r'^E[12][\-]M[12]$', edf_ck):
-      return f'EOG {edf_ck}'
-
+    if edf_ck == 'EEG': return 'EEG C3-A2'
+    if edf_ck in ('EEG(SEC)', 'EEG sec', 'EEG2', 'EEG 2', 'EEG(sec)'):
+      return 'EEG C4-A1'
+    if edf_ck == 'EOG(L)': return 'EOG Left'
+    if edf_ck == 'EOG(R)': return 'EOG Right'
     return edf_ck
 
   # region: Data Conversion
 
   @classmethod
-  def load_sg_from_raw_files(cls, ses_dir, dtype=np.float16, max_sfreq=128,
-                             bipolar=False, **kwargs):
-    """Convert an `.edf` file into a SignalGroup.
+  def load_sg_from_raw_files(cls, edf_path, anno_path, sg_label,
+                             dtype=np.float16, max_sfreq=100, **kwargs):
+    """Convert an `.edf` and a '.xml' (annotation) file into a SignalGroup.
     """
-    sg = None
+    # (0) Sanity check
+    assert os.path.exists(edf_path) and os.path.exists(anno_path)
+
+    # (1) Read annotations
+    annotation = cls.load_shhs_stage_annotation(anno_path)
+
+    # (2) Read psg data as digital signals
+    digital_signals: List[DigitalSignal] = cls.read_digital_signals_mne(
+      edf_path, dtype=dtype, max_sfreq=max_sfreq,
+      chn_map=cls.channel_map, groups=cls.GROUPS, n_channels=5)
+
+    # (3) Wrap data into signal group
+    sg = SignalGroup(digital_signals, label=sg_label)
+
+    sg.annotations[cls.ANNO_KEY_GT_STAGE] = annotation
+
     return sg
 
 
   @classmethod
-  def load_shhs_annotation(cls, anno_path):
+  def load_shhs_stage_annotation(cls, anno_path):
     """
     """
-    import pandas as pd
+    import xml.etree.ElementTree as ET
+
+    # Parse the XML file
+    tree = ET.parse(anno_path)
+    root = tree.getroot()
+
+    # Sanity check
+    assert root.find('EpochLength').text == '30'
+
+    # First find SleepStages element, then get children
+    label2int = {lb: i for i, lb in enumerate(cls.ANNO_LABELS)}
+    intervals, annotations = [], []
+    for elem in root.find('ScoredEvents'):
+      if elem.find('EventType').text != 'Stages|Stages': continue
+
+      onset = float(elem.find('Start').text)
+      duration = float(elem.find('Duration').text)
+
+      anno_int = label2int[elem.find('EventConcept').text]
+
+      # Append interval and annotation
+      intervals.append((onset, onset + duration))
+      annotations.append(anno_int)
+
+    return Annotation(intervals, annotations, labels=cls.ANNO_LABELS)
 
 
   @classmethod
@@ -77,8 +107,23 @@ class SHHSet(SleepSet):
 
 
 
-class SHHSAgent(Nomear):
-  """
+class SHHSAgent(LongitudinalManager):
+  """This class is responsible for
+   (1) manage patient information
+
+  According to sun2019:
+   We also use a subset of the SHHS data set, which contains repeated EEGs
+   from the same participant in two visits about 5 years apart, making it
+   possible to evaluate the longitudinal reliability of our model at the
+   population level. The participant inclusion criteria are
+    (1) having EEGs from both visits;
+    (2) chronological age between 40 and 80 years at both visits (minimum age
+        in SHHS is 40);
+    (3) having EEG and sleep stage scoring of high quality according to
+        SHHS specifications (Table S3); and
+    (4) having no neurological or cardiovascular disease (Table S3).
+   We also exclude EEGs with missing sleep stages. As a result, 987 EEGs from
+   SHHS visit 1 and 987 paired EEGs from visit 2 are used.
   """
 
   def __init__(self, meta_dir, data_dir=None, meta_version='0.21.0'):
@@ -92,9 +137,103 @@ class SHHSAgent(Nomear):
   def meta_path(self): return os.path.join(
     self.meta_dir, f'shhs-harmonized-dataset-{self.meta_version}.csv')
 
+  @Nomear.property()
+  def two_visits_dict(self):
+    return {k: v for k, v in self.patient_dict.items() if len(v) == 2}
+
+  @Nomear.property()
+  def actual_two_visits_dict(self):
+    dict_path = self.meta_path.replace(self.META_EXTENSION, '_actual_2.od')
+    if os.path.exists(dict_path) and not self.in_pocket('OVERWRITE_PD'):
+      return io.load_file(dict_path, verbose=True)
+
+    od = self.generate_actual_2_dict()
+    io.save_file(od, dict_path, verbose=True)
+    return od
+
   # endregion: Properties
 
   # region: Public Methods
+
+  # region: - Patient Information
+
+  @staticmethod
+  def generate_patient_dict(meta_path) -> OrderedDict:
+    import pandas as pd
+
+    # (0) Read meta data
+    df = pd.read_csv(meta_path)
+
+    # (1) Read patients' info as a list of dictionaries
+    n_rows = df.shape[0]
+
+    keys = df.columns.to_list()
+    key_map = {k: k for k in keys}
+    key_map['nsrrid'] = 'pid'
+    key_map['visitnumber'] = 'ses_id'
+    key_map['nsrr_age'] = 'age'
+    key_map['nsrr_sex'] = 'gender'
+    key_map['nsrr_race'] = 'race'
+    key_map['nsrr_bmi'] = 'bmi'
+
+    patient_dict = OrderedDict()
+    for i, row in df.iterrows():
+      # (1.1) Read row
+      pid = str(row['nsrrid'])
+      ses_id = str(row['visitnumber'])
+
+      # (1.2) Create slot
+      if ses_id == '1':
+        assert pid not in patient_dict
+        patient_dict[pid] = OrderedDict()
+
+      patient_dict[pid][ses_id] = OrderedDict()
+
+      # (1.3) Assign information
+      for raw_key in keys:
+        patient_dict[pid][ses_id][key_map[raw_key]] = row[raw_key]
+
+    # (2) Report progress and return
+    console.show_status(f'Successfully read {len(patient_dict)} patients from'
+                        f' {meta_path}, altogether {n_rows} rows.')
+
+    return patient_dict
+
+  def generate_actual_2_dict(self):
+    N = len(self.two_visits_dict)
+
+    od = OrderedDict()
+    for i, pid in enumerate(self.two_visits_dict.keys()):
+      console.print_progress(i, N)
+
+      flag = True
+      for sid in ('1', '2'):
+        edf_path, anno_path = self.get_edf_anno_by_id(pid, sid)
+
+        if any([not os.path.exists(path) for path in (edf_path, anno_path)]):
+          flag = False
+          continue
+
+      if flag: od[pid] = self.two_visits_dict[pid]
+
+    console.show_status(f'Actual-2-visits-dict (N={len(od)}) generated.')
+    return od
+
+  # endregion: - Patient Information
+
+  # region: - Raw Data Path
+
+  def get_edf_anno_by_id(self, pid: str, sid: str):
+    assert pid.startswith('20') and sid in ('1', '2')
+    edf_path = os.path.join(
+      self.data_dir, f'polysomnography/edfs/shhs{sid}/shhs{sid}-{pid}.edf')
+    # anno_path = os.path.join(
+    #   self.data_dir, f'polysomnography/annotations-events-profusion/shhs{sid}/shhs{sid}-{pid}-profusion.xml')
+    anno_path = os.path.join(
+      self.data_dir, f'polysomnography/annotations-events-nsrr/shhs{sid}/shhs{sid}-{pid}-nsrr.xml')
+    return edf_path, anno_path
+
+  # endregion: - Raw Data Path
 
   # endregion: Public Methods
 

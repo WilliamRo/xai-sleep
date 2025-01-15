@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from datetime import datetime
 from freud.talos_utils.slp_set import SleepSet
+from freud.talos_utils.longitudinal_manager import LongitudinalManager
 from roma import console, io, Nomear
 from pictor.objects.signals.signal_group import Annotation
 from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
@@ -360,7 +361,7 @@ class HSPSet(SleepSet):
 
 
 
-class HSPAgent(Nomear):
+class HSPAgent(LongitudinalManager):
   """
       patient_dict[pid][session_id].keys = {
         'site_id', 'bids_folder', 'pre_sleep_questionnaire',
@@ -388,16 +389,6 @@ class HSPAgent(Nomear):
     _meta_path = os.path.join(self.meta_dir, meta_file_name)
     assert os.path.exists(_meta_path), f'Meta data not found: {_meta_path}'
     return _meta_path
-
-  @Nomear.property()
-  def patient_dict(self):
-    patient_dict_path = self.meta_path.replace('.csv', '.od')
-    if os.path.exists(patient_dict_path) and not self.in_pocket('OVERWRITE_PD'):
-      return io.load_file(patient_dict_path, verbose=True)
-
-    od = self.generate_patient_dict(self.meta_path)
-    io.save_file(od, patient_dict_path, verbose=True)
-    return od
 
   @Nomear.property()
   def pre_sleep_questionnaire_dict(self):
@@ -813,6 +804,7 @@ class HSPAgent(Nomear):
     patient_dict = OrderedDict()
     for i, row in df.iterrows():
       # (1.0) Show progress
+      # TODO: actually this is really fast, thus progress bar is not necessary
       if i == 0 or i == n_rows // 100: console.print_progress(i, n_rows)
 
       # (1.1) Read row
