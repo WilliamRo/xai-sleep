@@ -3,7 +3,7 @@ from fnmatch import fnmatch
 from pictor.objects.signals.signal_group import Annotation
 from pictor.objects.signals.signal_group import DigitalSignal, SignalGroup
 from roma.spqr.finder import walk
-from tframe import console
+from roma import console
 from typing import List
 
 import os

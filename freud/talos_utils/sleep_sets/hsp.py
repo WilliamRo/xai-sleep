@@ -1124,12 +1124,12 @@ class HSPOrganization(Nomear):
   def __init__(self, ses_path=None, ses_id=None, sub_id=None, data_dir=None):
     if ses_path is None:
       assert os.path.exists(data_dir)
-      self.ses_path = os.path.join(data_dir, f'{sub_id}/{ses_id}')
-    else:
-      self.ses_path = ses_path
+      ses_path = os.path.join(data_dir, f'{sub_id}/{ses_id}')
 
-      self.ses_id = os.path.basename(ses_path)
-      self.sub_id = os.path.basename(os.path.dirname(ses_path))
+    self.ses_path = ses_path
+
+    self.ses_id = os.path.basename(ses_path)
+    self.sub_id = os.path.basename(os.path.dirname(ses_path))
 
     prefix = self.sg_label
 

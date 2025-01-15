@@ -1,15 +1,27 @@
-from freud.talos_utils.slp_config import SleepConfig
-from pictor.objects.signals.digital_signal import DigitalSignal
-from pictor.objects.signals.signal_group import SignalGroup, Annotation
-from roma import io
-from tframe.data.sequences.seq_set import SequenceSet, DataSet
-from tframe.utils.misc import convert_to_one_hot
-from tframe.layers.common import BatchReshape
-from tframe import console, pedia
-from typing import List
-
 import numpy as np
 import os
+
+from pictor.objects.signals.digital_signal import DigitalSignal
+from pictor.objects.signals.signal_group import SignalGroup, Annotation
+from roma import io, Nomear, console
+from typing import List
+
+if os.environ.get('BYPASS_TF', '0') == '0':
+  from freud.talos_utils.slp_config import SleepConfig
+  from tframe.data.sequences.seq_set import SequenceSet, DataSet
+  from tframe.utils.misc import convert_to_one_hot
+  from tframe.layers.common import BatchReshape
+  from tframe import pedia
+else:
+  class DataSet(Nomear):
+    def __init__(self, name):
+      self.name = name
+      self.properties = {}
+
+  SequenceSet = DataSet
+  convert_to_one_hot = lambda x, y: x
+  BatchReshape = object
+  console = io = pedia = object
 
 
 

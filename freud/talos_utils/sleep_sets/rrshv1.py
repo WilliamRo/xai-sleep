@@ -2,7 +2,7 @@ from freud.talos_utils.slp_set import SleepSet
 from pictor.objects.signals.signal_group import SignalGroup, DigitalSignal
 from pictor.objects.signals.signal_group import Annotation
 from roma.spqr.finder import walk
-from tframe import console
+from roma import console
 from typing import List
 
 import os
